@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Listext Editor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部工具栏 -->
+    <header class="app-bar">
+      <div class="app-bar-left">
+        <span class="app-title">Listext Editor</span>
+      </div>
+      <div class="app-bar-center">
+        <!-- 标签页栏 -->
+        <div class="tab-bar-container">
+          <div class="tab-bar" id="fileTabBar"></div>
+          <button class="new-tab-btn" id="btnNewTab" title="新建标签页">
+            <span class="material-icons">add</span>
+          </button>
+        </div>
+      </div>
+      <div class="app-bar-right">
+        <button id="btnPreview" class="icon-btn" title="预览播放 (F5)">
+          <span class="material-icons">play_circle</span>
+        </button>
+        <button id="btnStop" class="icon-btn" title="停止播放 (Esc)">
+          <span class="material-icons">stop</span>
+        </button>
+        <button id="btnRoleManager" class="icon-btn" title="角色管理器">
+          <span class="material-icons">group</span>
+        </button>
+        <button id="btnExport" class="icon-btn" title="导出音频">
+          <span class="material-icons">file_download</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 主内容区域 -->
+    <main class="main-content">
+      <!-- 视图模式切换 -->
+      <div class="view-mode-switch">
+        <button class="mode-tab active" data-mode="block">
+          <span class="material-icons">view_module</span>
+          积木模式
+        </button>
+        <button class="mode-tab" data-mode="code">
+          <span class="material-icons">code</span>
+          代码模式
+        </button>
+      </div>
+
+      <!-- 积木模式 -->
+      <div id="blockMode" class="editor-mode active">
+        <div class="toolbar">
+          <button class="add-block-btn" data-type="say">
+            <span class="material-icons">record_voice_over</span>
+            朗读
+          </button>
+          <button class="add-block-btn" data-type="pause">
+            <span class="material-icons">timer</span>
+            停顿
+          </button>
+          <button class="add-block-btn" data-type="repeat">
+            <span class="material-icons">repeat</span>
+            重复
+          </button>
+          <div class="divider"></div>
+          <button class="add-block-btn" data-type="fx">
+            <span class="material-icons">music_note</span>
+            音效
+          </button>
+          <button class="add-block-btn" data-type="divider">
+            <span class="material-icons">horizontal_rule</span>
+            分割线
+          </button>
+        </div>
+        <div id="blockContainer" class="block-container">
+          <!-- 积木块将在这里动态生成 -->
+          <div class="empty-state">
+            <span class="material-icons">add_circle_outline</span>
+            <p>点击上方按钮添加积木块，或切换到代码模式输入 Listext 语法</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 代码模式 -->
+      <div id="codeMode" class="editor-mode">
+        <div class="code-editor-wrapper">
+          <div class="line-numbers" id="lineNumbers"></div>
+          <pre id="codeHighlight" class="code-highlight"></pre>
+          <textarea id="codeEditor" spellcheck="false" placeholder="在此输入 Listext 代码..."></textarea>
+          <div id="codeSuggestions" class="code-suggestions" style="display:none;"></div>
+        </div>
+        <div id="errorContainer" class="error-container" style="display:none; padding: 8px; background: #FFEBEE; color: #B00020; border-top: 1px solid #FFCDD2; font-size: 12px; max-height: 100px; overflow-y: auto;"></div>
+      </div>
+    </main>
+
+    <!-- 播放状态栏 -->
+    <div id="statusBar" class="status-bar">
+      <div class="status-left">
+        <span id="statusText">就绪</span>
+      </div>
+      <div class="status-right">
+        <span id="currentFile">未保存</span>
+      </div>
+    </div>
+    <div id="tabContextMenu" class="tab-context-menu" style="display:none;"></div>
+  </div>
+
+  <!-- 对话框：语法帮助 -->
+  <div id="syntaxHelpDialog" class="dialog">
+    <div class="dialog-content">
+      <div class="dialog-header">
+        <h2>Listext 语法说明</h2>
+        <button class="dialog-close">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <div class="syntax-help" style="max-height: 400px; overflow-y: auto;">
+          <h3>基础标签</h3>
+          <table style="width:100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px;">
+            <tr style="background:#f5f5f5"><th style="padding:4px;text-align:left">标签</th><th style="padding:4px;text-align:left">说明</th></tr>
+            <tr><td style="padding:4px"><code>&lt;say&gt;</code></td><td style="padding:4px">朗读文本。属性: role(角色ID), rate(语速,如+10%), voice(发音人)</td></tr>
+            <tr><td style="padding:4px"><code>&lt;pause&gt;</code></td><td style="padding:4px">停顿。属性: dur(秒数)</td></tr>
+            <tr><td style="padding:4px"><code>&lt;repeat&gt;</code></td><td style="padding:4px">重复播放。属性: count(次数)</td></tr>
+            <tr><td style="padding:4px"><code>&lt;fx&gt;</code></td><td style="padding:4px">音效。属性: id(音效ID), dur(截取时长), fade(淡入淡出秒数)</td></tr>
+            <tr><td style="padding:4px"><code>&lt;divider&gt;</code></td><td style="padding:4px">可视化分割线</td></tr>
+          </table>
+          
+          <h3>注释</h3>
+          <p style="font-size: 13px; margin-bottom: 8px;">使用 <code>&lt;!-- 注释内容 --&gt;</code> 添加注释，注释内容不会被朗读。</p>
+
+          <h3>完整示例</h3>
+          <pre style="background:#f5f5f5; padding:8px; border-radius:4px; font-size:12px; white-space:pre-wrap;">&lt;!-- 示例内容 --&gt;
+&lt;say role="teacher"&gt;第一部分 听力理解&lt;/say&gt;
+&lt;pause dur="2"&gt;&lt;/pause&gt;
+
+&lt;!-- 第一题 --&gt;
+&lt;fx id="bell"&gt;&lt;/fx&gt;
+&lt;repeat count="2"&gt;
+  &lt;say role="man"&gt;你觉得这件衣服怎么样？&lt;/say&gt;
+  &lt;say role="woman"&gt;颜色有点深，不过样式不错。&lt;/say&gt;
+&lt;/repeat&gt;
+&lt;say role="question"&gt;女的是什么意思？&lt;/say&gt;
+&lt;pause dur="10"&gt;&lt;/pause&gt;</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="unsavedDialog" class="dialog">
+    <div class="dialog-content dialog-small">
+      <div class="dialog-header">
+        <h2>未保存</h2>
+        <button class="dialog-close">&times;</button>
+      </div>
+      <div class="dialog-body" id="unsavedDialogBody"></div>
+      <div class="dialog-footer">
+        <button class="btn btn-cancel" id="unsavedCancel">取消</button>
+        <button class="btn" id="unsavedDiscard">不保存</button>
+        <button class="btn btn-primary" id="unsavedSave">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 对话框：静音设置 -->
+  <div id="silenceDialog" class="dialog">
+    <div class="dialog-content dialog-small">
+      <div class="dialog-header">
+        <h2>设置静音时长</h2>
+        <button class="dialog-close">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-group">
+          <label>时长（秒）</label>
+          <input type="number" id="silenceDuration" min="1" max="300" value="10">
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-cancel">取消</button>
+        <button class="btn btn-primary" id="silenceConfirm">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 对话框：音效选择 -->
+  <div id="effectDialog" class="dialog">
+    <div class="dialog-content dialog-small">
+      <div class="dialog-header">
+        <h2>选择音效</h2>
+        <button class="dialog-close">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-group">
+          <label>音效ID</label>
+          <select id="effectSelect"></select>
+        </div>
+        <div class="form-group">
+          <label>持续时间（秒，可选）</label>
+          <input type="number" id="effectDuration" min="1" max="300" placeholder="留空表示播放完整音效">
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-cancel">取消</button>
+        <button class="btn btn-primary" id="effectConfirm">确定</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 对话框：角色管理器 -->
+  <div id="roleManagerDialog" class="dialog">
+    <div class="dialog-content">
+      <div class="dialog-header">
+        <h2>角色管理器</h2>
+        <button class="dialog-close">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-group">
+          <label>角色列表</label>
+          <div id="roleList"></div>
+        </div>
+        <div class="form-group">
+          <label>角色ID</label>
+          <input type="text" id="roleIdInput" placeholder="如 teacher">
+        </div>
+        <div class="form-group">
+          <label>角色名称</label>
+          <input type="text" id="roleNameInput" placeholder="如 老师">
+        </div>
+        <div class="form-group">
+          <label>TTS 类型</label>
+          <select id="roleTypeSelect">
+            <option value="edge">EdgeTTS</option>
+            <option value="local">本地TTS</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>发音人</label>
+          <select id="roleVoiceSelect"></select>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-cancel" id="roleCancelBtn">取消</button>
+        <button class="btn btn-primary" id="roleSaveBtn">添加/更新角色</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="noticeDialog" class="dialog">
+    <div class="dialog-content dialog-small notice-dialog">
+      <div class="dialog-header">
+        <h2>系统公告</h2>
+        <button class="dialog-close" id="noticeCloseTop">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <div id="noticeContent" class="notice-content"></div>
+        <label class="notice-checkbox">
+          <input type="checkbox" id="noticeDismissToday">今日不再提示
+        </label>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn" id="noticeOpenUrl">打开网址</button>
+        <button class="btn btn-primary" id="noticeClose">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settingsDialog" class="dialog">
+    <div class="dialog-content dialog-small">
+      <div class="dialog-header">
+        <h2>设置</h2>
+        <button class="dialog-close" id="settingsCloseTop">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-group">
+          <label>代理模式</label>
+          <select id="proxyModeSelect">
+            <option value="system">系统代理</option>
+            <option value="direct">不使用代理</option>
+            <option value="manual">手动代理</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>代理地址</label>
+          <input type="text" id="proxyUrlInput" placeholder="http://127.0.0.1:7890">
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-cancel" id="settingsCancel">取消</button>
+        <button class="btn btn-primary" id="settingsSave">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 脚本 -->
+  <script src="src/listext-parser.js"></script>
+  <script src="src/tts-engine.js"></script>
+  <script src="src/play-queue.js"></script>
+  <script src="src/block-renderer.js"></script>
+  <script src="src/code-editor.js"></script>
+  <script src="src/file-manager.js"></script>
+  <script src="src/tab-manager.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
