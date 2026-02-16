@@ -285,18 +285,47 @@ class PlayQueue {
       try {
         const res = await window.electronAPI.synthesizeTTS(task.text, voiceName, ratePercent);
         if (res && res.success && res.path) {
-          await new Promise((resolve) => {
+          await new Promise((resolve, reject) => {
             const audio = new Audio();
+            this.currentAudio = audio; // 保存当前 audio 对象以便停止
             audio.src = this.toFileUrl(res.path);
-            const done = () => resolve();
+            const cleanup = () => {
+              this.currentAudio = null;
+              audio.onended = null;
+              audio.onerror = null;
+            };
+            const done = () => {
+              cleanup();
+              resolve();
+            };
+            const err = (e) => {
+              cleanup();
+              // 如果是被中断（pause/stop），不应该抛出错误，而是静默结束
+              if (!this.isPlaying) {
+                resolve(); 
+              } else {
+                reject(e);
+              }
+            };
             audio.onended = done;
-            audio.onerror = done;
-            audio.play().catch(done);
+            audio.onerror = err;
+            audio.play().catch(e => {
+               // 处理播放过程中的 AbortError (如调用 pause())
+               if (e.name === 'AbortError' || !this.isPlaying) {
+                 done();
+               } else {
+                 err(e);
+               }
+            });
           });
         } else {
           throw new Error(res?.error || 'EdgeTTS 合成失败');
         }
       } catch (error) {
+        // 如果是因为停止播放导致的错误，直接返回
+        if (!this.isPlaying) return;
+        
+        console.error('EdgeTTS Error:', error);
         if (this.onTtsFallback) this.onTtsFallback();
         try {
           await this.playLocalTTS(task);
@@ -453,6 +482,9 @@ class PlayQueue {
     if (this.isPlaying) {
       this.isPaused = true;
       this.ttsEngine.pause();
+      if (this.currentAudio) {
+        this.currentAudio.pause();
+      }
     }
   }
 
@@ -464,6 +496,24 @@ class PlayQueue {
     this.isPaused = false;
     this.currentIndex = 0;
     this.ttsEngine.stop();
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio.currentTime = 0;
+      this.currentAudio = null;
+    }
+  }
+
+  /**
+   * 恢复播放
+   */
+  resume() {
+    if (this.isPaused && this.isPlaying) {
+      this.isPaused = false;
+      this.ttsEngine.resume();
+      if (this.currentAudio) {
+        this.currentAudio.play();
+      }
+    }
   }
 
   /**

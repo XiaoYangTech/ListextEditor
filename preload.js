@@ -1,5 +1,58 @@
 // preload.js
 const { contextBridge, ipcRenderer } = require('electron');
+const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const { ensureDir, isNetworkError, sleep } = require('./src/main/utils');
+
+// 临时音频文件目录
+const tempDir = path.join(os.tmpdir(), 'listext-editor');
+
+// EdgeTTS 语音配置
+const voiceConfig = {
+  male_announcer: 'zh-CN-YunjianNeural',    // 男声播音员：云健
+  female_announcer: 'zh-CN-XiaoyiNeural',   // 女声播音员：晓伊
+  male: 'zh-CN-YunxiNeural',                 // 普通男声：云希
+  female: 'zh-CN-XiaoxiaoNeural',            // 普通女声：晓晓
+  male_en: 'en-US-GuyNeural',                // 英文男声
+  female_en: 'en-US-JennyNeural'             // 英文女声
+};
+
+async function synthesizeTTS(text, voice, rate = '+0%') {
+  try {
+    ensureDir(tempDir);
+    
+    const voiceName = voiceConfig[voice] || voice || voiceConfig.female;
+    const outputPath = path.join(tempDir, `tts_${Date.now()}.mp3`);
+    
+    const tts = new MsEdgeTTS();
+    await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+    
+    const writeStream = fs.createWriteStream(outputPath);
+    const { audioStream } = await tts.toStream(text, { rate: rate });
+    
+    audioStream.pipe(writeStream);
+    
+    await new Promise((resolve, reject) => {
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+      audioStream.on('error', reject);
+    });
+    
+    if (fs.existsSync(outputPath)) {
+      return { success: true, path: outputPath };
+    } else {
+      return { success: false, error: '音频文件生成失败' };
+    }
+  } catch (error) {
+    if (isNetworkError(error)) {
+      return { success: false, error: 'EdgeTTS 网络不可用' };
+    }
+    console.error('EdgeTTS 合成失败:', error);
+    return { success: false, error: error.message || 'EdgeTTS 合成失败' };
+  }
+}
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // 文件操作
@@ -19,13 +72,43 @@ contextBridge.exposeInMainWorld('electronAPI', {
   importSound: (sourcePath) => ipcRenderer.invoke('import-sound', sourcePath),
   selectAudioFile: () => ipcRenderer.invoke('select-audio-file'),
 
-  // TTS 相关
-  getVoices: () => ipcRenderer.invoke('get-voices'),
-  synthesizeTTS: (text, voice, rate) => ipcRenderer.invoke('synthesize-tts', text, voice, rate),
-  synthesizeBatch: (items) => ipcRenderer.invoke('synthesize-batch', items),
+  // TTS 相关 (迁移到 Render Process / Preload)
+  getVoices: async () => voiceConfig,
+  synthesizeTTS: synthesizeTTS,
+  synthesizeBatch: async (items) => {
+    const results = [];
+    for (const item of items) {
+      const result = await synthesizeTTS(item.text, item.voice, item.rate);
+      results.push({
+        ...item,
+        ...result
+      });
+    }
+    return results;
+  },
   getAudioFile: (filePath) => ipcRenderer.invoke('get-audio-file', filePath),
   cleanupTemp: () => ipcRenderer.invoke('cleanup-temp'),
-  listEdgeVoices: () => ipcRenderer.invoke('list-edge-voices'),
+  listEdgeVoices: async () => {
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const tts = new MsEdgeTTS();
+        const voices = await tts.getVoices();
+        const voiceList = voices.map(v => v.ShortName || v.Name).filter(Boolean);
+        return { success: true, voices: voiceList };
+      } catch (error) {
+        if (attempt < maxRetries && isNetworkError(error)) {
+          await sleep(2000);
+          continue;
+        }
+        if (isNetworkError(error)) {
+          return { success: false, voices: Object.values(voiceConfig), error: 'EdgeTTS 网络不可用' };
+        }
+        console.error('获取发音人列表失败:', error);
+        return { success: false, voices: Object.values(voiceConfig) };
+      }
+    }
+  },
   saveBinary: (filePath, base64) => ipcRenderer.invoke('save-binary', filePath, base64),
 
   // 播放控制
@@ -46,5 +129,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 导出
   selectExportPath: () => ipcRenderer.invoke('select-export-path'),
-  selectListextPath: () => ipcRenderer.invoke('select-listext-path')
+  selectListextPath: () => ipcRenderer.invoke('select-listext-path'),
+
+  // 平台信息
+  platform: process.platform
 });

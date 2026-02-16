@@ -131,8 +131,12 @@ class BlockRenderer {
    * 渲染单个节点
    */
   renderNode(node, parentBlock = null) {
-    if (node.type === 'text' && !node.content.trim()) {
-      return null;
+    if (node.type === 'text') {
+      return this.renderTextBlock(node);
+    }
+    
+    if (node.type === 'comment') {
+      return this.renderCommentBlock(node);
     }
 
     switch (node.tagName) {
@@ -151,6 +155,71 @@ class BlockRenderer {
       default:
         return null;
     }
+  }
+
+  /**
+   * 渲染注释块（隐藏）
+   */
+  renderCommentBlock(node) {
+    const block = document.createElement('div');
+    block.className = 'block block-comment';
+    block.dataset.type = 'comment';
+    // 用户要求不需要注释积木，只在代码中显示
+    // 我们将其渲染为隐藏元素，以便在切换回代码模式时能保留
+    block.style.display = 'none'; 
+    block._nodeData = node;
+    return block;
+  }
+
+  /**
+   * 渲染纯文本块（未识别内容）
+   */
+  renderTextBlock(node) {
+    // 如果是空文本，跳过
+    if (!node.content || !node.content.trim()) {
+      return null;
+    }
+    
+    const block = document.createElement('div');
+    block.className = 'block block-text';
+    block.dataset.type = 'text';
+    block.dataset.id = this.generateId();
+    block.setAttribute('draggable', 'true');
+    
+    // 存储节点数据
+    block._nodeData = node;
+    
+    const content = document.createElement('div');
+    content.className = 'block-content';
+    
+    // 文本内容显示
+    const textSpan = document.createElement('span');
+    textSpan.className = 'text-content';
+    textSpan.textContent = node.content;
+    textSpan.title = '未识别文本';
+    textSpan.style.fontStyle = 'italic';
+    textSpan.style.color = '#666';
+    
+    content.appendChild(textSpan);
+    
+    // 添加删除按钮
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'block-action-btn btn-delete';
+    deleteBtn.innerHTML = '<span class="material-icons">delete</span>';
+    deleteBtn.title = '删除';
+    
+    block.appendChild(content);
+    block.appendChild(deleteBtn);
+    
+    this.attachBlockEvents(block);
+    
+    // 双击编辑文本
+    block.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      this.showTextEditor(block);
+    });
+    
+    return block;
   }
 
   /**
@@ -661,6 +730,43 @@ class BlockRenderer {
   }
 
   /**
+   * 显示文本编辑器
+   */
+  showTextEditor(block) {
+    const dialog = this.editDialog;
+    const title = dialog.querySelector('#editDialogTitle');
+    const body = dialog.querySelector('#editDialogBody');
+    
+    title.textContent = '编辑文本';
+    const content = block.querySelector('.text-content').textContent;
+    
+    body.innerHTML = `
+      <div class="form-group">
+        <label>文本内容</label>
+        <textarea id="editTextInput" rows="5" class="block-textarea" style="width: 100%; box-sizing: border-box;">${content}</textarea>
+      </div>
+    `;
+    
+    const confirmBtn = dialog.querySelector('#editDialogConfirm');
+    const handleConfirm = () => {
+      const text = document.getElementById('editTextInput').value;
+      if (text !== null) {
+         block.querySelector('.text-content').textContent = text;
+         // 更新节点数据
+         if (block._nodeData) {
+           block._nodeData.content = text;
+         }
+      }
+      dialog.classList.remove('active');
+      this.onBlockChange();
+      confirmBtn.removeEventListener('click', handleConfirm);
+    };
+    
+    confirmBtn.addEventListener('click', handleConfirm);
+    dialog.classList.add('active');
+  }
+
+  /**
    * 显示静音编辑器
    */
   showSilenceEditor(block) {
@@ -1036,6 +1142,16 @@ class BlockRenderer {
    * 将单个块转换为节点
    */
   blockToNode(block) {
+    if (block.dataset.type === 'comment') {
+      return block._nodeData || { type: 'comment', content: '' };
+    }
+    if (block.dataset.type === 'text') {
+      const textSpan = block.querySelector('.text-content');
+      return {
+        type: 'text',
+        content: textSpan ? textSpan.textContent : ''
+      };
+    }
     const tagName = block.dataset.tagName;
 
     if (['repeat'].includes(tagName)) {

@@ -9,23 +9,59 @@ class TTSEngine {
   }
 
   /**
-   * 合成文本为音频 (使用 Web Speech API 作为备选)
+   * 合成文本为音频 (优先使用 EdgeTTS，失败则回退到 Web Speech API)
    */
   async synthesize(text, options = {}) {
     const {
       voice = 'female',
       rate = 1.0,
       pitch = 1.0,
-      volume = 1.0
+      volume = 1.0,
+      fallback = true // 是否允许回退到系统 TTS
     } = options;
     
-    // 检查缓存
-    const cacheKey = `${text}-${voice}-${rate}`;
-    if (this.audioCache.has(cacheKey)) {
-      return this.audioCache.get(cacheKey);
+    // 1. 尝试使用 EdgeTTS (通过 Electron IPC)
+    if (window.electronAPI && window.electronAPI.synthesizeTTS) {
+      try {
+        // 将速率转换为字符串格式，例如 "+0%" 或 "-10%"
+        // 这里简单映射：1.0 -> +0%, 1.1 -> +10%, 0.9 -> -10%
+        let rateStr = '+0%';
+        if (rate !== 1.0) {
+          const percent = Math.round((rate - 1.0) * 100);
+          rateStr = (percent >= 0 ? '+' : '') + percent + '%';
+        }
+        
+        const result = await window.electronAPI.synthesizeTTS(text, voice, rateStr);
+        
+        if (result.success && result.path) {
+          // 返回音频文件路径，播放器需要能处理它
+          // 我们这里返回一个 Promise，模拟 SpeechSynthesis 的行为，但实际上我们返回的是文件路径
+          // 调用者需要知道如何处理 { audioPath: ... }
+          return {
+            audioPath: result.path,
+            text,
+            duration: this.estimateDuration(text, rate) // 估算时长
+          };
+        } else {
+          console.warn('EdgeTTS failed:', result.error);
+          if (!fallback) {
+             throw new Error(result.error || 'EdgeTTS synthesis failed');
+          }
+          // Fallback continue...
+        }
+      } catch (e) {
+        console.error('EdgeTTS error:', e);
+        if (!fallback) throw e;
+        // Fallback continue...
+      }
     }
-    
-    // 在浏览器环境中使用 Web Speech API
+
+    // 2. 回退到 Web Speech API
+    // 检查是否在 Linux 且没有系统 TTS
+    if ((window.electronAPI?.platform === 'linux' || (typeof process !== 'undefined' && process.platform === 'linux')) && !('speechSynthesis' in window)) {
+        throw new Error('Linux 系统且未检测到系统 TTS，无法播放。');
+    }
+
     return new Promise((resolve, reject) => {
       if (!('speechSynthesis' in window)) {
         reject(new Error('浏览器不支持语音合成'));

@@ -25,6 +25,27 @@ class ListextParser {
   }
 
   /**
+   * 提取代码中的注释
+   * @param {string} text 代码文本
+   * @returns {Array} 注释对象数组
+   */
+  extractComments(text) {
+    return []; // 我们通过 AST 节点保留注释，不需要单独提取
+  }
+
+  /**
+   * 将 AST 构建回代码，并插入注释
+   * 由于 parse/stringify 已经支持 AST 中的注释节点，
+   * 这里直接调用 stringify 即可，不再需要额外的注释合并逻辑。
+   * @param {Array} ast AST 节点数组
+   * @param {Array} comments (已弃用) 注释数组
+   * @returns {string} 代码文本
+   */
+  buildCodeWithComments(ast, comments = []) {
+    return this.stringify(ast);
+  }
+
+  /**
    * 验证 Listext 文本格式
    * @param {string} text Listext 文本
    * @returns {Array} 错误信息数组 {line, message}
@@ -145,68 +166,83 @@ class ListextParser {
     }
 
     const tagMatch = text.slice(pos).match(/^<([a-zA-Z]+)([^>]*)>/);
-    if (!tagMatch) {
-      // 纯文本节点
-      const textEnd = text.indexOf('<', pos);
-      const content = textEnd === -1 
-        ? text.slice(pos).trim() 
-        : text.slice(pos, textEnd).trim();
-      
-      if (content) {
-        return {
-          node: { type: 'text', content },
-          pos: textEnd === -1 ? text.length : textEnd
-        };
-      }
-      return null;
-    }
+    if (tagMatch) {
+      const tagName = tagMatch[1].toLowerCase();
+      const attrStr = tagMatch[2].trim();
+      const tagStart = pos;
+      pos += tagMatch[0].length;
 
-    const tagName = tagMatch[1].toLowerCase();
-    const attrStr = tagMatch[2].trim();
-    const tagStart = pos;
-    pos += tagMatch[0].length;
+      // 解析属性
+      const attrs = this.parseAttributes(attrStr);
 
-    // 解析属性
-    const attrs = this.parseAttributes(attrStr);
+      // 查找闭合标签
+      const closeTag = `</${tagName}>`;
+      const closePos = text.indexOf(closeTag, pos);
 
-    // 查找闭合标签
-    const closeTag = `</${tagName}>`;
-    const closePos = text.indexOf(closeTag, pos);
+      let children = [];
+      let content = '';
 
-    let children = [];
-    let content = '';
-
-    if (closePos !== -1) {
-      // 自闭合标签检查
-      if (this.isSelfClosing(tagName)) {
-        content = '';
-        pos = tagStart + tagMatch[0].length;
-      } else {
-        const innerContent = text.slice(pos, closePos);
-        
-        // 递归解析子节点
-        if (this.hasChildren(tagName)) {
-          children = this.parse(innerContent);
+      if (closePos !== -1) {
+        // 自闭合标签检查
+        if (this.isSelfClosing(tagName)) {
+          content = '';
+          pos = tagStart + tagMatch[0].length;
         } else {
-          content = innerContent.trim();
+          const innerContent = text.slice(pos, closePos);
+          
+          // 递归解析子节点
+          if (this.hasChildren(tagName)) {
+            children = this.parse(innerContent);
+          } else {
+            content = innerContent.trim();
+          }
+          pos = closePos + closeTag.length;
         }
-        pos = closePos + closeTag.length;
+      } else {
+        // 无闭合标签，作为自闭合处理
+        content = '';
       }
-    } else {
-      // 无闭合标签，作为自闭合处理
-      content = '';
+
+      const node = {
+        type: 'element',
+        tagName,
+        attrs,
+        children,
+        content,
+        definition: this.tagDefinitions[tagName] || null
+      };
+
+      return { node, pos };
     }
 
-    const node = {
-      type: 'element',
-      tagName,
-      attrs,
-      children,
-      content,
-      definition: this.tagDefinitions[tagName] || null
-    };
+    // 纯文本节点（未匹配到标签）
+    let textEnd = pos;
+    while (textEnd < text.length) {
+      const nextLt = text.indexOf('<', textEnd);
+      if (nextLt === -1) {
+        textEnd = text.length;
+        break;
+      }
+      // 检查是否为标签开始（开始标签或结束标签）
+      if (/^<\/?([a-zA-Z]+)/.test(text.slice(nextLt))) {
+        textEnd = nextLt;
+        break;
+      }
+      // 如果不是标签，继续查找下一个 <
+      textEnd = nextLt + 1;
+    }
 
-    return { node, pos };
+    const content = text.slice(pos, textEnd).trim();
+    if (content) {
+      return {
+        node: { type: 'text', content },
+        pos: textEnd
+      };
+    }
+    
+    // 如果没有内容且遇到 < 但没匹配上 tagMatch (比如 </tag>)
+    // 这里返回 null，外层 parse 会 pos++ 跳过这个 <
+    return null;
   }
 
   /**

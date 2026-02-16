@@ -20,7 +20,7 @@
     "electron-builder": "^24.9.1"
   },
   "dependencies": {
-    "edge-tts": "^1.0.1",
+    "msedge-tts": "^2.0.4",
     "uuid": "^9.0.0"
   }
 }
