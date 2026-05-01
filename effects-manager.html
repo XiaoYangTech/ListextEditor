@@ -214,7 +214,7 @@
     }
 
     .icon-btn:hover { background: #eee; }
-    .icon-btn.delete:hover { background: #ffebee; color: var(--danger); }
+    .icon-btn.delete:hover { background: #ffebee; color: var(--danger); }\n\n    .icon-btn:disabled, .group-select-inline:disabled {\n      opacity: 0.45;\n      cursor: not-allowed;\n      pointer-events: none;\n    }
 
     .empty {
       color: var(--muted);
@@ -463,14 +463,14 @@
                     <span class="effect-id">${sound.displayId || sound.name}</span>
                     <input class="effect-id-input" value="${sound.displayId || sound.name}" />
                   </div>
-                  <div class="meta">${sound.filename} · ${sound.source === 'builtin' ? '默认自带' : '用户导入'}</div>
+                  <div class="meta">${sound.filename} · ${sound.source === 'builtin' ? '默认自带（只读）' : '用户导入'}</div>
                 </div>
 
-                <select class="group-select-inline">
-                  ${this.groups.map(g => `<option value="${g}" ${g === sound.group ? 'selected' : ''}>${g}</option>`).join('')}
+                <select class="group-select-inline" ${sound.source === 'builtin' ? 'disabled' : ''}>
+                  ${this.groups.map(g => `<option value=\"${g}\" ${g === sound.group ? 'selected' : ''}>${g}</option>`).join('')}
                 </select>
 
-                <button class="icon-btn btn-edit" title="编辑ID"><span class="material-icons">edit</span></button>
+                <button class="icon-btn btn-edit" title="编辑ID" ${sound.source === 'builtin' ? 'disabled' : ''}><span class="material-icons">edit</span></button>
                 <button class="icon-btn btn-play" title="试听"><span class="material-icons">play_arrow</span></button>
                 <button class="icon-btn btn-delete delete" title="删除"><span class="material-icons">delete</span></button>
               </div>
@@ -528,3 +528,4 @@
   </script>
 </body>
 </html>
+

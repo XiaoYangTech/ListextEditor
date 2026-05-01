@@ -162,6 +162,9 @@ function registerSoundHandlers(ipcMain, mainWindow) {
   });
 
   ipcMain.handle('set-effect-id', async (event, key, customId) => {
+    if (String(key || '').startsWith('builtin:')) {
+      return { success: false, error: '内置音效不允许修改ID' };
+    }
     const config = loadEffectsConfig();
     if (!config.mappings) config.mappings = {};
     config.mappings[key] = customId;
@@ -169,6 +172,9 @@ function registerSoundHandlers(ipcMain, mainWindow) {
   });
 
   ipcMain.handle('set-sound-group', async (event, key, group) => {
+    if (String(key || '').startsWith('builtin:')) {
+      return { success: false, error: '内置音效不允许修改分组' };
+    }
     const g = (group || '').trim();
     if (!g) return { success: false, error: '分组不能为空' };
     const config = loadEffectsConfig();
