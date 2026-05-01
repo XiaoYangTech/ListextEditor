@@ -8,39 +8,86 @@ const userSoundsDir = path.join(app.getPath('userData'), 'sounds-user');
 const builtInSoundsDir = path.join(process.resourcesPath, 'default-sounds');
 const devBuiltInSoundsDir = path.join(process.cwd(), 'assets', 'default-sounds');
 
+const BUILTIN_GROUP_DIRS = {
+  '开场音乐': 'opening-music',
+  '常见音效': 'common-effects',
+  '环境音': 'ambient'
+};
+
 function getBuiltInDir() {
   if (fs.existsSync(builtInSoundsDir)) return builtInSoundsDir;
   return devBuiltInSoundsDir;
 }
 
-function getEntryKey(source, filename) {
-  return `${source}:${filename}`;
+function ensureBuiltInGroupDirs() {
+  const root = getBuiltInDir();
+  try {
+    ensureDir(root);
+    for (const folder of Object.values(BUILTIN_GROUP_DIRS)) {
+      ensureDir(path.join(root, folder));
+    }
+  } catch (_) {
+    // packaged resources may be read-only, ignore
+  }
 }
 
-function scanDir(dir, source) {
+function getEntryKey(source, group, filename) {
+  return `${source}:${group}:${filename}`;
+}
+
+function scanAudioFiles(dir) {
   if (!dir || !fs.existsSync(dir)) return [];
   const files = fs.readdirSync(dir);
   const audioExtensions = ['.mp3', '.wav', '.ogg', '.m4a', '.flac'];
+  return files.filter(file => audioExtensions.includes(path.extname(file).toLowerCase()));
+}
+
+function scanBuiltInSounds() {
+  const root = getBuiltInDir();
+  const list = [];
+
+  for (const [groupName, folder] of Object.entries(BUILTIN_GROUP_DIRS)) {
+    const dir = path.join(root, folder);
+    if (!fs.existsSync(dir)) continue;
+    const files = scanAudioFiles(dir);
+    for (const file of files) {
+      list.push({
+        key: getEntryKey('builtin', groupName, file),
+        source: 'builtin',
+        group: groupName,
+        filename: file,
+        name: path.basename(file, path.extname(file)),
+        path: path.join(dir, file),
+        deletable: false
+      });
+    }
+  }
+
+  return list;
+}
+
+function scanUserSounds() {
+  ensureDir(userSoundsDir);
+  const files = scanAudioFiles(userSoundsDir);
   const list = [];
   for (const file of files) {
-    const ext = path.extname(file).toLowerCase();
-    if (!audioExtensions.includes(ext)) continue;
     list.push({
-      key: getEntryKey(source, file),
-      source,
+      key: getEntryKey('user', '用户音效', file),
+      source: 'user',
+      group: '用户音效',
       filename: file,
-      name: path.basename(file, ext),
-      path: path.join(dir, file),
-      deletable: source === 'user'
+      name: path.basename(file, path.extname(file)),
+      path: path.join(userSoundsDir, file),
+      deletable: true
     });
   }
   return list;
 }
 
 function scanSoundsFolder() {
-  ensureDir(userSoundsDir);
-  const builtIn = scanDir(getBuiltInDir(), 'builtin');
-  const user = scanDir(userSoundsDir, 'user');
+  ensureBuiltInGroupDirs();
+  const builtIn = scanBuiltInSounds();
+  const user = scanUserSounds();
   return [...builtIn, ...user];
 }
 
@@ -52,11 +99,10 @@ function ensureGroupExists(config, group) {
 
 function withMeta(entry, config) {
   const meta = config.meta?.[entry.key] || {};
-  const fallback = entry.source === 'builtin' ? '常见音效' : '用户音效';
   const displayId = config.mappings?.[entry.key] || entry.name;
   return {
     ...entry,
-    group: meta.group || fallback,
+    group: meta.group || entry.group,
     displayId,
     isDefault: entry.source === 'builtin'
   };
@@ -105,15 +151,11 @@ function registerSoundHandlers(ipcMain, mainWindow) {
   ipcMain.handle('delete-effect-group', async (event, groupName) => {
     const name = (groupName || '').trim();
     if (!name) return { success: false, error: '分组名不能为空' };
-    if (DEFAULT_GROUPS.includes(name)) {
-      return { success: false, error: '默认分组不支持删除' };
-    }
+    if (DEFAULT_GROUPS.includes(name)) return { success: false, error: '默认分组不支持删除' };
 
     const config = loadEffectsConfig();
     const used = Object.values(config.meta || {}).some(m => m?.group === name);
-    if (used) {
-      return { success: false, error: '分组下仍有音效，不能删除' };
-    }
+    if (used) return { success: false, error: '分组下仍有音效，不能删除' };
 
     config.groups = (config.groups || []).filter(g => g !== name);
     return { success: saveEffectsConfig(config) };
@@ -144,11 +186,9 @@ function registerSoundHandlers(ipcMain, mainWindow) {
 
   ipcMain.handle('delete-sound', async (event, key) => {
     try {
-      const [source, ...rest] = String(key || '').split(':');
+      const [source, group, ...rest] = String(key || '').split(':');
       const filename = rest.join(':');
-      if (source !== 'user') {
-        return { success: false, error: '默认自带音效不支持删除' };
-      }
+      if (source !== 'user') return { success: false, error: '默认自带音效不支持删除' };
 
       const target = path.join(userSoundsDir, filename);
       if (fs.existsSync(target)) fs.unlinkSync(target);
@@ -164,11 +204,9 @@ function registerSoundHandlers(ipcMain, mainWindow) {
   });
 
   ipcMain.handle('get-sounds-path', async () => {
+    ensureBuiltInGroupDirs();
     ensureDir(userSoundsDir);
-    return {
-      builtin: getBuiltInDir(),
-      user: userSoundsDir
-    };
+    return { builtin: getBuiltInDir(), user: userSoundsDir, builtinFolders: BUILTIN_GROUP_DIRS };
   });
 
   ipcMain.handle('import-sound', async (event, sourcePath, groupName) => {
@@ -187,7 +225,7 @@ function registerSoundHandlers(ipcMain, mainWindow) {
 
       fs.copyFileSync(sourcePath, finalPath);
       const finalFilename = path.basename(finalPath);
-      const key = getEntryKey('user', finalFilename);
+      const key = getEntryKey('user', '用户音效', finalFilename);
 
       const config = loadEffectsConfig();
       const group = (groupName || '').trim() || '用户音效';
@@ -209,9 +247,7 @@ function registerSoundHandlers(ipcMain, mainWindow) {
       filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac'] }],
       properties: ['openFile']
     });
-    if (!result.canceled && result.filePaths.length > 0) {
-      return result.filePaths[0];
-    }
+    if (!result.canceled && result.filePaths.length > 0) return result.filePaths[0];
     return null;
   });
 }
@@ -221,6 +257,6 @@ module.exports = {
   registerSoundHandlers,
   userSoundsDir,
   getBuiltInDir,
-  buildEffectsMap
+  buildEffectsMap,
+  BUILTIN_GROUP_DIRS
 };
-
