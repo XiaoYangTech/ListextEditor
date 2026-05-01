@@ -41,16 +41,14 @@
 
   initModeSwitcher() {
     document.querySelectorAll('.mode-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        this.app.switchMode(tab.dataset.mode);
-      });
+      tab.addEventListener('click', () => this.app.switchMode(tab.dataset.mode));
     });
   }
 
   updateModeUI(mode) {
     document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
-    if (this.blockMode) this.blockMode.classList.toggle('active', mode === 'block');
-    if (this.codeMode) this.codeMode.classList.toggle('active', mode === 'code');
+    this.blockMode?.classList.toggle('active', mode === 'block');
+    this.codeMode?.classList.toggle('active', mode === 'code');
   }
 
   initToolbar() {
@@ -58,28 +56,19 @@
       btn.addEventListener('click', () => this.handleAddBlock(btn.dataset.type));
     });
 
-    const roleMgrBtn = document.getElementById('btnRoleManager');
-    if (roleMgrBtn) roleMgrBtn.addEventListener('click', () => this.openRoleManager());
+    document.getElementById('btnRoleManager')?.addEventListener('click', () => this.openRoleManager());
+    document.getElementById('btnBlockSearch')?.addEventListener('click', () => this.searchInBlocks());
+    document.getElementById('btnSectionRefresh')?.addEventListener('click', () => this.refreshSectionJump());
 
-    const btnSearch = document.getElementById('btnBlockSearch');
-    if (btnSearch) btnSearch.addEventListener('click', () => this.searchInBlocks());
+    this.sectionJumpSelect?.addEventListener('change', () => {
+      const blockId = this.sectionJumpSelect.value;
+      if (!blockId) return;
+      this.app.renderer.scrollToBlockId(blockId);
+    });
 
-    const btnSecRefresh = document.getElementById('btnSectionRefresh');
-    if (btnSecRefresh) btnSecRefresh.addEventListener('click', () => this.refreshSectionJump());
-
-    if (this.sectionJumpSelect) {
-      this.sectionJumpSelect.addEventListener('change', () => {
-        const blockId = this.sectionJumpSelect.value;
-        if (!blockId) return;
-        this.app.renderer.scrollToBlockId(blockId);
-      });
-    }
-
-    if (this.blockSearchInput) {
-      this.blockSearchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') this.searchInBlocks();
-      });
-    }
+    this.blockSearchInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') this.searchInBlocks();
+    });
   }
 
   searchInBlocks() {
@@ -104,13 +93,18 @@
 
   handleAddBlock(type) {
     if (this.app.currentMode !== 'block') this.app.switchMode('block');
-
     if (!this.app.renderer) return;
 
     if (type === 'pause') {
       this.showSilenceDialog((duration) => this.app.renderer.addBlock('pause', { duration }));
     } else if (type === 'fx') {
-      this.showEffectDialog((effectId, duration) => this.app.renderer.addBlock('fx', { effectId, duration }));
+      this.showEffectDialog((effectId, duration) => {
+        if (!effectId) {
+          this.app.updateStatus('请先导入音效');
+          return;
+        }
+        this.app.renderer.addBlock('fx', { effectId, duration });
+      });
     } else if (type === 'repeat') {
       this.app.renderer.addBlock('repeat');
     } else if (type === 'section') {
@@ -118,8 +112,7 @@
       this.refreshSectionJump();
     } else {
       const block = this.app.renderer.addBlock(type);
-      const textarea = block?.querySelector?.('textarea');
-      if (textarea) textarea.focus();
+      block?.querySelector?.('textarea')?.focus();
     }
 
     this.app.fileManager.markUnsaved();
@@ -141,16 +134,14 @@
     const sDuration = document.getElementById('silenceDuration');
     const sConfirm = document.getElementById('silenceConfirm');
 
-    if (silenceDialog) {
-      silenceDialog.querySelector('.dialog-close')?.addEventListener('click', () => silenceDialog.classList.remove('active'));
-      silenceDialog.querySelector('.btn-cancel')?.addEventListener('click', () => silenceDialog.classList.remove('active'));
-    }
+    silenceDialog?.querySelector('.dialog-close')?.addEventListener('click', () => silenceDialog.classList.remove('active'));
+    silenceDialog?.querySelector('.btn-cancel')?.addEventListener('click', () => silenceDialog.classList.remove('active'));
 
     if (sConfirm) {
       const newConfirm = sConfirm.cloneNode(true);
       sConfirm.parentNode.replaceChild(newConfirm, sConfirm);
       newConfirm.addEventListener('click', () => {
-        const duration = parseInt(sDuration?.value) || 1;
+        const duration = parseInt(sDuration?.value, 10) || 1;
         if (this.silenceCallback) this.silenceCallback(duration);
         silenceDialog.classList.remove('active');
       });
@@ -168,26 +159,19 @@
     const effectSelect = document.getElementById('effectSelect');
     const effectDuration = document.getElementById('effectDuration');
     const effectConfirm = document.getElementById('effectConfirm');
-    const btnOpenMgr = document.getElementById('btnOpenEffectManager');
 
-    if (btnOpenMgr) {
-      btnOpenMgr.addEventListener('click', async () => {
-        if (window.electronAPI?.openEffectManagerWindow) {
-          await window.electronAPI.openEffectManagerWindow();
-        }
-      });
-    }
+    document.getElementById('btnOpenEffectManager')?.addEventListener('click', async () => {
+      await window.electronAPI?.openEffectManagerWindow?.();
+    });
 
-    if (effectDialog) {
-      effectDialog.querySelector('.dialog-close')?.addEventListener('click', () => effectDialog.classList.remove('active'));
-      effectDialog.querySelector('.btn-cancel')?.addEventListener('click', () => effectDialog.classList.remove('active'));
-    }
+    effectDialog?.querySelector('.dialog-close')?.addEventListener('click', () => effectDialog.classList.remove('active'));
+    effectDialog?.querySelector('.btn-cancel')?.addEventListener('click', () => effectDialog.classList.remove('active'));
 
     if (effectConfirm) {
       const newConfirm = effectConfirm.cloneNode(true);
       effectConfirm.parentNode.replaceChild(newConfirm, effectConfirm);
       newConfirm.addEventListener('click', () => {
-        const dur = effectDuration?.value ? parseInt(effectDuration.value) : null;
+        const dur = effectDuration?.value ? parseInt(effectDuration.value, 10) : null;
         if (this.effectCallback) this.effectCallback(effectSelect?.value, dur);
         effectDialog.classList.remove('active');
       });
@@ -201,9 +185,10 @@
     const effectDuration = document.getElementById('effectDuration');
 
     const effects = await window.electronAPI?.loadEffects() || {};
-    effectSelect.innerHTML = Object.keys(effects).length > 0
-      ? Object.keys(effects).map(id => `<option value="${id}">${id}</option>`).join('')
-      : '<option value="bell">bell (默认)</option>';
+    const ids = Object.keys(effects);
+    effectSelect.innerHTML = ids.length
+      ? ids.map(id => `<option value="${id}">${id}</option>`).join('')
+      : '<option value="">（暂无音效，请先在音效管理器导入）</option>';
 
     effectDuration.value = '';
     effectDialog.classList.add('active');
@@ -235,36 +220,25 @@
   }
 
   initRoleManagerDialog() {}
-
-  async openRoleManager() {
-    if (window.electronAPI?.openRoleManagerWindow) {
-      await window.electronAPI.openRoleManagerWindow();
-    }
-  }
+  async openRoleManager() { await window.electronAPI?.openRoleManagerWindow?.(); }
 
   initSyntaxHelpDialog() {
     const dialog = document.getElementById('syntaxHelpDialog');
     dialog?.querySelector('.dialog-close')?.addEventListener('click', () => dialog.classList.remove('active'));
-    const btnCopy = document.getElementById('btnCopySyntaxExample');
-    if (btnCopy) {
-      btnCopy.addEventListener('click', async () => {
-        const text = document.getElementById('syntaxExampleCode')?.textContent || '';
-        try {
-          await navigator.clipboard.writeText(text);
-          this.app.updateStatus('语法示例已复制');
-        } catch {
-          this.app.updateStatus('复制失败，请手动复制');
-        }
-      });
-    }
+    document.getElementById('btnCopySyntaxExample')?.addEventListener('click', async () => {
+      const text = document.getElementById('syntaxExampleCode')?.textContent || '';
+      try {
+        await navigator.clipboard.writeText(text);
+        this.app.updateStatus('语法示例已复制');
+      } catch {
+        this.app.updateStatus('复制失败，请手动复制');
+      }
+    });
   }
 
-  showSyntaxHelp() {
-    document.getElementById('syntaxHelpDialog')?.classList.add('active');
-  }
+  showSyntaxHelp() { document.getElementById('syntaxHelpDialog')?.classList.add('active'); }
 
   initNoticeDialog() {
-    if (!this.noticeDialog) return;
     this.noticeCloseTopBtn?.addEventListener('click', () => this.closeNoticeDialog());
     this.noticeCloseBtn?.addEventListener('click', () => this.closeNoticeDialog());
     this.noticeOpenUrlBtn?.addEventListener('click', async () => {
@@ -297,7 +271,6 @@
     if (!this.noticeDialog) return;
     this.noticeDialog.classList.remove('active');
     if (!window.electronAPI) return;
-
     if (this.noticeDismissToday?.checked) {
       const settings = await window.electronAPI.getSettings();
       await window.electronAPI.saveSettings({ ...settings, noticeDismissDate: this.getTodayKey() });
@@ -305,8 +278,6 @@
   }
 
   initSettingsDialog() {
-    if (!this.settingsDialog) return;
-
     this.settingsCloseTopBtn?.addEventListener('click', () => this.settingsDialog.classList.remove('active'));
     this.settingsCancelBtn?.addEventListener('click', () => this.settingsDialog.classList.remove('active'));
     this.settingsSaveBtn?.addEventListener('click', async () => {

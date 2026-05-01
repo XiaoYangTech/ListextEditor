@@ -60,12 +60,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 音效管理
   loadEffects: () => ipcRenderer.invoke('load-effects'),
   listSounds: () => ipcRenderer.invoke('list-sounds'),
-  setEffectId: (filename, customId) => ipcRenderer.invoke('set-effect-id', filename, customId),
+  setEffectId: (key, customId) => ipcRenderer.invoke('set-effect-id', key, customId),
   removeEffectMapping: (filename) => ipcRenderer.invoke('remove-effect-mapping', filename),
-  deleteSound: (filename) => ipcRenderer.invoke('delete-sound', filename),
+  deleteSound: (key) => ipcRenderer.invoke('delete-sound', key),
   getSoundsPath: () => ipcRenderer.invoke('get-sounds-path'),
   importSound: (sourcePath) => ipcRenderer.invoke('import-sound', sourcePath),
   selectAudioFile: () => ipcRenderer.invoke('select-audio-file'),
+  listEffectGroups: () => ipcRenderer.invoke('list-effect-groups'),
+  addEffectGroup: (name) => ipcRenderer.invoke('add-effect-group', name),
+  deleteEffectGroup: (name) => ipcRenderer.invoke('delete-effect-group', name),
+  setSoundGroup: (key, group) => ipcRenderer.invoke('set-sound-group', key, group),
 
   // TTS
   getVoices: async () => voiceConfig,
@@ -127,3 +131,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectExportPath: () => ipcRenderer.invoke('select-export-path'),
   platform: process.platform
 });
+

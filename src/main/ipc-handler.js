@@ -4,8 +4,7 @@ const path = require('path');
 const AdmZip = require('adm-zip');
 const { ensureDir } = require('./utils');
 const { openRoleManager, openSettingsWindow, openEffectManager } = require('./window-manager');
-const { soundsDir, scanSoundsFolder } = require('./sound-handler');
-const { loadEffectsConfig } = require('./config-handler');
+const { userSoundsDir, buildEffectsMap } = require('./sound-handler');
 
 const tempDir = path.join(app.getPath('temp'), 'listext-editor');
 
@@ -37,17 +36,6 @@ function parseFxIds(content) {
   return Array.from(ids);
 }
 
-function buildEffectIdToFileMap() {
-  const config = loadEffectsConfig();
-  const sounds = scanSoundsFolder();
-  const map = {};
-  for (const s of sounds) {
-    const customId = config[s.filename] || s.name;
-    map[customId] = s.filename;
-  }
-  return map;
-}
-
 function saveProjectPackage(filePath, payload) {
   const safePath = normalizeExt(filePath);
   const content = payload?.content || '';
@@ -55,7 +43,7 @@ function saveProjectPackage(filePath, payload) {
   const tabTitle = payload?.title || 'untitled.lstx';
 
   const zip = new AdmZip();
-  const effectMap = buildEffectIdToFileMap();
+  const effectMap = buildEffectsMap(); // id -> abs path
   const usedFxIds = parseFxIds(content);
   const bundledSounds = [];
 
@@ -68,11 +56,10 @@ function saveProjectPackage(filePath, payload) {
   }, null, 2), 'utf-8'));
 
   for (const fxId of usedFxIds) {
-    const filename = effectMap[fxId];
-    if (!filename) continue;
-    const abs = path.join(soundsDir, filename);
-    if (!fs.existsSync(abs)) continue;
-    const buf = fs.readFileSync(abs);
+    const absPath = effectMap[fxId];
+    if (!absPath || !fs.existsSync(absPath)) continue;
+    const filename = path.basename(absPath);
+    const buf = fs.readFileSync(absPath);
     zip.addFile(`sounds/${filename}`, buf);
     bundledSounds.push({ fxId, filename });
   }
@@ -92,13 +79,12 @@ function openProjectPackage(filePath) {
 
   const project = JSON.parse(projectEntry.getData().toString('utf-8'));
 
-  // 导入 sounds 资源
   const entries = zip.getEntries().filter(e => e.entryName.startsWith('sounds/') && !e.isDirectory);
   if (entries.length > 0) {
-    ensureDir(soundsDir);
+    ensureDir(userSoundsDir);
     for (const entry of entries) {
       const filename = path.basename(entry.entryName);
-      const out = path.join(soundsDir, filename);
+      const out = path.join(userSoundsDir, filename);
       fs.writeFileSync(out, entry.getData());
     }
   }

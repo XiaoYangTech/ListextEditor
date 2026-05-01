@@ -1,16 +1,26 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 const { app, session } = require('electron');
 const { ensureDir } = require('./utils');
 
-const effectsConfigPath = path.join(path.dirname(app.getPath('exe')), 'effects-config.json');
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+const effectsConfigPath = path.join(app.getPath('userData'), 'effects-config.json');
+
+const DEFAULT_GROUPS = ['开场音乐', '常见音效', '环境音'];
 
 function getDefaultSettings() {
   return {
     proxyMode: 'system',
     proxyUrl: '',
     noticeDismissDate: ''
+  };
+}
+
+function getDefaultEffectsConfig() {
+  return {
+    mappings: {},       // key -> custom id
+    meta: {},           // key -> { group, source }
+    groups: [...DEFAULT_GROUPS]
   };
 }
 
@@ -55,21 +65,42 @@ async function applyProxySettings(settings) {
   }
 }
 
+function normalizeEffectsConfig(raw) {
+  const base = getDefaultEffectsConfig();
+  if (!raw || typeof raw !== 'object') return base;
+
+  // 兼容旧版: { filename: customId }
+  const hasLegacyShape = !('mappings' in raw) && !('meta' in raw) && !('groups' in raw);
+  if (hasLegacyShape) {
+    base.mappings = { ...raw };
+    return base;
+  }
+
+  base.mappings = { ...(raw.mappings || {}) };
+  base.meta = { ...(raw.meta || {}) };
+  const groups = Array.isArray(raw.groups) ? raw.groups.filter(Boolean) : [];
+  base.groups = Array.from(new Set([...DEFAULT_GROUPS, ...groups]));
+  return base;
+}
+
 function loadEffectsConfig() {
   try {
     if (fs.existsSync(effectsConfigPath)) {
       const data = fs.readFileSync(effectsConfigPath, 'utf-8');
-      return JSON.parse(data);
+      const parsed = JSON.parse(data || '{}');
+      return normalizeEffectsConfig(parsed);
     }
   } catch (error) {
     console.error('读取音效配置失败:', error);
   }
-  return {};
+  return getDefaultEffectsConfig();
 }
 
 function saveEffectsConfig(config) {
   try {
-    fs.writeFileSync(effectsConfigPath, JSON.stringify(config, null, 2), 'utf-8');
+    ensureDir(path.dirname(effectsConfigPath));
+    const normalized = normalizeEffectsConfig(config);
+    fs.writeFileSync(effectsConfigPath, JSON.stringify(normalized, null, 2), 'utf-8');
     return true;
   } catch (error) {
     console.error('保存音效配置失败:', error);
@@ -79,18 +110,17 @@ function saveEffectsConfig(config) {
 
 function registerConfigHandlers(ipcMain) {
   ipcMain.handle('get-settings', async () => loadSettings());
-  
+
   ipcMain.handle('save-settings', async (event, settings) => {
     const merged = { ...getDefaultSettings(), ...(settings || {}) };
     const success = saveSettings(merged);
-    if (success) {
-      await applyProxySettings(merged);
-    }
+    if (success) await applyProxySettings(merged);
     return { success };
   });
 }
 
 module.exports = {
+  DEFAULT_GROUPS,
   loadSettings,
   saveSettings,
   applyProxySettings,

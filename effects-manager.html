@@ -7,53 +7,65 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
   <style>
-    :root { --md-primary:#1976D2; --md-primary-dark:#1565C0; --md-background:#FAFAFA; --md-surface:#FFFFFF; --md-on:#212121; --md-sub:#757575; --md-divider:#E0E0E0; --md-error:#B00020; --md-success:#4CAF50; }
+    :root { --md-primary:#1976D2; --md-bg:#FAFAFA; --md-surface:#FFF; --md-divider:#E0E0E0; --md-sub:#757575; --md-err:#B00020; }
     * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Roboto','Microsoft YaHei',sans-serif; background:var(--md-background); color:var(--md-on); }
+    body { font-family:'Roboto','Microsoft YaHei',sans-serif; background:var(--md-bg); color:#212121; }
     .header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background:var(--md-primary); color:#fff; }
-    .header h1 { font-size:18px; font-weight:500; }
-    .header-actions { display:flex; gap:8px; }
-    .btn { display:flex; align-items:center; gap:6px; padding:8px 14px; border:none; border-radius:4px; cursor:pointer; }
-    .btn.white { background:rgba(255,255,255,.2); color:#fff; }
-    .btn.white:hover { background:rgba(255,255,255,.3); }
-    .info-bar { padding:10px 20px; background:#E3F2FD; border-bottom:1px solid var(--md-divider); font-size:12px; color:var(--md-sub); }
-    .path { color:var(--md-primary); font-family:Consolas,monospace; }
-    .effect-list { padding:16px; }
-    .effect-item { display:flex; align-items:center; gap:12px; border:1px solid var(--md-divider); border-radius:8px; background:var(--md-surface); padding:12px; margin-bottom:8px; }
+    .actions { display:flex; gap:8px; }
+    .btn { border:none; border-radius:6px; padding:8px 12px; cursor:pointer; }
+    .btn-white { background:rgba(255,255,255,.2); color:#fff; }
+    .btn-white:hover { background:rgba(255,255,255,.3); }
+    .bar { display:flex; gap:8px; align-items:center; padding:10px 20px; background:#E3F2FD; border-bottom:1px solid var(--md-divider); }
+    .bar input, .bar select { height:32px; border:1px solid var(--md-divider); border-radius:6px; padding:0 8px; }
+    .path { font-family:Consolas,monospace; color:#1565C0; font-size:12px; }
+    .group-wrap { padding:12px 16px; }
+    .group-card { border:1px solid var(--md-divider); border-radius:8px; background:var(--md-surface); margin-bottom:10px; }
+    .group-header { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid var(--md-divider); }
+    .group-title { font-weight:600; }
+    .default-badge { font-size:11px; color:#8d6e63; background:#fff8e1; border:1px solid #ffe082; border-radius:999px; padding:2px 6px; margin-left:6px; }
+    .effect-item { display:flex; align-items:center; gap:12px; padding:10px 12px; border-top:1px dashed #eee; }
+    .effect-item:first-child { border-top:none; }
     .effect-info { flex:1; min-width:0; }
     .effect-id-row { display:flex; align-items:center; gap:8px; }
-    .effect-id { font-size:15px; font-weight:500; }
-    .effect-filename { font-size:12px; color:var(--md-sub); margin-top:4px; }
-    .effect-actions { display:flex; gap:8px; }
-    .btn-action { width:34px; height:34px; border:none; border-radius:50%; background:transparent; cursor:pointer; color:var(--md-sub); }
-    .btn-action:hover { background:#EEE; color:#333; }
-    .btn-action.play:hover { background:#E8F5E9; color:var(--md-success); }
-    .btn-action.delete:hover { background:#FFEBEE; color:var(--md-error); }
-    .effect-id-input { display:none; width:180px; font-size:15px; padding:4px 8px; border:1px solid var(--md-primary); border-radius:4px; }
+    .effect-id-input { display:none; width:180px; padding:4px 8px; border:1px solid #90caf9; border-radius:4px; }
     .editing .effect-id { display:none; }
     .editing .effect-id-input { display:block; }
-    .empty-state { text-align:center; padding:40px 20px; color:var(--md-sub); }
-    .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#333; color:#fff; border-radius:4px; padding:10px 18px; opacity:0; transition:opacity .2s; }
+    .meta { font-size:12px; color:var(--md-sub); }
+    .icon-btn { width:32px; height:32px; border:none; border-radius:50%; background:transparent; cursor:pointer; }
+    .icon-btn:hover { background:#eee; }
+    .icon-btn.delete:hover { background:#ffebee; color:var(--md-err); }
+    .empty { color:var(--md-sub); font-size:13px; padding:14px; }
+    .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:20px; background:#333; color:#fff; padding:10px 16px; border-radius:6px; opacity:0; transition:opacity .2s; }
     .toast.show { opacity:1; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>音效管理器</h1>
-    <div class="header-actions">
-      <button class="btn white" id="btnRefresh"><span class="material-icons">refresh</span>刷新</button>
-      <button class="btn white" id="btnAddEffect"><span class="material-icons">add</span>添加音效</button>
+    <div class="actions">
+      <button class="btn btn-white" id="btnRefresh">刷新</button>
+      <button class="btn btn-white" id="btnAddEffect">导入音效</button>
     </div>
   </div>
 
-  <div class="info-bar">音效文件目录：<span class="path" id="soundsPath"></span></div>
-  <div class="effect-list" id="effectList"></div>
-  <div class="toast" id="toast"></div>
+  <div class="bar">
+    <select id="groupSelect"></select>
+    <input id="newGroupInput" placeholder="新分组名" />
+    <button class="btn" id="btnAddGroup">新增分组</button>
+    <button class="btn" id="btnDeleteGroup">删除分组</button>
+    <span class="path" id="soundsPath"></span>
+  </div>
+
+  <div id="groupWrap" class="group-wrap"></div>
+  <div id="toast" class="toast"></div>
 
   <script>
+    const DEFAULT_GROUPS = ['开场音乐', '常见音效', '环境音'];
+
     class EffectsManager {
       constructor() {
         this.sounds = [];
+        this.groups = [];
         this.currentAudio = null;
         this.currentAudioFilename = null;
         this.currentPlayBtn = null;
@@ -62,115 +74,118 @@
 
       async init() {
         if (window.electronAPI) {
-          this.soundsPath = await window.electronAPI.getSoundsPath();
-          document.getElementById('soundsPath').textContent = this.soundsPath;
+          const paths = await window.electronAPI.getSoundsPath();
+          document.getElementById('soundsPath').textContent = `默认: ${paths.builtin} | 用户: ${paths.user}`;
         }
-        await this.loadSounds();
-        this.render();
+
+        await this.refreshAll();
         this.bind();
       }
 
-      async loadSounds() {
-        if (window.electronAPI) this.sounds = await window.electronAPI.listSounds();
-      }
-
-      async refreshEffects() {
-        if (window.electronAPI) await window.electronAPI.loadEffects();
-      }
-
-      render() {
-        const list = document.getElementById('effectList');
-        if (!this.sounds.length) {
-          list.innerHTML = '<div class="empty-state"><p>sounds 文件夹为空</p><p>可点击“添加音效”导入</p></div>';
-          return;
-        }
-
-        list.innerHTML = this.sounds.map(sound => `
-          <div class="effect-item" data-filename="${sound.filename}">
-            <span class="material-icons">music_note</span>
-            <div class="effect-info">
-              <div class="effect-id-row">
-                <span class="effect-id">${sound.name}</span>
-                <input class="effect-id-input" value="${sound.name}" />
-              </div>
-              <div class="effect-filename">${sound.filename}</div>
-            </div>
-            <div class="effect-actions">
-              <button class="btn-action edit" title="编辑ID"><span class="material-icons">edit</span></button>
-              <button class="btn-action play" title="试听"><span class="material-icons">play_arrow</span></button>
-              <button class="btn-action delete" title="删除"><span class="material-icons">delete</span></button>
-            </div>
-          </div>
-        `).join('');
+      async refreshAll() {
+        this.groups = await window.electronAPI.listEffectGroups();
+        this.sounds = await window.electronAPI.listSounds();
+        this.renderGroupSelect();
+        this.render();
+        await window.electronAPI.loadEffects();
       }
 
       bind() {
-        document.getElementById('btnRefresh').addEventListener('click', async () => {
-          await this.loadSounds(); this.render(); await this.refreshEffects();
-        });
+        document.getElementById('btnRefresh').addEventListener('click', () => this.refreshAll());
 
         document.getElementById('btnAddEffect').addEventListener('click', async () => {
-          if (!window.electronAPI) return;
           const sourcePath = await window.electronAPI.selectAudioFile();
           if (!sourcePath) return;
-          const result = await window.electronAPI.importSound(sourcePath);
+
+          const g = document.getElementById('groupSelect').value || '用户音效';
+          const result = await window.electronAPI.importSound(sourcePath, g);
           if (result.success) {
-            this.toast('音效已导入');
-            await this.loadSounds();
-            this.render();
-            await this.refreshEffects();
+            this.toast('导入成功');
+            await this.refreshAll();
           } else {
             this.toast('导入失败: ' + result.error);
           }
         });
 
-        document.getElementById('effectList').addEventListener('click', async (e) => {
+        document.getElementById('btnAddGroup').addEventListener('click', async () => {
+          const input = document.getElementById('newGroupInput');
+          const name = input.value.trim();
+          if (!name) return;
+          const res = await window.electronAPI.addEffectGroup(name);
+          if (res.success) {
+            input.value = '';
+            this.toast('分组已新增');
+            await this.refreshAll();
+          } else {
+            this.toast('新增失败: ' + (res.error || '未知错误'));
+          }
+        });
+
+        document.getElementById('btnDeleteGroup').addEventListener('click', async () => {
+          const g = document.getElementById('groupSelect').value;
+          if (!g) return;
+          const res = await window.electronAPI.deleteEffectGroup(g);
+          if (res.success) {
+            this.toast('分组已删除');
+            await this.refreshAll();
+          } else {
+            this.toast(res.error || '删除失败');
+          }
+        });
+
+        document.getElementById('groupWrap').addEventListener('click', async (e) => {
           const item = e.target.closest('.effect-item');
           if (!item) return;
 
-          if (e.target.closest('.play')) {
-            const filename = item.dataset.filename;
-            const btn = item.querySelector('.play');
-            if (this.currentAudio && this.currentAudioFilename === filename) {
+          if (e.target.closest('.btn-play')) {
+            const key = item.dataset.key;
+            const file = item.dataset.filename;
+            const btn = item.querySelector('.btn-play');
+            if (this.currentAudio && this.currentAudioFilename === key) {
               this.stopPreview();
               return;
             }
             this.stopPreview();
-            this.playPreview(filename, btn);
+            this.playPreview(file, key, btn);
             return;
           }
 
-          if (e.target.closest('.delete')) {
-            const filename = item.dataset.filename;
-            if (!confirm(`确认删除音效文件 ${filename}？`)) return;
-            const result = await window.electronAPI.deleteSound(filename);
-            if (result?.success) {
-              this.toast('已删除音效');
-              await this.loadSounds();
-              this.render();
-              await this.refreshEffects();
+          if (e.target.closest('.btn-delete')) {
+            const key = item.dataset.key;
+            const deletable = item.dataset.deletable === 'true';
+            if (!deletable) {
+              this.toast('默认自带音效不支持删除');
+              return;
+            }
+            if (!confirm('确认删除该音效？')) return;
+
+            const res = await window.electronAPI.deleteSound(key);
+            if (res.success) {
+              this.toast('删除成功');
+              await this.refreshAll();
             } else {
-              this.toast('删除失败: ' + (result?.error || '未知错误'));
+              this.toast('删除失败: ' + (res.error || '未知错误'));
             }
             return;
           }
 
-          if (e.target.closest('.edit')) {
+          if (e.target.closest('.btn-edit')) {
             item.classList.add('editing');
             const input = item.querySelector('.effect-id-input');
             input.focus();
 
             const save = async () => {
               const newId = input.value.trim();
-              if (newId && newId !== item.querySelector('.effect-id').textContent) {
-                const result = await window.electronAPI.setEffectId(item.dataset.filename, newId);
+              const oldId = item.querySelector('.effect-id').textContent;
+              if (newId && newId !== oldId) {
+                const result = await window.electronAPI.setEffectId(item.dataset.key, newId);
                 if (result.success) {
                   item.querySelector('.effect-id').textContent = newId;
-                  await this.refreshEffects();
+                  await window.electronAPI.loadEffects();
                   this.toast('ID 已更新');
                 } else {
                   this.toast('更新失败');
-                  input.value = item.querySelector('.effect-id').textContent;
+                  input.value = oldId;
                 }
               }
               item.classList.remove('editing');
@@ -178,21 +193,71 @@
 
             input.onblur = save;
             input.onkeydown = (ev) => { if (ev.key === 'Enter') input.blur(); };
+            return;
           }
         });
       }
 
-      playPreview(filename, btn) {
-        if (!this.soundsPath) return;
-        this.stopPreview();
-        const audio = new Audio(this.toFileUrl(`${this.soundsPath}/${filename}`));
-        audio.preload = 'auto';
+      renderGroupSelect() {
+        const select = document.getElementById('groupSelect');
+        select.innerHTML = this.groups.map(g => `<option value="${g}">${g}</option>`).join('');
+      }
 
+      render() {
+        const wrap = document.getElementById('groupWrap');
+        if (!this.sounds.length) {
+          wrap.innerHTML = '<div class="empty">暂无音效，请先导入</div>';
+          return;
+        }
+
+        const grouped = {};
+        for (const s of this.sounds) {
+          if (!grouped[s.group]) grouped[s.group] = [];
+          grouped[s.group].push(s);
+        }
+
+        const order = Array.from(new Set([...DEFAULT_GROUPS, ...Object.keys(grouped)]));
+        wrap.innerHTML = order.map(group => {
+          const list = grouped[group] || [];
+          const isDefault = DEFAULT_GROUPS.includes(group);
+          return `
+            <div class="group-card">
+              <div class="group-header">
+                <div class="group-title">${group}${isDefault ? '<span class="default-badge">默认分组</span>' : ''}</div>
+                <div style="font-size:12px;color:#757575;">${list.length} 个音效</div>
+              </div>
+              ${list.length ? list.map(sound => `
+                <div class="effect-item" data-key="${sound.key}" data-filename="${sound.filename}" data-deletable="${sound.deletable}">
+                  <span class="material-icons">music_note</span>
+                  <div class="effect-info">
+                    <div class="effect-id-row">
+                      <span class="effect-id">${sound.displayId || sound.name}</span>
+                      <input class="effect-id-input" value="${sound.displayId || sound.name}" />
+                    </div>
+                    <div class="meta">${sound.filename} · ${sound.source === 'builtin' ? '默认自带' : '用户导入'}</div>
+                  </div>
+                  <button class="icon-btn btn-edit" title="编辑ID"><span class="material-icons">edit</span></button>
+                  <button class="icon-btn btn-play" title="试听"><span class="material-icons">play_arrow</span></button>
+                  <button class="icon-btn btn-delete delete" title="删除"><span class="material-icons">delete</span></button>
+                </div>
+              `).join('') : '<div class="empty">该分组暂无音效</div>'}
+            </div>
+          `;
+        }).join('');
+      }
+
+      playPreview(filename, key, btn) {
+        const sourceObj = this.sounds.find(s => s.key === key);
+        if (!sourceObj?.path) return;
+        this.stopPreview();
+
+        const audio = new Audio(this.toFileUrl(sourceObj.path));
+        audio.preload = 'auto';
         audio.onended = () => this.stopPreview();
         audio.onerror = () => { this.toast('播放失败'); this.stopPreview(); };
 
         this.currentAudio = audio;
-        this.currentAudioFilename = filename;
+        this.currentAudioFilename = key;
         this.currentPlayBtn = btn;
 
         audio.play().catch(() => this.stopPreview());

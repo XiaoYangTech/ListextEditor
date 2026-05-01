@@ -202,7 +202,7 @@
     const block = this.createBaseBlock('fx', node);
     const header = this.createBlockHeader('fx', '音效', 'music_note', true);
 
-    block._effectId = node.attrs?.id || 'bell';
+    block._effectId = node.attrs?.id || '';
     block._effectDuration = node.attrs?.dur ? parseInt(node.attrs.dur, 10) : null;
     block._effectFade = node.attrs?.fade ? parseInt(node.attrs.fade, 10) : null;
 
@@ -358,14 +358,17 @@
     const dialog = this.editDialog;
     dialog.querySelector('#editDialogTitle').textContent = '设置音效';
     dialog.querySelector('#editDialogBody').innerHTML = `
-      <div class="form-group"><label>音效ID</label><select id="editFxId">${ids.length ? ids.map(id => `<option value="${id}" ${id === block._effectId ? 'selected' : ''}>${id}</option>`).join('') : '<option value="bell">bell</option>'}</select></div>
+      <div class="form-group"><label>音效ID</label><select id="editFxId">${ids.length ? ids.map(id => `<option value="${id}" ${id === block._effectId ? 'selected' : ''}>${id}</option>`).join('') : '<option value="">（暂无音效，请先导入）</option>'}</select></div>
       <div class="form-group"><label>持续秒数（可选）</label><input id="editFxDur" type="number" min="1" max="300" value="${block._effectDuration || ''}" /></div>
       <div class="form-group"><label>淡出秒数（可选）</label><input id="editFxFade" type="number" min="1" max="60" value="${block._effectFade || ''}" /></div>
     `;
 
     const confirmBtn = dialog.querySelector('#editDialogConfirm');
     const handler = () => {
-      block._effectId = document.getElementById('editFxId').value || 'bell';
+      block._effectId = document.getElementById('editFxId').value || '';
+      if (!block._effectId) {
+        window.app?.updateStatus?.('请先选择音效');
+      }
       block._effectDuration = parseInt(document.getElementById('editFxDur').value, 10) || null;
       block._effectFade = parseInt(document.getElementById('editFxFade').value, 10) || null;
       block.querySelector('.effect-text').textContent = this.describeFx(block);
@@ -438,7 +441,7 @@
   }
 
   describeFx(block) {
-    let text = block._effectId || 'bell';
+    let text = block._effectId || '（未选择音效）';
     if (block._effectDuration) text += ` (${block._effectDuration}秒)`;
     if (block._effectFade) text += ` 淡出${block._effectFade}秒`;
     return text;
@@ -619,7 +622,8 @@
     }
 
     if (tagName === 'fx') {
-      const attrs = { id: block._effectId || 'bell' };
+      const attrs = {};
+      if (block._effectId) attrs.id = block._effectId;
       if (block._effectDuration) attrs.dur = String(block._effectDuration);
       if (block._effectFade) attrs.fade = String(block._effectFade);
       return {
@@ -670,7 +674,8 @@
     if (tagName === 'pause') {
       node.attrs = { dur: String(options.duration || 10) };
     } else if (tagName === 'fx') {
-      node.attrs = { id: options.effectId || 'bell' };
+      node.attrs = {};
+      if (options.effectId) node.attrs.id = options.effectId;
       if (options.duration) node.attrs.dur = String(options.duration);
       if (options.fade) node.attrs.fade = String(options.fade);
     } else if (tagName === 'repeat') {
@@ -806,3 +811,4 @@
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = BlockRenderer;
 }
+
