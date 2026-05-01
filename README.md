@@ -25,7 +25,7 @@
 
 ### 编辑能力
 - 双模式编辑：积木模式 / 代码模式
-- 支持标签：`say`、`pause`、`repeat`、`fx`、`divider`、`section`
+- 支持类HTML标签，如：`say`、`pause`、`repeat`、`fx`、`divider`、`section`
 - 分节导航与关键字搜索定位
 
 ### 音效管理
@@ -47,6 +47,40 @@
 ### 跨平台 TTS 策略
 - Windows：支持 EdgeTTS + 系统TTS
 - Linux / macOS：由于系统架构复杂，无法调用系统TTS，需要改用 EdgeTTS
+
+### 积木模式下无需鼠标，键盘直接操作界面
+
+- Alt + 1：新增 朗读块
+
+- Alt + 2：新增 停顿块
+
+- Alt + 3：新增 重复块
+
+- Alt + 4：新增 分节块
+
+- Alt + 5：新增 音效块
+
+- Alt + 6：新增 分割线块
+
+- ↑ / ↓：选中上一个/下一个积木块
+
+- Ctrl + ↑ / Ctrl + ↓：上移/下移当前选中块
+
+- Enter：编辑当前选中块
+
+- Delete / Backspace：删除选中块
+
+- Space：预览播放
+
+- Ctrl + Z / Ctrl + Shift + Z / Ctrl + Y 撤销重做
+
+- Ctrl + C / X / V / A 复制剪切粘贴全选
+
+- Ctrl + S 保存
+
+- F5 预览
+
+- Esc 停止播放并关闭弹窗
 
 ---
 
