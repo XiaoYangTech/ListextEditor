@@ -7,53 +7,257 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
   <style>
-    :root { --md-primary:#1976D2; --md-bg:#FAFAFA; --md-surface:#FFF; --md-divider:#E0E0E0; --md-sub:#757575; --md-err:#B00020; }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Roboto','Microsoft YaHei',sans-serif; background:var(--md-bg); color:#212121; }
-    .header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background:var(--md-primary); color:#fff; }
-    .actions { display:flex; gap:8px; }
-    .btn { border:none; border-radius:6px; padding:8px 12px; cursor:pointer; }
-    .btn-white { background:rgba(255,255,255,.2); color:#fff; }
-    .btn-white:hover { background:rgba(255,255,255,.3); }
-    .bar { display:flex; gap:8px; align-items:center; padding:10px 20px; background:#E3F2FD; border-bottom:1px solid var(--md-divider); }
-    .bar input, .bar select { height:32px; border:1px solid var(--md-divider); border-radius:6px; padding:0 8px; }
-    .path { font-family:Consolas,monospace; color:#1565C0; font-size:12px; }
-    .group-wrap { padding:12px 16px; }
-    .group-card { border:1px solid var(--md-divider); border-radius:8px; background:var(--md-surface); margin-bottom:10px; }
-    .group-header { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid var(--md-divider); }
-    .group-title { font-weight:600; }
-    .default-badge { font-size:11px; color:#8d6e63; background:#fff8e1; border:1px solid #ffe082; border-radius:999px; padding:2px 6px; margin-left:6px; }
-    .effect-item { display:flex; align-items:center; gap:12px; padding:10px 12px; border-top:1px dashed #eee; }
-    .effect-item:first-child { border-top:none; }
-    .effect-info { flex:1; min-width:0; }
-    .effect-id-row { display:flex; align-items:center; gap:8px; }
-    .effect-id-input { display:none; width:180px; padding:4px 8px; border:1px solid #90caf9; border-radius:4px; }
-    .editing .effect-id { display:none; }
-    .editing .effect-id-input { display:block; }
-    .meta { font-size:12px; color:var(--md-sub); }
-    .icon-btn { width:32px; height:32px; border:none; border-radius:50%; background:transparent; cursor:pointer; }
-    .icon-btn:hover { background:#eee; }
-    .icon-btn.delete:hover { background:#ffebee; color:var(--md-err); }
-    .empty { color:var(--md-sub); font-size:13px; padding:14px; }
-    .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:20px; background:#333; color:#fff; padding:10px 16px; border-radius:6px; opacity:0; transition:opacity .2s; }
-    .toast.show { opacity:1; }
+    :root {
+      --primary: #1976d2;
+      --primary-dark: #1565c0;
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --line: #e0e0e0;
+      --muted: #757575;
+      --danger: #b00020;
+      --tab-bg: #e3f2fd;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Roboto', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: #212121;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .header h1 { font-size: 18px; font-weight: 500; }
+
+    .header-actions { display: flex; gap: 8px; }
+
+    .btn {
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+    .btn-primary:hover { background: rgba(255,255,255,0.3); }
+
+    .btn-surface {
+      background: #fff;
+      color: #333;
+      border: 1px solid var(--line);
+    }
+    .btn-surface:hover { background: #f5f5f5; }
+
+    .btn-danger {
+      background: #ffebee;
+      color: var(--danger);
+      border: 1px solid #ffcdd2;
+    }
+    .btn-danger:hover { background: #ffcdd2; }
+
+    .top-panel {
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+      padding: 10px 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .group-toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .group-toolbar input {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 10px;
+      min-width: 180px;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    .path {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: Consolas, monospace;
+      margin-left: auto;
+    }
+
+    .group-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: var(--tab-bg);
+      border-radius: 10px;
+      padding: 8px;
+    }
+
+    .group-tab {
+      border: 1px solid transparent;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      background: transparent;
+      color: #0d47a1;
+      transition: all .2s ease;
+    }
+
+    .group-tab:hover {
+      background: rgba(25,118,210,0.1);
+    }
+
+    .group-tab.active {
+      background: #1976d2;
+      color: #fff;
+      border-color: #1565c0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .group-wrap { padding: 12px 16px; }
+
+    .group-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .group-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fcfcfc;
+    }
+
+    .group-title { font-weight: 600; }
+
+    .default-badge {
+      font-size: 11px;
+      color: #8d6e63;
+      background: #fff8e1;
+      border: 1px solid #ffe082;
+      border-radius: 999px;
+      padding: 2px 6px;
+      margin-left: 6px;
+    }
+
+    .effect-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-top: 1px dashed #eee;
+    }
+
+    .effect-item:first-child { border-top: none; }
+
+    .effect-info { flex: 1; min-width: 0; }
+
+    .effect-id-row { display: flex; align-items: center; gap: 8px; }
+
+    .effect-id-input {
+      display: none;
+      width: 180px;
+      padding: 4px 8px;
+      border: 1px solid #90caf9;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .editing .effect-id { display: none; }
+    .editing .effect-id-input { display: block; }
+
+    .meta { font-size: 12px; color: var(--muted); }
+
+    .group-select-inline {
+      height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      font-size: 12px;
+      padding: 0 8px;
+      background: #fff;
+    }
+
+    .icon-btn {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-btn:hover { background: #eee; }
+    .icon-btn.delete:hover { background: #ffebee; color: var(--danger); }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 20px;
+      background: #333;
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 6px;
+      opacity: 0;
+      transition: opacity .2s;
+      z-index: 999;
+    }
+
+    .toast.show { opacity: 1; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>音效管理器</h1>
-    <div class="actions">
-      <button class="btn btn-white" id="btnRefresh">刷新</button>
-      <button class="btn btn-white" id="btnAddEffect">导入音效</button>
+    <div class="header-actions">
+      <button class="btn btn-primary" id="btnRefresh"><span class="material-icons">refresh</span>刷新</button>
+      <button class="btn btn-primary" id="btnAddEffect"><span class="material-icons">add</span>导入音效</button>
     </div>
   </div>
 
-  <div class="bar">
-    <select id="groupSelect"></select>
-    <input id="newGroupInput" placeholder="新分组名" />
-    <button class="btn" id="btnAddGroup">新增分组</button>
-    <button class="btn" id="btnDeleteGroup">删除分组</button>
-    <span class="path" id="soundsPath"></span>
+  <div class="top-panel">
+    <div class="group-toolbar">
+      <input id="newGroupInput" placeholder="输入新分组名称" />
+      <button class="btn btn-surface" id="btnAddGroup"><span class="material-icons" style="font-size:16px;">create_new_folder</span>新增分组</button>
+      <button class="btn btn-danger" id="btnDeleteGroup"><span class="material-icons" style="font-size:16px;">delete</span>删除当前分组</button>
+      <span class="path" id="soundsPath"></span>
+    </div>
+
+    <div id="groupTabs" class="group-tabs"></div>
   </div>
 
   <div id="groupWrap" class="group-wrap"></div>
@@ -66,8 +270,9 @@
       constructor() {
         this.sounds = [];
         this.groups = [];
+        this.activeGroup = '';
         this.currentAudio = null;
-        this.currentAudioFilename = null;
+        this.currentAudioKey = null;
         this.currentPlayBtn = null;
         this.init();
       }
@@ -77,7 +282,6 @@
           const paths = await window.electronAPI.getSoundsPath();
           document.getElementById('soundsPath').textContent = `默认: ${paths.builtin} | 用户: ${paths.user}`;
         }
-
         await this.refreshAll();
         this.bind();
       }
@@ -85,8 +289,13 @@
       async refreshAll() {
         this.groups = await window.electronAPI.listEffectGroups();
         this.sounds = await window.electronAPI.listSounds();
-        this.renderGroupSelect();
-        this.render();
+
+        if (!this.activeGroup || !this.groups.includes(this.activeGroup)) {
+          this.activeGroup = this.groups[0] || '';
+        }
+
+        this.renderTabs();
+        this.renderGroup();
         await window.electronAPI.loadEffects();
       }
 
@@ -97,8 +306,8 @@
           const sourcePath = await window.electronAPI.selectAudioFile();
           if (!sourcePath) return;
 
-          const g = document.getElementById('groupSelect').value || '用户音效';
-          const result = await window.electronAPI.importSound(sourcePath, g);
+          const targetGroup = this.activeGroup || '用户音效';
+          const result = await window.electronAPI.importSound(sourcePath, targetGroup);
           if (result.success) {
             this.toast('导入成功');
             await this.refreshAll();
@@ -116,20 +325,47 @@
             input.value = '';
             this.toast('分组已新增');
             await this.refreshAll();
+            this.activeGroup = name;
+            this.renderTabs();
+            this.renderGroup();
           } else {
             this.toast('新增失败: ' + (res.error || '未知错误'));
           }
         });
 
         document.getElementById('btnDeleteGroup').addEventListener('click', async () => {
-          const g = document.getElementById('groupSelect').value;
-          if (!g) return;
-          const res = await window.electronAPI.deleteEffectGroup(g);
+          if (!this.activeGroup) return;
+          const res = await window.electronAPI.deleteEffectGroup(this.activeGroup);
           if (res.success) {
             this.toast('分组已删除');
             await this.refreshAll();
           } else {
             this.toast(res.error || '删除失败');
+          }
+        });
+
+        document.getElementById('groupTabs').addEventListener('click', (e) => {
+          const tab = e.target.closest('.group-tab');
+          if (!tab) return;
+          this.activeGroup = tab.dataset.group;
+          this.renderTabs();
+          this.renderGroup();
+        });
+
+        document.getElementById('groupWrap').addEventListener('change', async (e) => {
+          const select = e.target.closest('.group-select-inline');
+          if (!select) return;
+          const item = select.closest('.effect-item');
+          if (!item) return;
+
+          const key = item.dataset.key;
+          const group = select.value;
+          const res = await window.electronAPI.setSoundGroup(key, group);
+          if (res.success) {
+            this.toast('分组已更新');
+            await this.refreshAll();
+          } else {
+            this.toast(res.error || '分组更新失败');
           }
         });
 
@@ -139,14 +375,13 @@
 
           if (e.target.closest('.btn-play')) {
             const key = item.dataset.key;
-            const file = item.dataset.filename;
             const btn = item.querySelector('.btn-play');
-            if (this.currentAudio && this.currentAudioFilename === key) {
+            if (this.currentAudio && this.currentAudioKey === key) {
               this.stopPreview();
               return;
             }
             this.stopPreview();
-            this.playPreview(file, key, btn);
+            this.playPreview(key, btn);
             return;
           }
 
@@ -193,60 +428,58 @@
 
             input.onblur = save;
             input.onkeydown = (ev) => { if (ev.key === 'Enter') input.blur(); };
-            return;
           }
         });
       }
 
-      renderGroupSelect() {
-        const select = document.getElementById('groupSelect');
-        select.innerHTML = this.groups.map(g => `<option value="${g}">${g}</option>`).join('');
+      renderTabs() {
+        const tabs = document.getElementById('groupTabs');
+        tabs.innerHTML = this.groups.map(g => `
+          <button class="group-tab ${g === this.activeGroup ? 'active' : ''}" data-group="${g}">${g}</button>
+        `).join('');
       }
 
-      render() {
+      renderGroup() {
         const wrap = document.getElementById('groupWrap');
-        if (!this.sounds.length) {
-          wrap.innerHTML = '<div class="empty">暂无音效，请先导入</div>';
+        if (!this.activeGroup) {
+          wrap.innerHTML = '<div class="empty">暂无分组</div>';
           return;
         }
 
-        const grouped = {};
-        for (const s of this.sounds) {
-          if (!grouped[s.group]) grouped[s.group] = [];
-          grouped[s.group].push(s);
-        }
+        const list = this.sounds.filter(s => s.group === this.activeGroup);
+        const isDefault = DEFAULT_GROUPS.includes(this.activeGroup);
 
-        const order = Array.from(new Set([...DEFAULT_GROUPS, ...Object.keys(grouped)]));
-        wrap.innerHTML = order.map(group => {
-          const list = grouped[group] || [];
-          const isDefault = DEFAULT_GROUPS.includes(group);
-          return `
-            <div class="group-card">
-              <div class="group-header">
-                <div class="group-title">${group}${isDefault ? '<span class="default-badge">默认分组</span>' : ''}</div>
-                <div style="font-size:12px;color:#757575;">${list.length} 个音效</div>
-              </div>
-              ${list.length ? list.map(sound => `
-                <div class="effect-item" data-key="${sound.key}" data-filename="${sound.filename}" data-deletable="${sound.deletable}">
-                  <span class="material-icons">music_note</span>
-                  <div class="effect-info">
-                    <div class="effect-id-row">
-                      <span class="effect-id">${sound.displayId || sound.name}</span>
-                      <input class="effect-id-input" value="${sound.displayId || sound.name}" />
-                    </div>
-                    <div class="meta">${sound.filename} · ${sound.source === 'builtin' ? '默认自带' : '用户导入'}</div>
-                  </div>
-                  <button class="icon-btn btn-edit" title="编辑ID"><span class="material-icons">edit</span></button>
-                  <button class="icon-btn btn-play" title="试听"><span class="material-icons">play_arrow</span></button>
-                  <button class="icon-btn btn-delete delete" title="删除"><span class="material-icons">delete</span></button>
-                </div>
-              `).join('') : '<div class="empty">该分组暂无音效</div>'}
+        wrap.innerHTML = `
+          <div class="group-card">
+            <div class="group-header">
+              <div class="group-title">${this.activeGroup}${isDefault ? '<span class="default-badge">默认分组</span>' : ''}</div>
+              <div style="font-size:12px; color:#757575;">${list.length} 个音效</div>
             </div>
-          `;
-        }).join('');
+            ${list.length ? list.map(sound => `
+              <div class="effect-item" data-key="${sound.key}" data-deletable="${sound.deletable}">
+                <span class="material-icons">music_note</span>
+                <div class="effect-info">
+                  <div class="effect-id-row">
+                    <span class="effect-id">${sound.displayId || sound.name}</span>
+                    <input class="effect-id-input" value="${sound.displayId || sound.name}" />
+                  </div>
+                  <div class="meta">${sound.filename} · ${sound.source === 'builtin' ? '默认自带' : '用户导入'}</div>
+                </div>
+
+                <select class="group-select-inline">
+                  ${this.groups.map(g => `<option value="${g}" ${g === sound.group ? 'selected' : ''}>${g}</option>`).join('')}
+                </select>
+
+                <button class="icon-btn btn-edit" title="编辑ID"><span class="material-icons">edit</span></button>
+                <button class="icon-btn btn-play" title="试听"><span class="material-icons">play_arrow</span></button>
+                <button class="icon-btn btn-delete delete" title="删除"><span class="material-icons">delete</span></button>
+              </div>
+            `).join('') : '<div class="empty">该分组暂无音效</div>'}
+          </div>
+        `;
       }
 
-      playPreview(filename, key, btn) {
+      playPreview(key, btn) {
         const sourceObj = this.sounds.find(s => s.key === key);
         if (!sourceObj?.path) return;
         this.stopPreview();
@@ -257,7 +490,7 @@
         audio.onerror = () => { this.toast('播放失败'); this.stopPreview(); };
 
         this.currentAudio = audio;
-        this.currentAudioFilename = key;
+        this.currentAudioKey = key;
         this.currentPlayBtn = btn;
 
         audio.play().catch(() => this.stopPreview());
@@ -270,14 +503,16 @@
           this.currentAudio.currentTime = 0;
           this.currentAudio = null;
         }
-        this.currentAudioFilename = null;
+        this.currentAudioKey = null;
         if (this.currentPlayBtn) {
           this.currentPlayBtn.querySelector('.material-icons').textContent = 'play_arrow';
           this.currentPlayBtn = null;
         }
       }
 
-      toFileUrl(filePath) { return `file:///${encodeURI(filePath.replace(/\\/g, '/'))}`; }
+      toFileUrl(filePath) {
+        return `file:///${encodeURI(filePath.replace(/\\/g, '/'))}`;
+      }
 
       toast(msg) {
         const t = document.getElementById('toast');
