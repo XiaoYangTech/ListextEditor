@@ -14,21 +14,27 @@ const BUILTIN_GROUP_DIRS = {
   '环境音': 'ambient'
 };
 
+function getBuiltInRoots() {
+  const roots = [];
+  if (fs.existsSync(builtInSoundsDir)) roots.push(builtInSoundsDir);
+  if (fs.existsSync(devBuiltInSoundsDir) && devBuiltInSoundsDir !== builtInSoundsDir) roots.push(devBuiltInSoundsDir);
+  // fallback for first run in dev
+  if (!roots.length) roots.push(devBuiltInSoundsDir);
+  return roots;
+}
+
 function getBuiltInDir() {
-  if (fs.existsSync(builtInSoundsDir)) return builtInSoundsDir;
-  return devBuiltInSoundsDir;
+  return getBuiltInRoots()[0];
 }
 
 function ensureBuiltInGroupDirs() {
-  const root = getBuiltInDir();
+  // only ensure in dev root; resources may be read-only
   try {
-    ensureDir(root);
+    ensureDir(devBuiltInSoundsDir);
     for (const folder of Object.values(BUILTIN_GROUP_DIRS)) {
-      ensureDir(path.join(root, folder));
+      ensureDir(path.join(devBuiltInSoundsDir, folder));
     }
-  } catch (_) {
-    // packaged resources may be read-only, ignore
-  }
+  } catch (_) {}
 }
 
 function getEntryKey(source, group, filename) {
@@ -43,23 +49,31 @@ function scanAudioFiles(dir) {
 }
 
 function scanBuiltInSounds() {
-  const root = getBuiltInDir();
+  const roots = getBuiltInRoots();
   const list = [];
+  const dedupe = new Set(); // group+filename
 
-  for (const [groupName, folder] of Object.entries(BUILTIN_GROUP_DIRS)) {
-    const dir = path.join(root, folder);
-    if (!fs.existsSync(dir)) continue;
-    const files = scanAudioFiles(dir);
-    for (const file of files) {
-      list.push({
-        key: getEntryKey('builtin', groupName, file),
-        source: 'builtin',
-        group: groupName,
-        filename: file,
-        name: path.basename(file, path.extname(file)),
-        path: path.join(dir, file),
-        deletable: false
-      });
+  // priority: roots order (resources first, then dev)
+  for (const root of roots) {
+    for (const [groupName, folder] of Object.entries(BUILTIN_GROUP_DIRS)) {
+      const dir = path.join(root, folder);
+      if (!fs.existsSync(dir)) continue;
+      const files = scanAudioFiles(dir);
+      for (const file of files) {
+        const dKey = `${groupName}::${file}`;
+        if (dedupe.has(dKey)) continue;
+        dedupe.add(dKey);
+
+        list.push({
+          key: getEntryKey('builtin', groupName, file),
+          source: 'builtin',
+          group: groupName,
+          filename: file,
+          name: path.basename(file, path.extname(file)),
+          path: path.join(dir, file),
+          deletable: false
+        });
+      }
     }
   }
 
@@ -69,26 +83,20 @@ function scanBuiltInSounds() {
 function scanUserSounds() {
   ensureDir(userSoundsDir);
   const files = scanAudioFiles(userSoundsDir);
-  const list = [];
-  for (const file of files) {
-    list.push({
-      key: getEntryKey('user', '用户音效', file),
-      source: 'user',
-      group: '用户音效',
-      filename: file,
-      name: path.basename(file, path.extname(file)),
-      path: path.join(userSoundsDir, file),
-      deletable: true
-    });
-  }
-  return list;
+  return files.map(file => ({
+    key: getEntryKey('user', '用户音效', file),
+    source: 'user',
+    group: '用户音效',
+    filename: file,
+    name: path.basename(file, path.extname(file)),
+    path: path.join(userSoundsDir, file),
+    deletable: true
+  }));
 }
 
 function scanSoundsFolder() {
   ensureBuiltInGroupDirs();
-  const builtIn = scanBuiltInSounds();
-  const user = scanUserSounds();
-  return [...builtIn, ...user];
+  return [...scanBuiltInSounds(), ...scanUserSounds()];
 }
 
 function ensureGroupExists(config, group) {
@@ -212,7 +220,12 @@ function registerSoundHandlers(ipcMain, mainWindow) {
   ipcMain.handle('get-sounds-path', async () => {
     ensureBuiltInGroupDirs();
     ensureDir(userSoundsDir);
-    return { builtin: getBuiltInDir(), user: userSoundsDir, builtinFolders: BUILTIN_GROUP_DIRS };
+    return {
+      builtin: getBuiltInDir(),
+      builtinRoots: getBuiltInRoots(),
+      user: userSoundsDir,
+      builtinFolders: BUILTIN_GROUP_DIRS
+    };
   });
 
   ipcMain.handle('import-sound', async (event, sourcePath, groupName) => {
@@ -263,6 +276,7 @@ module.exports = {
   registerSoundHandlers,
   userSoundsDir,
   getBuiltInDir,
+  getBuiltInRoots,
   buildEffectsMap,
   BUILTIN_GROUP_DIRS
 };
