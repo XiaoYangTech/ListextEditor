@@ -1,7 +1,8 @@
-const { ipcMain, shell, net, session, app } = require('electron');
+﻿const { ipcMain, shell, net, session, app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { ensureDir } = require('./utils');
+const { openRoleManager, openSettingsWindow } = require('./window-manager');
 
 const tempDir = path.join(app.getPath('temp'), 'listext-editor');
 
@@ -34,6 +35,16 @@ function registerIpcHandlers() {
   ipcMain.handle('open-external', async (event, url) => {
     if (!url) return { success: false };
     await shell.openExternal(url);
+    return { success: true };
+  });
+
+  ipcMain.handle('open-role-manager-window', async () => {
+    openRoleManager();
+    return { success: true };
+  });
+
+  ipcMain.handle('open-settings-window', async () => {
+    openSettingsWindow();
     return { success: true };
   });
 

@@ -1,4 +1,4 @@
-class CodeEditor {
+﻿class CodeEditor {
   constructor(elements, parser, callbacks) {
     this.editor = elements.codeEditor;
     this.lineNumbers = elements.lineNumbers;
@@ -12,15 +12,11 @@ class CodeEditor {
   }
 
   init() {
-    // 行号更新
-    this.updateLineNumbers();
-    this.updateCodeHighlight();
-    
+    this.refreshView();
+
     this.editor.addEventListener('input', () => {
-      this.updateLineNumbers();
+      this.refreshView();
       if (this.callbacks.onInput) this.callbacks.onInput();
-      this.validateCode();
-      this.updateCodeHighlight();
       this.updateSuggestions();
     });
 
@@ -33,18 +29,13 @@ class CodeEditor {
     });
 
     this.editor.addEventListener('blur', () => {
-      // 延迟隐藏，以便点击建议项时能触发事件
       setTimeout(() => this.hideSuggestions(), 200);
     });
-    
+
     this.editor.addEventListener('scroll', () => {
-      this.lineNumbers.scrollTop = this.editor.scrollTop;
-      if (this.highlight) {
-        this.highlight.scrollTop = this.editor.scrollTop;
-      }
+      this.syncScroll();
     });
-    
-    // Tab 键支持
+
     this.editor.addEventListener('keydown', (e) => {
       if (this.handleKeydown(e)) return;
     });
@@ -56,18 +47,33 @@ class CodeEditor {
 
   setValue(value) {
     this.editor.value = value;
-    this.updateLineNumbers();
-    this.updateCodeHighlight();
-    this.validateCode();
+    this.refreshView();
   }
 
   focus() {
     this.editor.focus();
   }
 
+  refreshView() {
+    this.updateLineNumbers();
+    this.updateCodeHighlight();
+    this.validateCode();
+    this.syncScroll();
+  }
+
+  syncScroll() {
+    if (this.lineNumbers) {
+      this.lineNumbers.scrollTop = this.editor.scrollTop;
+    }
+    if (this.highlight) {
+      this.highlight.scrollTop = this.editor.scrollTop;
+      this.highlight.scrollLeft = this.editor.scrollLeft;
+    }
+  }
+
   updateLineNumbers() {
     const lines = this.editor.value.split('\n');
-    this.lineNumbers.innerHTML = lines.map((_, i) => 
+    this.lineNumbers.innerHTML = lines.map((_, i) =>
       `<div class="line-number">${i + 1}</div>`
     ).join('');
   }
@@ -137,7 +143,6 @@ class CodeEditor {
 
   updateSuggestions() {
     if (!this.suggestions || !this.editor) return;
-    // 如果没有焦点，不显示建议
     if (document.activeElement !== this.editor) return;
 
     const caret = this.editor.selectionStart;
@@ -203,13 +208,13 @@ class CodeEditor {
   showSuggestionsAtCursor(items, prefix, replaceStart, hint) {
     const caret = this.editor.selectionStart;
     const before = this.editor.value.slice(0, caret);
-    const lineHeight = 22.4; // 假设行高
+    const lineHeight = 22.4;
     const lastNewline = before.lastIndexOf('\n');
     const line = before.slice(0, caret).split('\n').length - 1;
     const col = lastNewline === -1 ? before.length : before.length - lastNewline - 1;
-    const left = 50 + 16 + col * 8; // 50(行号) + 16(padding) + col * charWidth
+    const left = 50 + 16 + col * 8;
     const top = 16 + line * lineHeight - this.editor.scrollTop + lineHeight;
-    
+
     this.renderSuggestions(items, { left, top }, prefix, replaceStart, hint);
   }
 
@@ -252,8 +257,7 @@ class CodeEditor {
     const nextPos = before.length + cursorOffset;
     this.editor.selectionStart = this.editor.selectionEnd = nextPos;
     this.hideSuggestions();
-    this.updateLineNumbers();
-    this.updateCodeHighlight();
+    this.refreshView();
     if (this.callbacks.onInput) this.callbacks.onInput();
   }
 
@@ -267,8 +271,7 @@ class CodeEditor {
     const nextPos = before.length + value.length + 2;
     this.editor.selectionStart = this.editor.selectionEnd = nextPos;
     this.hideSuggestions();
-    this.updateLineNumbers();
-    this.updateCodeHighlight();
+    this.refreshView();
     if (this.callbacks.onInput) this.callbacks.onInput();
   }
 
@@ -290,8 +293,7 @@ class CodeEditor {
     if (start === end) {
       this.editor.value = value.substring(0, start) + '  ' + value.substring(end);
       this.editor.selectionStart = this.editor.selectionEnd = start + 2;
-      this.updateLineNumbers();
-      this.updateCodeHighlight();
+      this.refreshView();
       if (this.callbacks.onInput) this.callbacks.onInput();
       return;
     }
@@ -306,8 +308,7 @@ class CodeEditor {
     const newEnd = end + lines.length * 2;
     this.editor.selectionStart = newStart;
     this.editor.selectionEnd = newEnd;
-    this.updateLineNumbers();
-    this.updateCodeHighlight();
+    this.refreshView();
     if (this.callbacks.onInput) this.callbacks.onInput();
   }
 
@@ -337,8 +338,7 @@ class CodeEditor {
     const newEnd = Math.max(lineStart, end - removedTotal);
     this.editor.selectionStart = newStart;
     this.editor.selectionEnd = newEnd;
-    this.updateLineNumbers();
-    this.updateCodeHighlight();
+    this.refreshView();
     if (this.callbacks.onInput) this.callbacks.onInput();
   }
 
@@ -350,7 +350,7 @@ class CodeEditor {
 
   validateCode() {
     if (!this.errorContainer) return;
-    
+
     const code = this.editor.value;
     let errors = [];
     try {
@@ -364,11 +364,11 @@ class CodeEditor {
     } catch (e) {
       errors = [{ line: 1, message: '代码校验失败，请检查语法' }];
     }
-    
+
     if (errors.length > 0) {
       this.errorContainer.style.display = 'block';
-      this.errorContainer.innerHTML = errors.map(e => 
-        `<div>第 ${e.line} 行: ${e.message}</div>`
+      this.errorContainer.innerHTML = errors.map(e =>
+        `<div>第${e.line}行: ${e.message}</div>`
       ).join('');
     } else {
       this.errorContainer.style.display = 'none';

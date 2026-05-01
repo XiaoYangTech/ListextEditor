@@ -1,0 +1,221 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>角色管理器</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --md-primary: #1976D2;
+      --md-primary-dark: #1565C0;
+      --md-background: #FAFAFA;
+      --md-surface: #FFFFFF;
+      --md-on-surface: #212121;
+      --md-on-surface-variant: #757575;
+      --md-divider: #E0E0E0;
+      --md-error: #B00020;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Roboto', 'Microsoft YaHei', sans-serif; background: var(--md-background); color: var(--md-on-surface); }
+    .header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background:var(--md-primary); color:#fff; }
+    .header h1 { font-size: 18px; font-weight: 500; }
+    .container { padding: 16px; }
+    .card { background: var(--md-surface); border: 1px solid var(--md-divider); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+    .list-item { border: 1px solid var(--md-divider); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; display:flex; align-items:center; justify-content:space-between; gap: 10px; }
+    .list-item .meta { font-size: 12px; color: var(--md-on-surface-variant); margin-top: 4px; }
+    .actions { display: flex; gap: 8px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-group label { display:block; font-size: 12px; color: var(--md-on-surface-variant); margin-bottom: 6px; }
+    .form-group input, .form-group select { width:100%; padding:10px; border:1px solid var(--md-divider); border-radius: 6px; font-size: 14px; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--md-primary); }
+    .full { grid-column: 1 / -1; }
+    .btn { border:none; border-radius:6px; padding:8px 12px; cursor:pointer; font-size:13px; }
+    .btn-primary { background: var(--md-primary); color:#fff; }
+    .btn-primary:hover { background: var(--md-primary-dark); }
+    .btn-ghost { background: #eee; color: #333; }
+    .btn-danger { background: #ffebee; color: var(--md-error); }
+    .row-end { display:flex; justify-content:flex-end; gap: 8px; margin-top: 12px; }
+    .empty { color: var(--md-on-surface-variant); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>角色管理器</h1>
+    <button id="btnRefresh" class="btn btn-ghost">刷新发音人</button>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <h3 style="margin-bottom: 12px; font-size:15px;">角色列表</h3>
+      <div id="roleList"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom: 12px; font-size:15px;">添加 / 编辑角色</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>角色ID</label>
+          <input id="roleId" type="text" placeholder="例如 teacher">
+        </div>
+        <div class="form-group">
+          <label>角色名称</label>
+          <input id="roleName" type="text" placeholder="例如 老师">
+        </div>
+        <div class="form-group">
+          <label>TTS 类型</label>
+          <select id="roleType">
+            <option value="edge">EdgeTTS</option>
+            <option value="local">本地TTS</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>发音人</label>
+          <select id="roleVoice"></select>
+        </div>
+      </div>
+      <div class="row-end">
+        <button id="btnClear" class="btn btn-ghost">清空</button>
+        <button id="btnSave" class="btn btn-primary">保存角色</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    class RoleManagerPage {
+      constructor() {
+        this.roleList = document.getElementById('roleList');
+        this.roleId = document.getElementById('roleId');
+        this.roleName = document.getElementById('roleName');
+        this.roleType = document.getElementById('roleType');
+        this.roleVoice = document.getElementById('roleVoice');
+        this.btnSave = document.getElementById('btnSave');
+        this.btnClear = document.getElementById('btnClear');
+        this.btnRefresh = document.getElementById('btnRefresh');
+
+        this.bind();
+        this.init();
+      }
+
+      bind() {
+        this.roleType.addEventListener('change', () => this.populateVoices());
+        this.btnSave.addEventListener('click', () => this.saveRole());
+        this.btnClear.addEventListener('click', () => this.clearForm());
+        this.btnRefresh.addEventListener('click', () => this.populateVoices());
+      }
+
+      async init() {
+        await this.populateVoices();
+        this.renderRoles();
+      }
+
+      getRoles() {
+        try {
+          return JSON.parse(localStorage.getItem('listext_roles') || '[]');
+        } catch {
+          return [];
+        }
+      }
+
+      setRoles(roles) {
+        localStorage.setItem('listext_roles', JSON.stringify(roles));
+      }
+
+      async populateVoices() {
+        const type = this.roleType.value;
+        this.roleVoice.innerHTML = '<option value="">加载中...</option>';
+
+        if (type === 'edge' && window.electronAPI?.listEdgeVoices) {
+          const res = await window.electronAPI.listEdgeVoices();
+          const voices = res?.voices || [];
+          this.roleVoice.innerHTML = voices.length
+            ? voices.map(v => `<option value="${v}">${v}</option>`).join('')
+            : '<option value="">未获取到 EdgeTTS 发音人</option>';
+          return;
+        }
+
+        const voices = speechSynthesis.getVoices();
+        this.roleVoice.innerHTML = voices.length
+          ? voices.map(v => `<option value="${v.name}">${v.name} (${v.lang})</option>`).join('')
+          : '<option value="">未获取到本地发音人</option>';
+      }
+
+      renderRoles() {
+        const roles = this.getRoles();
+        if (!roles.length) {
+          this.roleList.innerHTML = '<div class="empty">尚未添加角色</div>';
+          return;
+        }
+
+        this.roleList.innerHTML = roles.map(role => `
+          <div class="list-item" data-id="${role.id}">
+            <div>
+              <div><strong>${role.name}</strong> (${role.id})</div>
+              <div class="meta">${role.type === 'edge' ? 'EdgeTTS' : '本地TTS'} · ${role.voice || '未设置'}</div>
+            </div>
+            <div class="actions">
+              <button class="btn btn-ghost" data-action="edit" data-id="${role.id}">编辑</button>
+              <button class="btn btn-danger" data-action="delete" data-id="${role.id}">删除</button>
+            </div>
+          </div>
+        `).join('');
+
+        this.roleList.querySelectorAll('button[data-action="edit"]').forEach(btn => {
+          btn.addEventListener('click', () => this.editRole(btn.dataset.id));
+        });
+        this.roleList.querySelectorAll('button[data-action="delete"]').forEach(btn => {
+          btn.addEventListener('click', () => this.deleteRole(btn.dataset.id));
+        });
+      }
+
+      async editRole(id) {
+        const role = this.getRoles().find(r => r.id === id);
+        if (!role) return;
+
+        this.roleId.value = role.id;
+        this.roleName.value = role.name || '';
+        this.roleType.value = role.type || 'local';
+        await this.populateVoices();
+        this.roleVoice.value = role.voice || '';
+      }
+
+      deleteRole(id) {
+        const roles = this.getRoles().filter(r => r.id !== id);
+        this.setRoles(roles);
+        this.renderRoles();
+      }
+
+      clearForm() {
+        this.roleId.value = '';
+        this.roleName.value = '';
+        this.roleVoice.value = '';
+      }
+
+      saveRole() {
+        const id = this.roleId.value.trim();
+        const name = this.roleName.value.trim();
+        const type = this.roleType.value;
+        const voice = this.roleVoice.value.trim();
+
+        if (!id || !name) {
+          alert('请填写角色ID和角色名称');
+          return;
+        }
+
+        const roles = this.getRoles();
+        const payload = { id, name, type, voice };
+        const idx = roles.findIndex(r => r.id === id);
+        if (idx >= 0) roles[idx] = payload;
+        else roles.push(payload);
+
+        this.setRoles(roles);
+        this.renderRoles();
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      window.roleManagerPage = new RoleManagerPage();
+    });
+  </script>
+</body>
+</html>

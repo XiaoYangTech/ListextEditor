@@ -1,4 +1,4 @@
-class FileManager {
+﻿class FileManager {
   constructor(app) {
     this.app = app;
     this.api = window.electronAPI;
@@ -20,7 +20,7 @@ class FileManager {
   async saveFile() {
     const tab = this.app.tabManager.getActiveTab();
     if (!tab) return;
-    
+
     if (tab.filePath) {
       await this.saveFileAs(tab.filePath);
     } else {
@@ -33,30 +33,27 @@ class FileManager {
 
   async saveFileAs(filePath) {
     const tab = this.app.tabManager.getActiveTab();
-    if (!tab) return;
-    
-    // 获取当前最新内容
+    if (!tab) return false;
+
     const content = this.app.getContent();
-    
     const result = await this.api?.saveFile(filePath, content);
-    
+
     if (result?.success) {
-      // 更新标签页状态
       const fileName = filePath.split(/[/\\]/).pop();
       this.app.tabManager.updateTab(tab.id, {
-        filePath: filePath,
+        filePath,
         title: fileName,
-        content: content,
+        content,
         isDirty: false
       });
-      
+
       this.updateStatusForTab(this.app.tabManager.getActiveTab());
-      this.app.statusText.textContent = '已保存';
+      this.app.updateStatus('已保存');
       return true;
-    } else {
-      this.app.statusText.textContent = '保存失败: ' + (result?.error || '未知错误');
-      return false;
     }
+
+    this.app.updateStatus('保存失败: ' + (result?.error || '未知错误'));
+    return false;
   }
 
   markUnsaved() {
@@ -68,13 +65,13 @@ class FileManager {
 
   updateStatusForTab(tab) {
     if (!tab) return;
-    
+
     const name = tab.filePath || '未保存';
     const dirty = tab.isDirty ? ' *' : '';
-    if (this.app.currentFileEl) {
-      this.app.currentFileEl.textContent = `${name}${dirty}`;
+    if (this.app.uiManager?.currentFileEl) {
+      this.app.uiManager.currentFileEl.textContent = `${name}${dirty}`;
     }
-    this.app.statusText.textContent = tab.isDirty ? '有未保存更改' : '就绪';
+    this.app.updateStatus(tab.isDirty ? '有未保存更改' : '就绪');
   }
 
   async saveSpecificTab(tabId) {
@@ -82,12 +79,15 @@ class FileManager {
     if (activeId && activeId !== tabId) {
       this.app.tabManager.activateTab(tabId);
     }
-    await this.saveFile();
-    const tab = this.app.tabManager.getActiveTab();
-    const saved = tab && !tab.isDirty;
+
+    const ok = await this.saveFile();
+
     if (activeId && activeId !== tabId) {
       this.app.tabManager.activateTab(activeId);
     }
-    return saved;
+
+    if (!ok) return false;
+    const tab = this.app.tabManager.tabs.find(t => t.id === tabId);
+    return !!tab && !tab.isDirty;
   }
 }

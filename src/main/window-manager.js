@@ -1,13 +1,29 @@
-const { BrowserWindow, Menu, dialog, shell } = require('electron');
+﻿const { BrowserWindow, Menu, dialog, shell } = require('electron');
 const path = require('path');
 const { ensureDir } = require('./utils');
 
 let mainWindow;
 let effectManagerWindow = null;
+let roleManagerWindow = null;
+let settingsWindow = null;
 const soundsDir = path.join(path.dirname(process.execPath), 'sounds');
 
 function getMainWindow() {
   return mainWindow;
+}
+
+function getMainTargetWindow() {
+  const focused = BrowserWindow.getFocusedWindow();
+  if (focused && focused === mainWindow) return focused;
+  if (mainWindow && !mainWindow.isDestroyed()) return mainWindow;
+  return focused || null;
+}
+
+function sendToMain(channel, ...args) {
+  const target = getMainTargetWindow();
+  if (target && target.webContents && !target.webContents.isDestroyed()) {
+    target.webContents.send(channel, ...args);
+  }
 }
 
 function createMainWindow() {
@@ -19,24 +35,28 @@ function createMainWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, '../../preload.js')
+      preload: path.join(__dirname, '../../preload.js'),
+      sandbox: false
     },
     title: 'Listext Editor'
   });
 
   mainWindow.loadFile('index.html');
 
+  mainWindow.on('closed', () => {
+    if (effectManagerWindow && !effectManagerWindow.isDestroyed()) effectManagerWindow.close();
+    if (roleManagerWindow && !roleManagerWindow.isDestroyed()) roleManagerWindow.close();
+    if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.close();
+  });
+
   createMenu();
-  
+
   return mainWindow;
 }
 
 function createMenu() {
   const sendEditAction = (action) => {
-    const target = BrowserWindow.getFocusedWindow() || mainWindow;
-    if (target && target.webContents) {
-      target.webContents.send('menu-edit', action);
-    }
+    sendToMain('menu-edit', action);
   };
 
   const menuTemplate = [
@@ -46,38 +66,40 @@ function createMenu() {
         {
           label: '新建',
           accelerator: 'CmdOrCtrl+N',
-          click: () => mainWindow.webContents.send('menu-new')
+          click: () => sendToMain('menu-new')
         },
         {
           label: '打开',
           accelerator: 'CmdOrCtrl+O',
           click: async () => {
-            const result = await dialog.showOpenDialog(mainWindow, {
+            const owner = getMainTargetWindow() || mainWindow;
+            const result = await dialog.showOpenDialog(owner, {
               filters: [{ name: 'Listext Files', extensions: ['lxt', 'txt'] }],
               properties: ['openFile']
             });
             if (!result.canceled && result.filePaths.length > 0) {
               const fs = require('fs');
               const content = fs.readFileSync(result.filePaths[0], 'utf-8');
-              mainWindow.webContents.send('file-opened', content, result.filePaths[0]);
+              sendToMain('file-opened', content, result.filePaths[0]);
             }
           }
         },
         {
           label: '保存',
           accelerator: 'CmdOrCtrl+S',
-          click: () => mainWindow.webContents.send('menu-save')
+          click: () => sendToMain('menu-save')
         },
         {
           label: '另存为',
           accelerator: 'CmdOrCtrl+Shift+S',
           click: async () => {
-            const result = await dialog.showSaveDialog(mainWindow, {
+            const owner = getMainTargetWindow() || mainWindow;
+            const result = await dialog.showSaveDialog(owner, {
               filters: [{ name: 'Listext Files', extensions: ['lxt'] }],
               defaultPath: 'untitled.lxt'
             });
             if (!result.canceled) {
-              mainWindow.webContents.send('menu-save-as', result.filePath);
+              sendToMain('menu-save-as', result.filePath);
             }
           }
         },
@@ -86,12 +108,13 @@ function createMenu() {
           label: '导出音频',
           accelerator: 'CmdOrCtrl+E',
           click: async () => {
-            const result = await dialog.showSaveDialog(mainWindow, {
+            const owner = getMainTargetWindow() || mainWindow;
+            const result = await dialog.showSaveDialog(owner, {
               filters: [{ name: 'WAV Audio', extensions: ['wav'] }],
               defaultPath: 'listening.wav'
             });
             if (!result.canceled) {
-              mainWindow.webContents.send('export-audio', result.filePath);
+              sendToMain('export-audio', result.filePath);
             }
           }
         },
@@ -119,12 +142,12 @@ function createMenu() {
           click: () => openEffectManager()
         },
         {
-          label: '设置',
-          click: () => mainWindow.webContents.send('show-settings')
+          label: '角色管理器',
+          click: () => openRoleManager()
         },
         {
-          label: '角色管理器',
-          click: () => mainWindow.webContents.send('show-role-manager')
+          label: '设置',
+          click: () => openSettingsWindow()
         },
         {
           label: '打开 sounds 文件夹',
@@ -137,12 +160,12 @@ function createMenu() {
         {
           label: '预览播放',
           accelerator: 'F5',
-          click: () => mainWindow.webContents.send('preview-play')
+          click: () => sendToMain('preview-play')
         },
         {
           label: '停止播放',
           accelerator: 'Escape',
-          click: () => mainWindow.webContents.send('stop-play')
+          click: () => sendToMain('stop-play')
         }
       ]
     },
@@ -151,13 +174,14 @@ function createMenu() {
       submenu: [
         {
           label: 'Listext 语法说明',
-          click: () => mainWindow.webContents.send('show-syntax-help')
+          click: () => sendToMain('show-syntax-help')
         },
         { type: 'separator' },
         {
           label: '关于',
           click: () => {
-            dialog.showMessageBox(mainWindow, {
+            const owner = getMainTargetWindow() || mainWindow;
+            dialog.showMessageBox(owner, {
               type: 'info',
               title: '关于 Listext Editor',
               message: 'Listext Editor v1.0.0',
@@ -173,23 +197,28 @@ function createMenu() {
   Menu.setApplicationMenu(menu);
 }
 
-function openEffectManager() {
-  if (effectManagerWindow) {
-    effectManagerWindow.focus();
-    return;
-  }
-
-  effectManagerWindow = new BrowserWindow({
-    width: 700,
-    height: 600,
-    parent: mainWindow,
-    modal: false,
+function buildChildWindow(options) {
+  return new BrowserWindow({
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, '../../preload.js')
+      preload: path.join(__dirname, '../../preload.js'),
+      sandbox: false
     },
+    ...options
+  });
+}
+
+function openEffectManager() {
+  if (effectManagerWindow && !effectManagerWindow.isDestroyed()) {
+    effectManagerWindow.focus();
+    return;
+  }
+
+  effectManagerWindow = buildChildWindow({
+    width: 700,
+    height: 600,
     title: '音效管理器'
   });
 
@@ -202,8 +231,54 @@ function openEffectManager() {
   });
 }
 
+function openRoleManager() {
+  if (roleManagerWindow && !roleManagerWindow.isDestroyed()) {
+    roleManagerWindow.focus();
+    return;
+  }
+
+  roleManagerWindow = buildChildWindow({
+    width: 760,
+    height: 680,
+    title: '角色管理器'
+  });
+
+  roleManagerWindow.loadFile('role-manager.html');
+  roleManagerWindow.setMenu(null);
+  roleManagerWindow.setMenuBarVisibility(false);
+
+  roleManagerWindow.on('closed', () => {
+    roleManagerWindow = null;
+  });
+}
+
+function openSettingsWindow() {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.focus();
+    return;
+  }
+
+  settingsWindow = buildChildWindow({
+    width: 520,
+    height: 360,
+    resizable: false,
+    title: '设置'
+  });
+
+  settingsWindow.loadFile('settings.html');
+  settingsWindow.setMenu(null);
+  settingsWindow.setMenuBarVisibility(false);
+
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
+  });
+}
+
 module.exports = {
   createMainWindow,
   getMainWindow,
-  openEffectManager
+  openEffectManager,
+  openRoleManager,
+  openSettingsWindow
 };
+

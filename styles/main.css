@@ -1,4 +1,4 @@
-/* Material Design 2 基础变量 */
+﻿/* Material Design 2 鍩虹鍙橀噺 */
 :root {
   --md-primary: #1976D2;
   --md-primary-dark: #1565C0;
@@ -16,7 +16,7 @@
   
   --font-family: 'Roboto', 'Microsoft YaHei', sans-serif;
   
-  /* 标签颜色 */
+  /* 鏍囩棰滆壊 */
   --tag-h: #E3F2FD;
   --tag-h-border: #1976D2;
   --tag-i: #F3E5F5;
@@ -57,7 +57,7 @@ body {
   height: 100vh;
 }
 
-/* 应用栏 */
+/* 搴旂敤鏍?*/
 .app-bar {
   display: flex;
   align-items: center;
@@ -145,7 +145,7 @@ body {
   font-size: 24px;
 }
 
-/* 主内容区 */
+/* 涓诲唴瀹瑰尯 */
 .main-content {
   flex: 1;
   overflow: hidden;
@@ -165,7 +165,7 @@ body {
   display: flex;
 }
 
-/* 工具栏 */
+/* 宸ュ叿鏍?*/
 .toolbar {
   display: flex;
   align-items: center;
@@ -208,7 +208,7 @@ body {
   margin: 0 4px;
 }
 
-/* 积木容器 */
+/* 绉湪瀹瑰櫒 */
 .block-container {
   flex: 1;
   overflow-y: auto;
@@ -236,7 +236,7 @@ body {
   text-align: center;
 }
 
-/* 积木块通用样式 */
+/* 绉湪鍧楅€氱敤鏍峰紡 */
 .block {
   background: var(--md-surface);
   border-radius: 8px;
@@ -320,7 +320,7 @@ body {
   padding: 12px 16px;
 }
 
-/* 标题块 */
+/* 鏍囬鍧?*/
 .block-h {
   border-left: 4px solid var(--tag-h-border);
 }
@@ -330,7 +330,7 @@ body {
   color: var(--tag-h-border);
 }
 
-/* 指导语块 */
+/* 鎸囧璇潡 */
 .block-i {
   border-left: 4px solid var(--tag-i-border);
 }
@@ -340,7 +340,7 @@ body {
   color: var(--tag-i-border);
 }
 
-/* 测试块 */
+/* 娴嬭瘯鍧?*/
 .block-t {
   border-left: 4px solid var(--tag-t-border);
 }
@@ -350,7 +350,7 @@ body {
   color: var(--tag-t-border);
 }
 
-/* 重复块 */
+/* 閲嶅鍧?*/
 .block-repeat {
   border-left: 4px solid var(--tag-r-border);
   border: 2px dashed var(--tag-r-border);
@@ -382,7 +382,7 @@ body {
   margin-left: 8px;
 }
 
-/* 对话块 */
+/* 瀵硅瘽鍧?*/
 .block-a, .block-b {
   border-left: 4px solid var(--tag-a-border);
 }
@@ -401,7 +401,7 @@ body {
   color: var(--tag-b-border);
 }
 
-/* 问题块 */
+/* 闂鍧?*/
 .block-q {
   border-left: 4px solid var(--tag-q-border);
 }
@@ -411,7 +411,7 @@ body {
   color: var(--tag-q-border);
 }
 
-/* 静音块 */
+/* 闈欓煶鍧?*/
 .block-pause {
   border-left: 4px solid var(--tag-s-border);
 }
@@ -433,7 +433,7 @@ body {
   opacity: 0.7;
 }
 
-/* 音效块 */
+/* 闊虫晥鍧?*/
 .block-fx {
   border-left: 4px solid var(--tag-fx-border);
 }
@@ -443,7 +443,7 @@ body {
   color: var(--tag-fx-border);
 }
 
-/* 文本编辑器 */
+/* 鏂囨湰缂栬緫鍣?*/
 .block-textarea {
   width: 100%;
   min-height: 60px;
@@ -467,7 +467,7 @@ body {
   outline-offset: -2px;
 }
 
-/* 对话角色行 */
+/* 瀵硅瘽瑙掕壊琛?*/
 .dialog-row {
   display: flex;
   align-items: flex-start;
@@ -526,7 +526,7 @@ body {
   border-color: var(--md-primary);
 }
 
-/* 代码编辑器 */
+/* 浠ｇ爜缂栬緫鍣?*/
 .code-editor-wrapper {
   display: flex;
   height: 100%;
@@ -555,7 +555,8 @@ body {
   flex: 1;
   padding: 16px;
   background: transparent;
-  color: transparent;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent;
   caret-color: #D4D4D4;
   border: none;
   font-family: 'Consolas', 'Monaco', monospace;
@@ -644,7 +645,7 @@ body {
   font-size: 11px;
 }
 
-/* 状态栏 */
+/* 鐘舵€佹爮 */
 .status-bar {
   display: flex;
   justify-content: space-between;
@@ -662,7 +663,7 @@ body {
   gap: 16px;
 }
 
-/* 对话框 */
+/* 瀵硅瘽妗?*/
 .dialog {
   display: none;
   position: fixed;
@@ -758,7 +759,7 @@ body {
   justify-content: center;
 }
 
-/* 表单 */
+/* 琛ㄥ崟 */
 .form-group {
   margin-bottom: 16px;
 }
@@ -791,7 +792,7 @@ body {
   border-color: var(--md-primary);
 }
 
-/* 按钮 */
+/* 鎸夐挳 */
 .btn {
   padding: 8px 16px;
   border: none;
@@ -820,7 +821,7 @@ body {
   background: var(--md-divider);
 }
 
-/* 语法帮助 */
+/* 璇硶甯姪 */
 .syntax-help h3 {
   font-size: 14px;
   font-weight: 500;
@@ -867,7 +868,7 @@ body {
   overflow-x: auto;
 }
 
-/* 拖拽排序占位符 */
+/* 鎷栨嫿鎺掑簭鍗犱綅绗?*/
 .sortable-placeholder {
   height: 60px;
   background: rgba(25, 118, 210, 0.1);
@@ -876,7 +877,7 @@ body {
   margin-bottom: 12px;
 }
 
-/* 播放状态 */
+/* 鎾斁鐘舵€?*/
 .playing {
   animation: pulse 1.5s infinite;
 }
@@ -887,7 +888,7 @@ body {
   100% { box-shadow: 0 0 0 0 rgba(25, 118, 210, 0); }
 }
 
-/* 滚动条 */
+/* 婊氬姩鏉?*/
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -906,7 +907,7 @@ body {
   background: #9E9E9E;
 }
 
-/* 响应式 */
+/* 鍝嶅簲寮?*/
 @media (max-width: 768px) {
   .toolbar {
     padding: 8px;
@@ -921,7 +922,7 @@ body {
   }
 }
 
-/* 标签页 */
+/* 鏍囩椤?*/
 .tab-bar-container {
   display: flex;
   align-items: center;
@@ -1034,7 +1035,7 @@ body {
   color: white;
 }
 
-/* 视图模式切换 - 移至主内容区 */
+/* 瑙嗗浘妯″紡鍒囨崲 - 绉昏嚦涓诲唴瀹瑰尯 */
 .view-mode-switch {
   display: flex;
   padding: 8px 16px;
@@ -1056,3 +1057,6 @@ body {
 .view-mode-switch .mode-tab:hover {
   background: rgba(0, 0, 0, 0.05);
 }
+
+
+

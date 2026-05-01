@@ -1,0 +1,107 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>设置</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --md-primary: #1976D2;
+      --md-primary-dark: #1565C0;
+      --md-surface: #FFFFFF;
+      --md-background: #FAFAFA;
+      --md-divider: #E0E0E0;
+      --md-on-surface: #212121;
+      --md-on-surface-variant: #757575;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Roboto', 'Microsoft YaHei', sans-serif; background: var(--md-background); color: var(--md-on-surface); }
+    .header { padding: 16px 20px; background: var(--md-primary); color: #fff; font-size: 18px; font-weight: 500; }
+    .container { padding: 16px; }
+    .card { background: var(--md-surface); border: 1px solid var(--md-divider); border-radius: 8px; padding: 16px; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display:block; font-size: 12px; color: var(--md-on-surface-variant); margin-bottom: 6px; }
+    .form-group input, .form-group select { width:100%; padding:10px; border:1px solid var(--md-divider); border-radius: 6px; font-size: 14px; }
+    .form-group input:focus, .form-group select:focus { outline:none; border-color: var(--md-primary); }
+    .footer { margin-top: 16px; display:flex; justify-content:flex-end; gap: 8px; }
+    .btn { border:none; border-radius:6px; padding:8px 12px; cursor:pointer; font-size:13px; }
+    .btn-primary { background: var(--md-primary); color:#fff; }
+    .btn-primary:hover { background: var(--md-primary-dark); }
+    .btn-ghost { background: #eee; color: #333; }
+    .status { margin-top: 10px; font-size: 12px; color: var(--md-on-surface-variant); }
+  </style>
+</head>
+<body>
+  <div class="header">设置</div>
+  <div class="container">
+    <div class="card">
+      <div class="form-group">
+        <label>代理模式</label>
+        <select id="proxyMode">
+          <option value="system">系统代理</option>
+          <option value="direct">不使用代理</option>
+          <option value="manual">手动代理</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>代理地址</label>
+        <input id="proxyUrl" type="text" placeholder="http://127.0.0.1:7890">
+      </div>
+      <div class="footer">
+        <button id="btnReload" class="btn btn-ghost">重载</button>
+        <button id="btnSave" class="btn btn-primary">保存</button>
+      </div>
+      <div id="status" class="status">就绪</div>
+    </div>
+  </div>
+
+  <script>
+    class SettingsPage {
+      constructor() {
+        this.proxyMode = document.getElementById('proxyMode');
+        this.proxyUrl = document.getElementById('proxyUrl');
+        this.status = document.getElementById('status');
+        this.btnSave = document.getElementById('btnSave');
+        this.btnReload = document.getElementById('btnReload');
+
+        this.bind();
+        this.load();
+      }
+
+      bind() {
+        this.btnSave.addEventListener('click', () => this.save());
+        this.btnReload.addEventListener('click', () => this.load());
+      }
+
+      async load() {
+        if (!window.electronAPI?.getSettings) return;
+        const settings = await window.electronAPI.getSettings();
+        this.proxyMode.value = settings?.proxyMode || 'system';
+        this.proxyUrl.value = settings?.proxyUrl || '';
+        this.setStatus('已加载设置');
+      }
+
+      async save() {
+        if (!window.electronAPI?.saveSettings) return;
+        const current = await window.electronAPI.getSettings();
+        const payload = {
+          ...current,
+          proxyMode: this.proxyMode.value,
+          proxyUrl: this.proxyUrl.value.trim()
+        };
+        const result = await window.electronAPI.saveSettings(payload);
+        this.setStatus(result?.success ? '设置已保存' : '保存失败');
+      }
+
+      setStatus(text) {
+        this.status.textContent = text;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      window.settingsPage = new SettingsPage();
+    });
+  </script>
+</body>
+</html>
