@@ -9,9 +9,14 @@
     if (window.app?.updateStatus) window.app.updateStatus(text);
   }
 
+  async yieldUI() {
+    return new Promise(resolve => setTimeout(resolve, 0));
+  }
+
   async exportAudio(content, parser, playQueue, filePath) {
-    if (!this.api) {
-      this.updateStatus('导出失败: 当前环境不支持');
+    const api = this.api || window.electronAPI;
+    if (!api) {
+      this.updateStatus('导出失败：当前环境不支持');
       return;
     }
 
@@ -23,12 +28,19 @@
       const effectiveQueue = playQueue || window.app?.playQueue;
 
       if (!effectiveParser || !effectiveQueue) {
-        this.updateStatus('导出失败: 导出上下文缺失');
+        this.updateStatus('导出失败：导出上下文缺失');
         return;
       }
 
       let targetPath = filePath;
-      if (!targetPath) targetPath = await this.api.selectExportPath();
+      if (!targetPath) {
+        if (typeof api.selectExportPath === 'function') {
+          targetPath = await api.selectExportPath();
+        } else {
+          this.updateStatus('导出失败：selectExportPath 不可用');
+          return;
+        }
+      }
       if (!targetPath) {
         this.updateStatus('已取消导出');
         return;
@@ -41,12 +53,19 @@
       }
 
       const queue = effectiveQueue.buildQueue(ast);
-      const effects = await this.api.loadEffects();
+      const effects = await api.loadEffects();
 
       const sampleRate = 44100;
       const channels = 2;
       const buffers = [];
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) {
+        this.updateStatus('导出失败：浏览器不支持音频上下文');
+        return;
+      }
+
+      const audioContext = new AudioCtx({ sampleRate });
 
       try {
         this.updateStatus(`开始导出，共 ${queue.length} 个任务...`);
@@ -55,44 +74,50 @@
           const task = queue[i];
           this.updateStatus(`正在处理任务 ${i + 1}/${queue.length}...`);
 
-          if (task.type === 'tts') {
-            const role = effectiveQueue.getRole(task.roleId || '');
-            const voice = task.voice || (role ? role.voice : null);
-            const rate = effectiveQueue.convertRateToEdge(task.rate || 1.0);
+          try {
+            if (task.type === 'tts') {
+              const role = effectiveQueue.getRole(task.roleId || '');
+              const voice = task.voice || (role ? role.voice : null);
+              const rate = effectiveQueue.convertRateToEdge(task.rate || 1.0);
 
-            const res = await this.api.synthesizeTTS(task.text || '', voice, rate);
-            if (!res?.success || !res.path) continue;
-
-            const fileRes = await this.api.getAudioFile(res.path);
-            if (!fileRes?.success || !fileRes.data) continue;
-
-            const audioBuffer = await this.decodeAudioData(audioContext, fileRes.data);
-            if (audioBuffer) buffers.push(this.resampleAndStereo(audioBuffer, sampleRate, channels));
-          }
-
-          if (task.type === 'effect') {
-            const effectPath = effects?.[task.effectId];
-            if (!effectPath) continue;
-
-            const fileRes = await this.api.getAudioFile(effectPath);
-            if (!fileRes?.success || !fileRes.data) continue;
-
-            const audioBuffer = await this.decodeAudioData(audioContext, fileRes.data);
-            if (audioBuffer) {
-              let processed = this.resampleAndStereo(audioBuffer, sampleRate, channels);
-              processed = this.applyTrimAndFade(processed, task.maxDuration, task.fadeDuration, sampleRate, channels);
-              buffers.push(processed);
+              const res = await api.synthesizeTTS(task.text || '', voice, rate);
+              if (res?.success && res.path) {
+                const fileRes = await api.getAudioFile(res.path);
+                if (fileRes?.success && fileRes.data) {
+                  const audioBuffer = await this.decodeAudioData(audioContext, fileRes.data);
+                  if (audioBuffer) buffers.push(this.resampleAndStereo(audioBuffer, channels));
+                }
+              }
             }
+
+            if (task.type === 'effect') {
+              const effectPath = effects?.[task.effectId];
+              if (effectPath) {
+                const fileRes = await api.getAudioFile(effectPath);
+                if (fileRes?.success && fileRes.data) {
+                  const audioBuffer = await this.decodeAudioData(audioContext, fileRes.data);
+                  if (audioBuffer) {
+                    let processed = this.resampleAndStereo(audioBuffer, channels);
+                    processed = this.applyTrimAndFade(processed, task.maxDuration, task.fadeDuration, sampleRate, channels);
+                    buffers.push(processed);
+                  }
+                }
+              }
+            }
+
+            if (task.type === 'silence') {
+              const duration = task.duration || 0;
+              if (duration > 0) buffers.push(this.createSilenceBuffer(duration, sampleRate, channels));
+            }
+          } catch (taskErr) {
+            console.warn('导出任务失败，已跳过:', taskErr);
           }
 
-          if (task.type === 'silence') {
-            const duration = task.duration || 0;
-            if (duration > 0) buffers.push(this.createSilenceBuffer(duration, sampleRate, channels));
-          }
+          if (i % 2 === 0) await this.yieldUI();
         }
 
         if (!buffers.length) {
-          this.updateStatus('导出失败: 没有生成有效音频数据');
+          this.updateStatus('导出失败：没有生成有效音频数据');
           return;
         }
 
@@ -100,25 +125,26 @@
         const mergedBuffer = this.concatAudioBuffers(buffers, sampleRate, channels);
 
         this.updateStatus('正在编码 WAV...');
-        const wavData = this.encodeWav(mergedBuffer);
-        const base64 = this.arrayBufferToBase64(wavData);
+        const wavData = await this.encodeWavAsync(mergedBuffer);
 
         this.updateStatus('正在保存文件...');
-        const result = await this.api.saveBinary(targetPath, base64);
-        await this.api.cleanupTemp();
+        const base64 = await this.arrayBufferToBase64Async(wavData);
+        const result = await api.saveBinary(targetPath, base64);
+
+        await api.cleanupTemp?.();
 
         if (result?.success) {
           this.updateStatus('导出完成');
-          setTimeout(() => { window.app?.updateStatus?.('就绪'); }, 3000);
+          setTimeout(() => window.app?.updateStatus?.('就绪'), 1500);
         } else {
-          this.updateStatus('保存失败: ' + (result?.error || '未知错误'));
+          this.updateStatus('保存失败：' + (result?.error || '未知错误'));
         }
       } finally {
         if (audioContext && audioContext.state !== 'closed') await audioContext.close();
       }
     } catch (error) {
       console.error('导出过程出错:', error);
-      this.updateStatus('导出出错: ' + error.message);
+      this.updateStatus('导出出错: ' + (error?.message || String(error)));
     }
   }
 
@@ -135,9 +161,13 @@
     }
   }
 
-  resampleAndStereo(buffer, targetRate, targetChannels) {
+  resampleAndStereo(buffer, targetChannels) {
     if (buffer.numberOfChannels === targetChannels) return buffer;
-    const newBuffer = new AudioBuffer({ length: buffer.length, numberOfChannels: targetChannels, sampleRate: buffer.sampleRate });
+    const newBuffer = new AudioBuffer({
+      length: buffer.length,
+      numberOfChannels: targetChannels,
+      sampleRate: buffer.sampleRate
+    });
     for (let i = 0; i < targetChannels; i++) {
       const sourceChannel = i < buffer.numberOfChannels ? i : 0;
       newBuffer.copyToChannel(buffer.getChannelData(sourceChannel), i);
@@ -188,7 +218,7 @@
     return result;
   }
 
-  encodeWav(audioBuffer) {
+  async encodeWavAsync(audioBuffer) {
     const numChannels = audioBuffer.numberOfChannels;
     const sampleRate = audioBuffer.sampleRate;
     const format = 1;
@@ -204,7 +234,6 @@
     this.writeString(view, 0, 'RIFF');
     view.setUint32(4, 36 + dataLength, true);
     this.writeString(view, 8, 'WAVE');
-
     this.writeString(view, 12, 'fmt ');
     view.setUint32(16, 16, true);
     view.setUint16(20, format, true);
@@ -213,19 +242,24 @@
     view.setUint32(28, sampleRate * blockAlign, true);
     view.setUint16(32, blockAlign, true);
     view.setUint16(34, bitDepth, true);
-
     this.writeString(view, 36, 'data');
     view.setUint32(40, dataLength, true);
 
     let offset = 44;
-    for (let i = 0; i < audioBuffer.length; i++) {
-      for (let c = 0; c < numChannels; c++) {
-        const sample = audioBuffer.getChannelData(c)[i];
-        const s = Math.max(-1, Math.min(1, sample));
-        const int16 = s < 0 ? s * 0x8000 : s * 0x7FFF;
-        view.setInt16(offset, int16, true);
-        offset += 2;
+    const chunkFrames = 32768;
+
+    for (let start = 0; start < audioBuffer.length; start += chunkFrames) {
+      const end = Math.min(audioBuffer.length, start + chunkFrames);
+      for (let i = start; i < end; i++) {
+        for (let c = 0; c < numChannels; c++) {
+          const sample = audioBuffer.getChannelData(c)[i];
+          const s = Math.max(-1, Math.min(1, sample));
+          const int16 = s < 0 ? s * 0x8000 : s * 0x7FFF;
+          view.setInt16(offset, int16, true);
+          offset += 2;
+        }
       }
+      await this.yieldUI();
     }
 
     return buffer;
@@ -235,10 +269,21 @@
     for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
   }
 
-  arrayBufferToBase64(buffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-    return window.btoa(binary);
+  async arrayBufferToBase64Async(buffer) {
+    return new Promise((resolve, reject) => {
+      try {
+        const blob = new Blob([buffer], { type: 'application/octet-stream' });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = String(reader.result || '');
+          const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : '';
+          resolve(base64);
+        };
+        reader.onerror = (e) => reject(e);
+        reader.readAsDataURL(blob);
+      } catch (e) {
+        reject(e);
+      }
+    });
   }
 }
