@@ -20,7 +20,7 @@ class ListextEditor {
     this.initBlockRenderer();
     this.initCodeEditor();
     this.fileManager = new FileManager(this);
-    this.exportHandler = new ExportHandler(this);
+    this.exportHandler = new ExportHandler(window.electronAPI, (text) => this.updateStatus(text));
     this.ttsRenderer = new TTSRenderer(this, this.playQueue, this.parser);
     this.initElectronEvents();
     this.uiManager.checkNotice();
@@ -58,7 +58,10 @@ class ListextEditor {
 
     window.electronAPI.onPreviewPlay(() => this.ttsRenderer.previewPlay());
     window.electronAPI.onStopPlay(() => this.ttsRenderer.stopPlay());
-    window.electronAPI.onExportAudio((filePath) => this.exportHandler.exportAudio(null, null, null, filePath));
+    window.electronAPI.onExportAudio((filePath) => {
+      const content = this.getContent();
+      this.exportHandler.exportAudio(content, this.parser, this.playQueue, filePath);
+    });
 
     window.electronAPI.onShowSyntaxHelp(() => this.uiManager.showSyntaxHelp());
     window.electronAPI.onShowRoleManager(() => this.uiManager.openRoleManager());

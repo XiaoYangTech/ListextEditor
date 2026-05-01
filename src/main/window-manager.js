@@ -10,20 +10,33 @@ let settingsWindow = null;
 const soundsDir = path.join(path.dirname(process.execPath), 'sounds');
 
 function readPackageMeta() {
-  try {
-    const appPath = app.getAppPath();
-    const pkgPath = path.join(appPath, 'package.json');
-    const raw = fs.readFileSync(pkgPath, 'utf-8');
-    const pkg = JSON.parse(raw);
-    return {
-      name: pkg.productName || pkg.name || 'Listext Editor',
-      version: app.getVersion() || pkg.version || '0.0.0',
-      description: pkg.description || '',
-      author: typeof pkg.author === 'string' ? pkg.author : (pkg.author?.name || '')
-    };
-  } catch {
-    return { name: 'Listext Editor', version: app.getVersion?.() || '0.0.0', description: '', author: '' };
+  const candidates = [
+    path.join(app.getAppPath(), 'package.json'),
+    path.join(process.resourcesPath || '', 'app', 'package.json'),
+    path.join(process.resourcesPath || '', 'app.asar', 'package.json'),
+    path.join(__dirname, '../../package.json')
+  ].filter(Boolean);
+
+  for (const pkgPath of candidates) {
+    try {
+      if (!fs.existsSync(pkgPath)) continue;
+      const raw = fs.readFileSync(pkgPath, 'utf-8');
+      const pkg = JSON.parse(raw);
+      return {
+        name: pkg.productName || pkg.name || app.getName() || 'Listext Editor',
+        version: app.getVersion() || pkg.version || '0.0.0',
+        description: pkg.description || '',
+        author: typeof pkg.author === 'string' ? pkg.author : (pkg.author?.name || '')
+      };
+    } catch (_) {}
   }
+
+  return {
+    name: app.getName() || 'Listext Editor',
+    version: app.getVersion() || '0.0.0',
+    description: '',
+    author: ''
+  };
 }
 
 function getMainWindow() { return mainWindow; }
@@ -148,7 +161,7 @@ function createMenu() {
           click: () => {
             const owner = getMainTargetWindow() || mainWindow;
             const meta = readPackageMeta();
-            const detail = [meta.description, meta.author ? `开发者：${meta.author}` : ''].filter(Boolean).join('\n');
+            const detail = [meta.description || '', meta.author ? `开发者：${meta.author}` : ''].filter(Boolean).join('\n');
             dialog.showMessageBox(owner, {
               type: 'info',
               title: `关于 ${meta.name}`,
