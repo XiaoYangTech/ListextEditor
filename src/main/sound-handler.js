@@ -1,4 +1,4 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 const { app, ipcMain, dialog } = require('electron');
 const { ensureDir } = require('./utils');
@@ -10,7 +10,7 @@ function scanSoundsFolder() {
   ensureDir(soundsDir);
   const files = fs.readdirSync(soundsDir);
   const audioExtensions = ['.mp3', '.wav', '.ogg', '.m4a', '.flac'];
-  
+
   const sounds = [];
   files.forEach(file => {
     const ext = path.extname(file).toLowerCase();
@@ -22,7 +22,7 @@ function scanSoundsFolder() {
       });
     }
   });
-  
+
   return sounds;
 }
 
@@ -32,14 +32,12 @@ function registerSoundHandlers(ipcMain, mainWindow) {
     const config = loadEffectsConfig();
     const sounds = scanSoundsFolder();
     const effects = {};
-    
-    // 首先添加扫描到的音效
+
     sounds.forEach(sound => {
       const customId = config[sound.filename] || sound.name;
       effects[customId] = sound.path;
     });
-    
-    // 添加用户自定义映射（如果文件存在）
+
     Object.keys(config).forEach(key => {
       if (!sounds.find(s => s.filename === key || s.name === key)) {
         if (config[key] && fs.existsSync(config[key])) {
@@ -47,7 +45,7 @@ function registerSoundHandlers(ipcMain, mainWindow) {
         }
       }
     });
-    
+
     return effects;
   });
 
@@ -65,6 +63,21 @@ function registerSoundHandlers(ipcMain, mainWindow) {
     return { success: saveEffectsConfig(config) };
   });
 
+  ipcMain.handle('delete-sound', async (event, filename) => {
+    try {
+      const target = path.join(soundsDir, filename);
+      if (fs.existsSync(target)) {
+        fs.unlinkSync(target);
+      }
+      const config = loadEffectsConfig();
+      delete config[filename];
+      saveEffectsConfig(config);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('get-sounds-path', async () => {
     ensureDir(soundsDir);
     return soundsDir;
@@ -75,7 +88,7 @@ function registerSoundHandlers(ipcMain, mainWindow) {
       ensureDir(soundsDir);
       const filename = path.basename(sourcePath);
       const destPath = path.join(soundsDir, filename);
-      
+
       let finalPath = destPath;
       let counter = 1;
       while (fs.existsSync(finalPath)) {
@@ -84,7 +97,7 @@ function registerSoundHandlers(ipcMain, mainWindow) {
         finalPath = path.join(soundsDir, `${name}_${counter}${ext}`);
         counter++;
       }
-      
+
       fs.copyFileSync(sourcePath, finalPath);
       return { success: true, path: finalPath };
     } catch (error) {

@@ -55,9 +55,7 @@ function createMainWindow() {
 }
 
 function createMenu() {
-  const sendEditAction = (action) => {
-    sendToMain('menu-edit', action);
-  };
+  const sendEditAction = (action) => sendToMain('menu-edit', action);
 
   const menuTemplate = [
     {
@@ -69,34 +67,32 @@ function createMenu() {
           click: () => sendToMain('menu-new')
         },
         {
-          label: '打开',
+          label: '打开项目',
           accelerator: 'CmdOrCtrl+O',
           click: async () => {
             const owner = getMainTargetWindow() || mainWindow;
             const result = await dialog.showOpenDialog(owner, {
-              filters: [{ name: 'Listext Files', extensions: ['lxt', 'txt'] }],
+              filters: [{ name: 'Listext Project', extensions: ['lstx'] }],
               properties: ['openFile']
             });
             if (!result.canceled && result.filePaths.length > 0) {
-              const fs = require('fs');
-              const content = fs.readFileSync(result.filePaths[0], 'utf-8');
-              sendToMain('file-opened', content, result.filePaths[0]);
+              sendToMain('menu-open-project', result.filePaths[0]);
             }
           }
         },
         {
-          label: '保存',
+          label: '保存项目',
           accelerator: 'CmdOrCtrl+S',
           click: () => sendToMain('menu-save')
         },
         {
-          label: '另存为',
+          label: '项目另存为',
           accelerator: 'CmdOrCtrl+Shift+S',
           click: async () => {
             const owner = getMainTargetWindow() || mainWindow;
             const result = await dialog.showSaveDialog(owner, {
-              filters: [{ name: 'Listext Files', extensions: ['lxt'] }],
-              defaultPath: 'untitled.lxt'
+              filters: [{ name: 'Listext Project', extensions: ['lstx'] }],
+              defaultPath: 'untitled.lstx'
             });
             if (!result.canceled) {
               sendToMain('menu-save-as', result.filePath);
@@ -137,18 +133,9 @@ function createMenu() {
     {
       label: '工具',
       submenu: [
-        {
-          label: '音效管理器',
-          click: () => openEffectManager()
-        },
-        {
-          label: '角色管理器',
-          click: () => openRoleManager()
-        },
-        {
-          label: '设置',
-          click: () => openSettingsWindow()
-        },
+        { label: '音效管理器', click: () => openEffectManager() },
+        { label: '角色管理器', click: () => openRoleManager() },
+        { label: '设置', click: () => openSettingsWindow() },
         {
           label: '打开 sounds 文件夹',
           click: () => {
@@ -157,25 +144,14 @@ function createMenu() {
           }
         },
         { type: 'separator' },
-        {
-          label: '预览播放',
-          accelerator: 'F5',
-          click: () => sendToMain('preview-play')
-        },
-        {
-          label: '停止播放',
-          accelerator: 'Escape',
-          click: () => sendToMain('stop-play')
-        }
+        { label: '预览播放', accelerator: 'F5', click: () => sendToMain('preview-play') },
+        { label: '停止播放', accelerator: 'Escape', click: () => sendToMain('stop-play') }
       ]
     },
     {
       label: '帮助',
       submenu: [
-        {
-          label: 'Listext 语法说明',
-          click: () => sendToMain('show-syntax-help')
-        },
+        { label: 'Listext 语法说明', click: () => sendToMain('show-syntax-help') },
         { type: 'separator' },
         {
           label: '关于',
@@ -215,20 +191,11 @@ function openEffectManager() {
     effectManagerWindow.focus();
     return;
   }
-
-  effectManagerWindow = buildChildWindow({
-    width: 700,
-    height: 600,
-    title: '音效管理器'
-  });
-
+  effectManagerWindow = buildChildWindow({ width: 760, height: 620, title: '音效管理器' });
   effectManagerWindow.loadFile('effects-manager.html');
   effectManagerWindow.setMenu(null);
   effectManagerWindow.setMenuBarVisibility(false);
-
-  effectManagerWindow.on('closed', () => {
-    effectManagerWindow = null;
-  });
+  effectManagerWindow.on('closed', () => { effectManagerWindow = null; });
 }
 
 function openRoleManager() {
@@ -236,20 +203,11 @@ function openRoleManager() {
     roleManagerWindow.focus();
     return;
   }
-
-  roleManagerWindow = buildChildWindow({
-    width: 760,
-    height: 680,
-    title: '角色管理器'
-  });
-
+  roleManagerWindow = buildChildWindow({ width: 760, height: 680, title: '角色管理器' });
   roleManagerWindow.loadFile('role-manager.html');
   roleManagerWindow.setMenu(null);
   roleManagerWindow.setMenuBarVisibility(false);
-
-  roleManagerWindow.on('closed', () => {
-    roleManagerWindow = null;
-  });
+  roleManagerWindow.on('closed', () => { roleManagerWindow = null; });
 }
 
 function openSettingsWindow() {
@@ -257,21 +215,11 @@ function openSettingsWindow() {
     settingsWindow.focus();
     return;
   }
-
-  settingsWindow = buildChildWindow({
-    width: 520,
-    height: 360,
-    resizable: false,
-    title: '设置'
-  });
-
+  settingsWindow = buildChildWindow({ width: 520, height: 360, resizable: false, title: '设置' });
   settingsWindow.loadFile('settings.html');
   settingsWindow.setMenu(null);
   settingsWindow.setMenuBarVisibility(false);
-
-  settingsWindow.on('closed', () => {
-    settingsWindow = null;
-  });
+  settingsWindow.on('closed', () => { settingsWindow = null; });
 }
 
 module.exports = {
@@ -281,4 +229,3 @@ module.exports = {
   openRoleManager,
   openSettingsWindow
 };
-

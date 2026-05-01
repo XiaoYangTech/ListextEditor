@@ -6,29 +6,42 @@
 
   newFile() {
     if (this.app.tabManager) {
-      this.app.tabManager.createNewTab('未命名', '', null, true);
+      this.app.tabManager.createNewTab('untitled.lstx', '', null, true);
     }
   }
 
-  openFile(content, filePath) {
-    if (this.app.tabManager) {
-      const fileName = filePath.split(/[/\\]/).pop();
-      this.app.tabManager.createNewTab(fileName, content, filePath);
+  async openProjectByPath(filePath) {
+    if (!filePath || !this.api?.openProjectFile) return false;
+    const result = await this.api.openProjectFile(filePath);
+    if (!result?.success) {
+      this.app.updateStatus('打开失败: ' + (result?.error || '未知错误'));
+      return false;
     }
+
+    if (Array.isArray(result.roles)) {
+      localStorage.setItem('listext_roles', JSON.stringify(result.roles));
+    }
+
+    const title = result.title || filePath.split(/[/\\]/).pop();
+    if (this.app.tabManager) {
+      this.app.tabManager.createNewTab(title, result.content || '', filePath, true);
+    }
+    this.app.uiManager?.refreshSectionJump?.();
+    this.app.updateStatus('项目已打开');
+    return true;
   }
 
   async saveFile() {
     const tab = this.app.tabManager.getActiveTab();
-    if (!tab) return;
+    if (!tab) return false;
 
     if (tab.filePath) {
-      await this.saveFileAs(tab.filePath);
-    } else {
-      const filePath = await this.api?.selectListextPath();
-      if (filePath) {
-        await this.saveFileAs(filePath);
-      }
+      return await this.saveFileAs(tab.filePath);
     }
+
+    const filePath = await this.api?.selectProjectPath?.();
+    if (!filePath) return false;
+    return await this.saveFileAs(filePath);
   }
 
   async saveFileAs(filePath) {
@@ -36,19 +49,24 @@
     if (!tab) return false;
 
     const content = this.app.getContent();
-    const result = await this.api?.saveFile(filePath, content);
+    const roles = JSON.parse(localStorage.getItem('listext_roles') || '[]');
+    const result = await this.api?.saveFile(filePath, content, {
+      title: tab.title,
+      roles
+    });
 
     if (result?.success) {
-      const fileName = filePath.split(/[/\\]/).pop();
+      const finalPath = result.filePath || filePath;
+      const fileName = finalPath.split(/[/\\]/).pop();
       this.app.tabManager.updateTab(tab.id, {
-        filePath,
+        filePath: finalPath,
         title: fileName,
         content,
         isDirty: false
       });
 
       this.updateStatusForTab(this.app.tabManager.getActiveTab());
-      this.app.updateStatus('已保存');
+      this.app.updateStatus(`已保存项目（打包 ${result.bundled || 0} 个音效）`);
       return true;
     }
 
@@ -65,7 +83,6 @@
 
   updateStatusForTab(tab) {
     if (!tab) return;
-
     const name = tab.filePath || '未保存';
     const dirty = tab.isDirty ? ' *' : '';
     if (this.app.uiManager?.currentFileEl) {
@@ -76,15 +93,11 @@
 
   async saveSpecificTab(tabId) {
     const activeId = this.app.tabManager.activeTabId;
-    if (activeId && activeId !== tabId) {
-      this.app.tabManager.activateTab(tabId);
-    }
+    if (activeId && activeId !== tabId) this.app.tabManager.activateTab(tabId);
 
     const ok = await this.saveFile();
 
-    if (activeId && activeId !== tabId) {
-      this.app.tabManager.activateTab(activeId);
-    }
+    if (activeId && activeId !== tabId) this.app.tabManager.activateTab(activeId);
 
     if (!ok) return false;
     const tab = this.app.tabManager.tabs.find(t => t.id === tabId);

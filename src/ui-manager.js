@@ -15,6 +15,9 @@
     this.statusText = document.getElementById('statusText');
     this.currentFileEl = document.getElementById('currentFile');
 
+    this.sectionJumpSelect = document.getElementById('sectionJumpSelect');
+    this.blockSearchInput = document.getElementById('blockSearchInput');
+
     this.unsavedDialog = document.getElementById('unsavedDialog');
     this.unsavedDialogBody = document.getElementById('unsavedDialogBody');
     this.unsavedSaveBtn = document.getElementById('unsavedSave');
@@ -37,70 +40,90 @@
   }
 
   initModeSwitcher() {
-    const tabs = document.querySelectorAll('.mode-tab');
-    if (!tabs?.length) return;
-    tabs.forEach(tab => {
+    document.querySelectorAll('.mode-tab').forEach(tab => {
       tab.addEventListener('click', () => {
-        const mode = tab.dataset.mode;
-        this.app.switchMode(mode);
+        this.app.switchMode(tab.dataset.mode);
       });
     });
   }
 
   updateModeUI(mode) {
-    document.querySelectorAll('.mode-tab').forEach(t => {
-      t.classList.toggle('active', t.dataset.mode === mode);
-    });
-
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
     if (this.blockMode) this.blockMode.classList.toggle('active', mode === 'block');
     if (this.codeMode) this.codeMode.classList.toggle('active', mode === 'code');
   }
 
   initToolbar() {
-    const addBtns = document.querySelectorAll('.add-block-btn');
-    if (addBtns?.length) {
-      addBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const type = btn.dataset.type;
-          this.handleAddBlock(type);
-        });
+    document.querySelectorAll('.add-block-btn[data-type]').forEach(btn => {
+      btn.addEventListener('click', () => this.handleAddBlock(btn.dataset.type));
+    });
+
+    const roleMgrBtn = document.getElementById('btnRoleManager');
+    if (roleMgrBtn) roleMgrBtn.addEventListener('click', () => this.openRoleManager());
+
+    const btnSearch = document.getElementById('btnBlockSearch');
+    if (btnSearch) btnSearch.addEventListener('click', () => this.searchInBlocks());
+
+    const btnSecRefresh = document.getElementById('btnSectionRefresh');
+    if (btnSecRefresh) btnSecRefresh.addEventListener('click', () => this.refreshSectionJump());
+
+    if (this.sectionJumpSelect) {
+      this.sectionJumpSelect.addEventListener('change', () => {
+        const blockId = this.sectionJumpSelect.value;
+        if (!blockId) return;
+        this.app.renderer.scrollToBlockId(blockId);
       });
     }
 
-    const roleMgrBtn = document.getElementById('btnRoleManager');
-    if (roleMgrBtn) {
-      roleMgrBtn.addEventListener('click', () => {
-        this.openRoleManager();
+    if (this.blockSearchInput) {
+      this.blockSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') this.searchInBlocks();
       });
     }
   }
 
-  handleAddBlock(type) {
-    if (this.app.currentMode !== 'block') {
-      this.app.switchMode('block');
+  searchInBlocks() {
+    const keyword = (this.blockSearchInput?.value || '').trim();
+    if (!keyword) return;
+    const found = this.app.renderer.findBlockByKeyword(keyword);
+    if (!found) {
+      this.app.updateStatus(`未找到: ${keyword}`);
+      return;
     }
+    this.app.renderer.scrollToBlockId(found.dataset.id);
+    this.app.renderer.selectSingleBlock(found);
+    this.app.updateStatus(`已定位: ${keyword}`);
+  }
+
+  refreshSectionJump() {
+    if (!this.sectionJumpSelect || !this.app.renderer) return;
+    const sections = this.app.renderer.getSections();
+    this.sectionJumpSelect.innerHTML = '<option value="">跳转到分节...</option>' +
+      sections.map((s, i) => `<option value="${s.id}">${i + 1}. ${s.title}</option>`).join('');
+  }
+
+  handleAddBlock(type) {
+    if (this.app.currentMode !== 'block') this.app.switchMode('block');
 
     if (!this.app.renderer) return;
 
     if (type === 'pause') {
-      this.showSilenceDialog((duration) => {
-        this.app.renderer.addBlock('pause', { duration });
-      });
+      this.showSilenceDialog((duration) => this.app.renderer.addBlock('pause', { duration }));
     } else if (type === 'fx') {
-      this.showEffectDialog((effectId, duration) => {
-        this.app.renderer.addBlock('fx', { effectId, duration });
-      });
+      this.showEffectDialog((effectId, duration) => this.app.renderer.addBlock('fx', { effectId, duration }));
     } else if (type === 'repeat') {
       this.app.renderer.addBlock('repeat');
-    } else if (type === 'say') {
-      const block = this.app.renderer.addBlock('say');
-      const textarea = block.querySelector('textarea');
-      if (textarea) textarea.focus();
+    } else if (type === 'section') {
+      this.app.renderer.addBlock('section', { title: `分节 ${Date.now().toString().slice(-4)}` });
+      this.refreshSectionJump();
     } else {
-      this.app.renderer.addBlock(type);
+      const block = this.app.renderer.addBlock(type);
+      const textarea = block?.querySelector?.('textarea');
+      if (textarea) textarea.focus();
     }
 
     this.app.fileManager.markUnsaved();
+    this.refreshSectionJump();
   }
 
   initDialogs() {
@@ -119,16 +142,13 @@
     const sConfirm = document.getElementById('silenceConfirm');
 
     if (silenceDialog) {
-      const sClose = silenceDialog.querySelector('.dialog-close');
-      if (sClose) sClose.addEventListener('click', () => silenceDialog.classList.remove('active'));
-      const sCancel = silenceDialog.querySelector('.btn-cancel');
-      if (sCancel) sCancel.addEventListener('click', () => silenceDialog.classList.remove('active'));
+      silenceDialog.querySelector('.dialog-close')?.addEventListener('click', () => silenceDialog.classList.remove('active'));
+      silenceDialog.querySelector('.btn-cancel')?.addEventListener('click', () => silenceDialog.classList.remove('active'));
     }
 
     if (sConfirm) {
       const newConfirm = sConfirm.cloneNode(true);
       sConfirm.parentNode.replaceChild(newConfirm, sConfirm);
-
       newConfirm.addEventListener('click', () => {
         const duration = parseInt(sDuration?.value) || 1;
         if (this.silenceCallback) this.silenceCallback(duration);
@@ -139,10 +159,8 @@
 
   showSilenceDialog(callback) {
     this.silenceCallback = callback;
-    const silenceDialog = document.getElementById('silenceDialog');
-    const sDuration = document.getElementById('silenceDuration');
-    if (sDuration) sDuration.value = 1;
-    if (silenceDialog) silenceDialog.classList.add('active');
+    document.getElementById('silenceDuration').value = 1;
+    document.getElementById('silenceDialog')?.classList.add('active');
   }
 
   initEffectDialog() {
@@ -150,18 +168,24 @@
     const effectSelect = document.getElementById('effectSelect');
     const effectDuration = document.getElementById('effectDuration');
     const effectConfirm = document.getElementById('effectConfirm');
+    const btnOpenMgr = document.getElementById('btnOpenEffectManager');
+
+    if (btnOpenMgr) {
+      btnOpenMgr.addEventListener('click', async () => {
+        if (window.electronAPI?.openEffectManagerWindow) {
+          await window.electronAPI.openEffectManagerWindow();
+        }
+      });
+    }
 
     if (effectDialog) {
-      const eClose = effectDialog.querySelector('.dialog-close');
-      if (eClose) eClose.addEventListener('click', () => effectDialog.classList.remove('active'));
-      const eCancel = effectDialog.querySelector('.btn-cancel');
-      if (eCancel) eCancel.addEventListener('click', () => effectDialog.classList.remove('active'));
+      effectDialog.querySelector('.dialog-close')?.addEventListener('click', () => effectDialog.classList.remove('active'));
+      effectDialog.querySelector('.btn-cancel')?.addEventListener('click', () => effectDialog.classList.remove('active'));
     }
 
     if (effectConfirm) {
       const newConfirm = effectConfirm.cloneNode(true);
       effectConfirm.parentNode.replaceChild(newConfirm, effectConfirm);
-
       newConfirm.addEventListener('click', () => {
         const dur = effectDuration?.value ? parseInt(effectDuration.value) : null;
         if (this.effectCallback) this.effectCallback(effectSelect?.value, dur);
@@ -177,33 +201,27 @@
     const effectDuration = document.getElementById('effectDuration');
 
     const effects = await window.electronAPI?.loadEffects() || {};
-    if (effectSelect) {
-      effectSelect.innerHTML = Object.keys(effects).length > 0
-        ? Object.keys(effects).map(id => `<option value="${id}">${id}</option>`).join('')
-        : '<option value="bell">bell (默认)</option>';
-    }
-    if (effectDuration) effectDuration.value = '';
-    if (effectDialog) effectDialog.classList.add('active');
+    effectSelect.innerHTML = Object.keys(effects).length > 0
+      ? Object.keys(effects).map(id => `<option value="${id}">${id}</option>`).join('')
+      : '<option value="bell">bell (默认)</option>';
+
+    effectDuration.value = '';
+    effectDialog.classList.add('active');
   }
 
   initUnsavedDialog() {
     if (!this.unsavedDialog) return;
-
-    const closeBtn = this.unsavedDialog.querySelector('.dialog-close');
-    if (closeBtn) closeBtn.addEventListener('click', () => this.resolveUnsavedDialog('cancel'));
-
-    if (this.unsavedCancelBtn) this.unsavedCancelBtn.addEventListener('click', () => this.resolveUnsavedDialog('cancel'));
-    if (this.unsavedDiscardBtn) this.unsavedDiscardBtn.addEventListener('click', () => this.resolveUnsavedDialog('discard'));
-    if (this.unsavedSaveBtn) this.unsavedSaveBtn.addEventListener('click', () => this.resolveUnsavedDialog('save'));
+    this.unsavedDialog.querySelector('.dialog-close')?.addEventListener('click', () => this.resolveUnsavedDialog('cancel'));
+    this.unsavedCancelBtn?.addEventListener('click', () => this.resolveUnsavedDialog('cancel'));
+    this.unsavedDiscardBtn?.addEventListener('click', () => this.resolveUnsavedDialog('discard'));
+    this.unsavedSaveBtn?.addEventListener('click', () => this.resolveUnsavedDialog('save'));
   }
 
   showUnsavedDialog(title) {
     if (!this.unsavedDialog) return Promise.resolve('cancel');
     this.unsavedDialogBody.textContent = `"${title}" 有未保存的更改`;
     this.unsavedDialog.classList.add('active');
-    return new Promise(resolve => {
-      this.unsavedDialogResolver = resolve;
-    });
+    return new Promise(resolve => { this.unsavedDialogResolver = resolve; });
   }
 
   resolveUnsavedDialog(action) {
@@ -216,51 +234,46 @@
     }
   }
 
-  initRoleManagerDialog() {
-    // 角色管理器改为独立窗口后，主窗口内不再需要实际逻辑绑定。
-    // 这里保留为空实现，避免旧调用报错。
-  }
+  initRoleManagerDialog() {}
 
   async openRoleManager() {
     if (window.electronAPI?.openRoleManagerWindow) {
       await window.electronAPI.openRoleManagerWindow();
-      return;
     }
-
-    const roleMgrDialog = document.getElementById('roleManagerDialog');
-    if (roleMgrDialog) roleMgrDialog.classList.add('active');
   }
 
   initSyntaxHelpDialog() {
-    const syntaxHelpDialog = document.getElementById('syntaxHelpDialog');
-    if (syntaxHelpDialog) {
-      const hClose = syntaxHelpDialog.querySelector('.dialog-close');
-      if (hClose) hClose.addEventListener('click', () => syntaxHelpDialog.classList.remove('active'));
-    }
-  }
-
-  showSyntaxHelp() {
-    const syntaxHelpDialog = document.getElementById('syntaxHelpDialog');
-    if (syntaxHelpDialog) syntaxHelpDialog.classList.add('active');
-  }
-
-  initNoticeDialog() {
-    if (!this.noticeDialog) return;
-
-    if (this.noticeCloseTopBtn) this.noticeCloseTopBtn.addEventListener('click', () => this.closeNoticeDialog());
-    if (this.noticeCloseBtn) this.noticeCloseBtn.addEventListener('click', () => this.closeNoticeDialog());
-    if (this.noticeOpenUrlBtn) {
-      this.noticeOpenUrlBtn.addEventListener('click', async () => {
-        if (this.noticeUrl && window.electronAPI) {
-          await window.electronAPI.openExternal(this.noticeUrl);
+    const dialog = document.getElementById('syntaxHelpDialog');
+    dialog?.querySelector('.dialog-close')?.addEventListener('click', () => dialog.classList.remove('active'));
+    const btnCopy = document.getElementById('btnCopySyntaxExample');
+    if (btnCopy) {
+      btnCopy.addEventListener('click', async () => {
+        const text = document.getElementById('syntaxExampleCode')?.textContent || '';
+        try {
+          await navigator.clipboard.writeText(text);
+          this.app.updateStatus('语法示例已复制');
+        } catch {
+          this.app.updateStatus('复制失败，请手动复制');
         }
       });
     }
   }
 
+  showSyntaxHelp() {
+    document.getElementById('syntaxHelpDialog')?.classList.add('active');
+  }
+
+  initNoticeDialog() {
+    if (!this.noticeDialog) return;
+    this.noticeCloseTopBtn?.addEventListener('click', () => this.closeNoticeDialog());
+    this.noticeCloseBtn?.addEventListener('click', () => this.closeNoticeDialog());
+    this.noticeOpenUrlBtn?.addEventListener('click', async () => {
+      if (this.noticeUrl && window.electronAPI) await window.electronAPI.openExternal(this.noticeUrl);
+    });
+  }
+
   async checkNotice() {
     if (!window.electronAPI || !this.noticeDialog) return;
-
     const settings = await window.electronAPI.getSettings();
     const today = this.getTodayKey();
     if (settings?.noticeDismissDate === today) return;
@@ -271,18 +284,13 @@
     this.noticeUrl = res.url || '';
     if (this.noticeContent) this.noticeContent.textContent = res.notice;
     if (this.noticeDismissToday) this.noticeDismissToday.checked = false;
-    if (this.noticeOpenUrlBtn) {
-      this.noticeOpenUrlBtn.style.display = this.noticeUrl ? 'inline-flex' : 'none';
-    }
+    if (this.noticeOpenUrlBtn) this.noticeOpenUrlBtn.style.display = this.noticeUrl ? 'inline-flex' : 'none';
     this.noticeDialog.classList.add('active');
   }
 
   getTodayKey() {
     const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   }
 
   async closeNoticeDialog() {
@@ -290,39 +298,30 @@
     this.noticeDialog.classList.remove('active');
     if (!window.electronAPI) return;
 
-    if (this.noticeDismissToday && this.noticeDismissToday.checked) {
+    if (this.noticeDismissToday?.checked) {
       const settings = await window.electronAPI.getSettings();
-      await window.electronAPI.saveSettings({
-        ...settings,
-        noticeDismissDate: this.getTodayKey()
-      });
+      await window.electronAPI.saveSettings({ ...settings, noticeDismissDate: this.getTodayKey() });
     }
   }
 
   initSettingsDialog() {
     if (!this.settingsDialog) return;
 
-    if (this.settingsCloseTopBtn) this.settingsCloseTopBtn.addEventListener('click', () => this.settingsDialog.classList.remove('active'));
-    if (this.settingsCancelBtn) this.settingsCancelBtn.addEventListener('click', () => this.settingsDialog.classList.remove('active'));
-    if (this.settingsSaveBtn) {
-      this.settingsSaveBtn.addEventListener('click', async () => {
-        if (!window.electronAPI) return;
-        const proxyMode = this.proxyModeSelect ? this.proxyModeSelect.value : 'system';
-        const proxyUrl = this.proxyUrlInput ? this.proxyUrlInput.value.trim() : '';
-        const current = await window.electronAPI.getSettings();
-        const result = await window.electronAPI.saveSettings({
-          ...current,
-          proxyMode,
-          proxyUrl
-        });
-        if (result?.success) {
-          this.app.updateStatus('设置已保存');
-          this.settingsDialog.classList.remove('active');
-        } else {
-          this.app.updateStatus('设置保存失败');
-        }
-      });
-    }
+    this.settingsCloseTopBtn?.addEventListener('click', () => this.settingsDialog.classList.remove('active'));
+    this.settingsCancelBtn?.addEventListener('click', () => this.settingsDialog.classList.remove('active'));
+    this.settingsSaveBtn?.addEventListener('click', async () => {
+      if (!window.electronAPI) return;
+      const proxyMode = this.proxyModeSelect?.value || 'system';
+      const proxyUrl = this.proxyUrlInput?.value.trim() || '';
+      const current = await window.electronAPI.getSettings();
+      const result = await window.electronAPI.saveSettings({ ...current, proxyMode, proxyUrl });
+      if (result?.success) {
+        this.app.updateStatus('设置已保存');
+        this.settingsDialog.classList.remove('active');
+      } else {
+        this.app.updateStatus('设置保存失败');
+      }
+    });
   }
 
   async showSettingsDialog() {
@@ -333,8 +332,8 @@
 
     if (!this.settingsDialog || !window.electronAPI) return;
     const settings = await window.electronAPI.getSettings();
-    if (this.proxyModeSelect) this.proxyModeSelect.value = settings?.proxyMode || 'system';
-    if (this.proxyUrlInput) this.proxyUrlInput.value = settings?.proxyUrl || '';
+    this.proxyModeSelect.value = settings?.proxyMode || 'system';
+    this.proxyUrlInput.value = settings?.proxyUrl || '';
     this.settingsDialog.classList.add('active');
   }
 
@@ -347,11 +346,8 @@
         if (isMod) {
           if (key === 'z') {
             e.preventDefault();
-            if (e.shiftKey) {
-              this.app.renderer.redo();
-            } else {
-              this.app.renderer.undo();
-            }
+            if (e.shiftKey) this.app.renderer.redo();
+            else this.app.renderer.undo();
             this.app.fileManager.markUnsaved();
             return;
           }
@@ -361,35 +357,15 @@
             this.app.fileManager.markUnsaved();
             return;
           }
-          if (key === 'c') {
-            e.preventDefault();
-            this.app.renderer.copySelectedBlocks();
-            return;
-          }
-          if (key === 'x') {
-            e.preventDefault();
-            this.app.renderer.cutSelectedBlocks();
-            this.app.fileManager.markUnsaved();
-            return;
-          }
-          if (key === 'v') {
-            e.preventDefault();
-            this.app.renderer.pasteClipboard();
-            this.app.fileManager.markUnsaved();
-            return;
-          }
-          if (key === 'a') {
-            e.preventDefault();
-            this.app.renderer.selectAllBlocks();
-            return;
-          }
-        } else if (key === 'delete' || key === 'backspace') {
-          if (this.app.renderer.selectedBlocks && this.app.renderer.selectedBlocks.size > 0) {
-            e.preventDefault();
-            this.app.renderer.deleteSelectedBlocks();
-            this.app.fileManager.markUnsaved();
-            return;
-          }
+          if (key === 'c') { e.preventDefault(); this.app.renderer.copySelectedBlocks(); return; }
+          if (key === 'x') { e.preventDefault(); this.app.renderer.cutSelectedBlocks(); this.app.fileManager.markUnsaved(); return; }
+          if (key === 'v') { e.preventDefault(); this.app.renderer.pasteClipboard(); this.app.fileManager.markUnsaved(); return; }
+          if (key === 'a') { e.preventDefault(); this.app.renderer.selectAllBlocks(); return; }
+        } else if ((key === 'delete' || key === 'backspace') && this.app.renderer.selectedBlocks?.size > 0) {
+          e.preventDefault();
+          this.app.renderer.deleteSelectedBlocks();
+          this.app.fileManager.markUnsaved();
+          return;
         }
       }
 

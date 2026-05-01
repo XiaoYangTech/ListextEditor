@@ -20,6 +20,7 @@
     "electron-builder": "^24.9.1"
   },
   "dependencies": {
+    "adm-zip": "^0.5.17",
     "msedge-tts": "^2.0.4",
     "uuid": "^9.0.0"
   }

@@ -1060,3 +1060,46 @@ body {
 
 
 
+
+/* toolbar search/jump */
+.toolbar-input, .toolbar-select {
+  height: 34px;
+  border: 1px solid var(--md-divider);
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 13px;
+  background: #fff;
+}
+
+.toolbar-input {
+  min-width: 180px;
+}
+
+/* syntax sample */
+.syntax-help table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.syntax-help td, .syntax-help th {
+  border: 1px solid #e0e0e0;
+  padding: 6px 8px;
+}
+
+.syntax-help pre.syntax-example {
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 12px;
+  white-space: pre-wrap;
+  user-select: text;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.block-section .block-content {
+  background: #fffef7;
+}

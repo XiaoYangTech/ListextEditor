@@ -30,6 +30,7 @@ class ListextEditor {
     this.renderer = new BlockRenderer(this.uiManager.blockContainer, this.parser);
     this.renderer.onChange(() => {
       this.fileManager.markUnsaved();
+      this.uiManager.refreshSectionJump();
     });
   }
 
@@ -41,9 +42,7 @@ class ListextEditor {
       codeSuggestions: document.getElementById('codeSuggestions'),
       errorContainer: document.getElementById('errorContainer')
     }, this.parser, {
-      onInput: () => {
-        this.fileManager.markUnsaved();
-      }
+      onInput: () => this.fileManager.markUnsaved()
     });
   }
 
@@ -53,7 +52,9 @@ class ListextEditor {
     window.electronAPI.onMenuNew(() => this.fileManager.newFile());
     window.electronAPI.onMenuSave(() => this.fileManager.saveFile());
     window.electronAPI.onSaveAs(async (filePath) => await this.fileManager.saveFileAs(filePath));
-    window.electronAPI.onFileOpened((content, filePath) => this.fileManager.openFile(content, filePath));
+    window.electronAPI.onMenuOpenProject(async (filePath) => {
+      await this.fileManager.openProjectByPath(filePath);
+    });
 
     window.electronAPI.onPreviewPlay(() => this.ttsRenderer.previewPlay());
     window.electronAPI.onStopPlay(() => this.ttsRenderer.stopPlay());
@@ -63,35 +64,23 @@ class ListextEditor {
     window.electronAPI.onShowRoleManager(() => this.uiManager.openRoleManager());
     window.electronAPI.onShowSettings(() => this.uiManager.showSettingsDialog());
 
-    window.electronAPI.onMenuEdit((action) => {
-      this.handleEditAction(action);
-    });
+    window.electronAPI.onMenuEdit((action) => this.handleEditAction(action));
   }
 
   loadDefaultContent() {
-    if (this.tabManager) {
-      this.fileManager.newFile();
-    }
+    if (this.tabManager) this.fileManager.newFile();
   }
 
-  /**
-   * 切换编辑模式
-   * @param {'block'|'code'} mode
-   * @param {boolean} sync 是否需要先把旧模式同步到新模式
-   */
   switchMode(mode, sync = true) {
     if (mode !== 'block' && mode !== 'code') return;
     if (mode === this.currentMode && sync) return;
 
     if (sync) {
       try {
-        if (this.currentMode === 'block') {
-          this.syncBlocksToCode();
-        } else {
-          this.syncCodeToBlocks();
-        }
+        if (this.currentMode === 'block') this.syncBlocksToCode();
+        else this.syncCodeToBlocks();
       } catch (e) {
-        console.warn('模式切换时同步失败:', e);
+        console.warn('模式切换同步失败:', e);
       }
     }
 
@@ -100,15 +89,14 @@ class ListextEditor {
 
     if (mode === 'block') {
       this.codeEditor.hideSuggestions();
+      this.uiManager.refreshSectionJump();
     } else {
       this.codeEditor.refreshView();
     }
 
     if (this.tabManager) {
       const activeTab = this.tabManager.getActiveTab();
-      if (activeTab) {
-        activeTab.mode = mode;
-      }
+      if (activeTab) activeTab.mode = mode;
     }
   }
 
@@ -122,9 +110,9 @@ class ListextEditor {
     const code = this.codeEditor.getValue();
     const ast = this.parser.parse(code);
     this.renderer.render(ast);
+    this.uiManager.refreshSectionJump();
   }
 
-  /** 获取当前编辑器内容 */
   getContent() {
     if (this.currentMode === 'block') {
       return this.parser.stringify(this.renderer.collectAST()).trim();
@@ -132,11 +120,6 @@ class ListextEditor {
     return this.codeEditor.getValue();
   }
 
-  /**
-   * 设置编辑器内容
-   * @param {string} content
-   * @param {'block'|'code'} mode
-   */
   setContent(content, mode = 'block') {
     const safeMode = mode === 'code' ? 'code' : 'block';
     const safeContent = typeof content === 'string' ? content : '';
@@ -152,6 +135,7 @@ class ListextEditor {
         console.warn('恢复积木内容失败:', e);
         this.renderer.clear();
       }
+      this.uiManager.refreshSectionJump();
     }
 
     if (safeMode === 'code') {
@@ -163,22 +147,12 @@ class ListextEditor {
     this.setContent('', 'block');
   }
 
-  showUnsavedDialog(title) {
-    return this.uiManager.showUnsavedDialog(title);
-  }
-
-  saveSpecificTab(tabId) {
-    return this.fileManager.saveSpecificTab(tabId);
-  }
-
-  updateStatusForTab(tab) {
-    return this.fileManager.updateStatusForTab(tab);
-  }
+  showUnsavedDialog(title) { return this.uiManager.showUnsavedDialog(title); }
+  saveSpecificTab(tabId) { return this.fileManager.saveSpecificTab(tabId); }
+  updateStatusForTab(tab) { return this.fileManager.updateStatusForTab(tab); }
 
   updateStatus(text) {
-    if (this.uiManager && this.uiManager.statusText) {
-      this.uiManager.statusText.textContent = text;
-    }
+    if (this.uiManager?.statusText) this.uiManager.statusText.textContent = text;
   }
 
   isTextInputActive() {
@@ -196,26 +170,14 @@ class ListextEditor {
       if (action === 'cut') this.renderer.cutSelectedBlocks();
       if (action === 'paste') this.renderer.pasteClipboard();
       if (action === 'selectAll') this.renderer.selectAllBlocks();
-      if (['undo', 'redo', 'cut', 'paste'].includes(action)) {
-        this.fileManager.markUnsaved();
-      }
+      if (['undo', 'redo', 'cut', 'paste'].includes(action)) this.fileManager.markUnsaved();
       return;
     }
 
     if (this.codeEditor) this.codeEditor.focus();
-
-    const commandMap = {
-      undo: 'undo',
-      redo: 'redo',
-      cut: 'cut',
-      copy: 'copy',
-      paste: 'paste',
-      selectAll: 'selectAll'
-    };
+    const commandMap = { undo: 'undo', redo: 'redo', cut: 'cut', copy: 'copy', paste: 'paste', selectAll: 'selectAll' };
     const cmd = commandMap[action];
-    if (cmd) {
-      document.execCommand(cmd);
-    }
+    if (cmd) document.execCommand(cmd);
   }
 }
 

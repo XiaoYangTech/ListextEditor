@@ -1,403 +1,62 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>音效管理器</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
   <style>
-    :root {
-      --md-primary: #1976D2;
-      --md-primary-dark: #1565C0;
-      --md-background: #FAFAFA;
-      --md-surface: #FFFFFF;
-      --md-on-surface: #212121;
-      --md-on-surface-variant: #757575;
-      --md-divider: #E0E0E0;
-      --md-error: #B00020;
-      --md-success: #4CAF50;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: 'Roboto', 'Microsoft YaHei', sans-serif;
-      background: var(--md-background);
-      color: var(--md-on-surface);
-      padding: 0;
-      margin: 0;
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 20px;
-      background: var(--md-primary);
-      color: white;
-    }
-
-    .header h1 {
-      font-size: 18px;
-      font-weight: 500;
-    }
-
-    .header-actions {
-      display: flex;
-      gap: 8px;
-    }
-
-    .btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
-      background: rgba(255, 255, 255, 0.2);
-      border: none;
-      border-radius: 4px;
-      color: white;
-      font-size: 14px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .btn:hover {
-      background: rgba(255, 255, 255, 0.3);
-    }
-
-    .btn.primary {
-      background: var(--md-primary);
-      color: white;
-    }
-
-    .btn.primary:hover {
-      background: var(--md-primary-dark);
-    }
-
-    .info-bar {
-      padding: 12px 20px;
-      background: #E3F2FD;
-      border-bottom: 1px solid var(--md-divider);
-      font-size: 13px;
-      color: var(--md-on-surface-variant);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .info-bar .path {
-      font-family: monospace;
-      color: var(--md-primary);
-    }
-
-    .effect-list {
-      padding: 16px;
-    }
-
-    .effect-item {
-      display: flex;
-      align-items: center;
-      padding: 12px 16px;
-      background: var(--md-surface);
-      border: 1px solid var(--md-divider);
-      border-radius: 8px;
-      margin-bottom: 8px;
-      transition: box-shadow 0.2s;
-    }
-
-    .effect-item:hover {
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .effect-icon {
-      width: 48px;
-      height: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #E0F2F1;
-      border-radius: 8px;
-      margin-right: 16px;
-      flex-shrink: 0;
-    }
-
-    .effect-icon .material-icons {
-      font-size: 24px;
-      color: #00796B;
-    }
-
-    .effect-info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .effect-id-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 4px;
-    }
-
-    .effect-id {
-      font-size: 16px;
-      font-weight: 500;
-    }
-
-    .effect-id-input {
-      font-size: 16px;
-      font-weight: 500;
-      padding: 4px 8px;
-      border: 1px solid var(--md-primary);
-      border-radius: 4px;
-      outline: none;
-      min-width: 100px;
-    }
-
-    .effect-filename {
-      font-size: 12px;
-      color: var(--md-on-surface-variant);
-    }
-
-    .effect-actions {
-      display: flex;
-      gap: 8px;
-    }
-
-    .btn-action {
-      width: 36px;
-      height: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: transparent;
-      border: none;
-      border-radius: 50%;
-      cursor: pointer;
-      color: var(--md-on-surface-variant);
-      transition: all 0.2s;
-    }
-
-    .btn-action:hover {
-      background: var(--md-divider);
-      color: var(--md-on-surface);
-    }
-
-    .btn-action.play:hover {
-      background: #E8F5E9;
-      color: var(--md-success);
-    }
-
-    .btn-action.delete:hover {
-      background: #FFEBEE;
-      color: var(--md-error);
-    }
-
-    .btn-action.edit:hover {
-      background: #E3F2FD;
-      color: var(--md-primary);
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 48px 24px;
-      color: var(--md-on-surface-variant);
-    }
-
-    .empty-state .material-icons {
-      font-size: 64px;
-      margin-bottom: 16px;
-      opacity: 0.5;
-    }
-
-    .empty-state p {
-      font-size: 14px;
-      margin-bottom: 8px;
-    }
-
-    .empty-state .hint {
-      font-size: 12px;
-      color: var(--md-on-surface-variant);
-      opacity: 0.7;
-    }
-
-    /* 对话框 */
-    .dialog-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 100;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .dialog-overlay.active {
-      display: flex;
-    }
-
-    .dialog {
-      background: var(--md-surface);
-      border-radius: 8px;
-      min-width: 400px;
-      max-width: 90%;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-    }
-
-    .dialog-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--md-divider);
-    }
-
-    .dialog-header h2 {
-      font-size: 16px;
-      font-weight: 500;
-    }
-
-    .dialog-close {
-      width: 32px;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: transparent;
-      border: none;
-      border-radius: 50%;
-      font-size: 24px;
-      cursor: pointer;
-      color: var(--md-on-surface-variant);
-    }
-
-    .dialog-close:hover {
-      background: var(--md-divider);
-    }
-
-    .dialog-body {
-      padding: 20px;
-    }
-
-    .form-group {
-      margin-bottom: 16px;
-    }
-
-    .form-group:last-child {
-      margin-bottom: 0;
-    }
-
-    .form-group label {
-      display: block;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--md-on-surface-variant);
-      margin-bottom: 8px;
-    }
-
-    .form-group input {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid var(--md-divider);
-      border-radius: 4px;
-      font-size: 14px;
-    }
-
-    .form-group input:focus {
-      outline: none;
-      border-color: var(--md-primary);
-    }
-
-    .dialog-footer {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      padding: 12px 20px;
-      border-top: 1px solid var(--md-divider);
-    }
-
-    .btn-secondary {
-      background: transparent;
-      color: var(--md-on-surface-variant);
-    }
-
-    .btn-secondary:hover {
-      background: var(--md-divider);
-    }
-
-    /* 编辑状态 */
-    .editing .effect-id {
-      display: none;
-    }
-
-    .editing .effect-id-input {
-      display: block;
-    }
-
-    .effect-id-input {
-      display: none;
-    }
-
-    /* Toast 通知 */
-    .toast {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 12px 24px;
-      background: #323232;
-      color: white;
-      border-radius: 4px;
-      font-size: 14px;
-      z-index: 1000;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .toast.show {
-      opacity: 1;
-    }
+    :root { --md-primary:#1976D2; --md-primary-dark:#1565C0; --md-background:#FAFAFA; --md-surface:#FFFFFF; --md-on:#212121; --md-sub:#757575; --md-divider:#E0E0E0; --md-error:#B00020; --md-success:#4CAF50; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Roboto','Microsoft YaHei',sans-serif; background:var(--md-background); color:var(--md-on); }
+    .header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background:var(--md-primary); color:#fff; }
+    .header h1 { font-size:18px; font-weight:500; }
+    .header-actions { display:flex; gap:8px; }
+    .btn { display:flex; align-items:center; gap:6px; padding:8px 14px; border:none; border-radius:4px; cursor:pointer; }
+    .btn.white { background:rgba(255,255,255,.2); color:#fff; }
+    .btn.white:hover { background:rgba(255,255,255,.3); }
+    .info-bar { padding:10px 20px; background:#E3F2FD; border-bottom:1px solid var(--md-divider); font-size:12px; color:var(--md-sub); }
+    .path { color:var(--md-primary); font-family:Consolas,monospace; }
+    .effect-list { padding:16px; }
+    .effect-item { display:flex; align-items:center; gap:12px; border:1px solid var(--md-divider); border-radius:8px; background:var(--md-surface); padding:12px; margin-bottom:8px; }
+    .effect-info { flex:1; min-width:0; }
+    .effect-id-row { display:flex; align-items:center; gap:8px; }
+    .effect-id { font-size:15px; font-weight:500; }
+    .effect-filename { font-size:12px; color:var(--md-sub); margin-top:4px; }
+    .effect-actions { display:flex; gap:8px; }
+    .btn-action { width:34px; height:34px; border:none; border-radius:50%; background:transparent; cursor:pointer; color:var(--md-sub); }
+    .btn-action:hover { background:#EEE; color:#333; }
+    .btn-action.play:hover { background:#E8F5E9; color:var(--md-success); }
+    .btn-action.delete:hover { background:#FFEBEE; color:var(--md-error); }
+    .effect-id-input { display:none; width:180px; font-size:15px; padding:4px 8px; border:1px solid var(--md-primary); border-radius:4px; }
+    .editing .effect-id { display:none; }
+    .editing .effect-id-input { display:block; }
+    .empty-state { text-align:center; padding:40px 20px; color:var(--md-sub); }
+    .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#333; color:#fff; border-radius:4px; padding:10px 18px; opacity:0; transition:opacity .2s; }
+    .toast.show { opacity:1; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>音效管理器</h1>
     <div class="header-actions">
-      <button class="btn" id="btnRefresh">
-        <span class="material-icons">refresh</span>
-        刷新
-      </button>
-      <button class="btn primary" id="btnAddEffect">
-        <span class="material-icons">add</span>
-        添加音效
-      </button>
+      <button class="btn white" id="btnRefresh"><span class="material-icons">refresh</span>刷新</button>
+      <button class="btn white" id="btnAddEffect"><span class="material-icons">add</span>添加音效</button>
     </div>
   </div>
 
-  <div class="info-bar">
-    <span>音效文件存放在 sounds 文件夹中，可直接放入或通过下方导入</span>
-    <span class="path" id="soundsPath"></span>
-  </div>
-
-  <div class="effect-list" id="effectList">
-    <!-- 动态生成 -->
-  </div>
-
-  <!-- Toast -->
+  <div class="info-bar">音效文件目录：<span class="path" id="soundsPath"></span></div>
+  <div class="effect-list" id="effectList"></div>
   <div class="toast" id="toast"></div>
 
   <script>
     class EffectsManager {
       constructor() {
         this.sounds = [];
+        this.currentAudio = null;
         this.currentAudioFilename = null;
+        this.currentPlayBtn = null;
         this.init();
       }
 
@@ -408,186 +67,138 @@
         }
         await this.loadSounds();
         this.render();
-        this.initEvents();
-      }
-
-      async showSoundsPath() {
-        // merged into init
+        this.bind();
       }
 
       async loadSounds() {
-        if (window.electronAPI) {
-          this.sounds = await window.electronAPI.listSounds();
-        }
+        if (window.electronAPI) this.sounds = await window.electronAPI.listSounds();
       }
 
       async refreshEffects() {
-        if (window.electronAPI) {
-          // 刷新音效缓存
-          await window.electronAPI.loadEffects();
-        }
+        if (window.electronAPI) await window.electronAPI.loadEffects();
       }
 
       render() {
         const list = document.getElementById('effectList');
-
-        if (this.sounds.length === 0) {
-          list.innerHTML = `
-            <div class="empty-state">
-              <span class="material-icons">music_off</span>
-              <p>sounds 文件夹为空</p>
-              <p class="hint">将音频文件放入 sounds 文件夹，或点击"导入音效"按钮</p>
-            </div>
-          `;
+        if (!this.sounds.length) {
+          list.innerHTML = '<div class="empty-state"><p>sounds 文件夹为空</p><p>可点击“添加音效”导入</p></div>';
           return;
         }
 
         list.innerHTML = this.sounds.map(sound => `
           <div class="effect-item" data-filename="${sound.filename}">
-            <div class="effect-icon">
-              <span class="material-icons">music_note</span>
-            </div>
+            <span class="material-icons">music_note</span>
             <div class="effect-info">
               <div class="effect-id-row">
                 <span class="effect-id">${sound.name}</span>
-                <input type="text" class="effect-id-input" value="${sound.name}" placeholder="输入自定义ID">
+                <input class="effect-id-input" value="${sound.name}" />
               </div>
               <div class="effect-filename">${sound.filename}</div>
             </div>
             <div class="effect-actions">
-              <button class="btn-action edit" title="编辑ID">
-                <span class="material-icons">edit</span>
-              </button>
-              <button class="btn-action play" title="试听">
-                <span class="material-icons">play_arrow</span>
-              </button>
+              <button class="btn-action edit" title="编辑ID"><span class="material-icons">edit</span></button>
+              <button class="btn-action play" title="试听"><span class="material-icons">play_arrow</span></button>
+              <button class="btn-action delete" title="删除"><span class="material-icons">delete</span></button>
             </div>
           </div>
         `).join('');
       }
 
-      initEvents() {
-        // 刷新
-        const btnRefresh = document.getElementById('btnRefresh');
-        if (btnRefresh) {
-          btnRefresh.addEventListener('click', async () => {
+      bind() {
+        document.getElementById('btnRefresh').addEventListener('click', async () => {
+          await this.loadSounds(); this.render(); await this.refreshEffects();
+        });
+
+        document.getElementById('btnAddEffect').addEventListener('click', async () => {
+          if (!window.electronAPI) return;
+          const sourcePath = await window.electronAPI.selectAudioFile();
+          if (!sourcePath) return;
+          const result = await window.electronAPI.importSound(sourcePath);
+          if (result.success) {
+            this.toast('音效已导入');
             await this.loadSounds();
             this.render();
             await this.refreshEffects();
-          });
-        }
+          } else {
+            this.toast('导入失败: ' + result.error);
+          }
+        });
 
-        // 添加音效
-        const btnAddEffect = document.getElementById('btnAddEffect');
-        if (btnAddEffect) {
-          btnAddEffect.addEventListener('click', async () => {
-            if (!window.electronAPI) return;
-            
-            const sourcePath = await window.electronAPI.selectAudioFile();
-            if (!sourcePath) return;
-
-            const result = await window.electronAPI.importSound(sourcePath);
-            if (result.success) {
-              this.showToast('音效已导入');
-              await this.loadSounds();
-              this.render();
-              await this.refreshEffects();
-            } else {
-              this.showToast('导入失败: ' + result.error);
-            }
-          });
-        }
-
-        // 列表操作
-        document.getElementById('effectList').addEventListener('click', (e) => {
+        document.getElementById('effectList').addEventListener('click', async (e) => {
           const item = e.target.closest('.effect-item');
           if (!item) return;
 
           if (e.target.closest('.play')) {
             const filename = item.dataset.filename;
-            const playBtn = item.querySelector('.play');
-            const icon = playBtn.querySelector('.material-icons');
-            
-            // 如果当前正在播放这个文件
+            const btn = item.querySelector('.play');
             if (this.currentAudio && this.currentAudioFilename === filename) {
               this.stopPreview();
               return;
             }
-            
-            // 停止之前的播放
             this.stopPreview();
-            
-            // 开始新的播放
-            this.playPreview(filename, playBtn);
+            this.playPreview(filename, btn);
+            return;
           }
-          
+
+          if (e.target.closest('.delete')) {
+            const filename = item.dataset.filename;
+            if (!confirm(`确认删除音效文件 ${filename}？`)) return;
+            const result = await window.electronAPI.deleteSound(filename);
+            if (result?.success) {
+              this.toast('已删除音效');
+              await this.loadSounds();
+              this.render();
+              await this.refreshEffects();
+            } else {
+              this.toast('删除失败: ' + (result?.error || '未知错误'));
+            }
+            return;
+          }
+
           if (e.target.closest('.edit')) {
-            // 进入编辑模式
             item.classList.add('editing');
             const input = item.querySelector('.effect-id-input');
             input.focus();
-            
-            // 失去焦点或回车保存
+
             const save = async () => {
               const newId = input.value.trim();
               if (newId && newId !== item.querySelector('.effect-id').textContent) {
-                 if (window.electronAPI) {
-                   const result = await window.electronAPI.setEffectId(item.dataset.filename, newId);
-                   if (result.success) {
-                     item.querySelector('.effect-id').textContent = newId;
-                     await this.refreshEffects();
-                     this.showToast('ID 已更新');
-                   } else {
-                     this.showToast('更新失败: ' + result.error);
-                     input.value = item.querySelector('.effect-id').textContent;
-                   }
-                 }
+                const result = await window.electronAPI.setEffectId(item.dataset.filename, newId);
+                if (result.success) {
+                  item.querySelector('.effect-id').textContent = newId;
+                  await this.refreshEffects();
+                  this.toast('ID 已更新');
+                } else {
+                  this.toast('更新失败');
+                  input.value = item.querySelector('.effect-id').textContent;
+                }
               }
               item.classList.remove('editing');
             };
-            
+
             input.onblur = save;
-            input.onkeydown = (ev) => {
-              if (ev.key === 'Enter') {
-                input.blur();
-              }
-            };
+            input.onkeydown = (ev) => { if (ev.key === 'Enter') input.blur(); };
           }
         });
       }
-      
+
       playPreview(filename, btn) {
         if (!this.soundsPath) return;
-        
-        // 停止之前的播放
         this.stopPreview();
-        
         const audio = new Audio(this.toFileUrl(`${this.soundsPath}/${filename}`));
         audio.preload = 'auto';
-        
-        audio.onended = () => {
-          this.stopPreview();
-        };
-        
-        audio.onerror = () => {
-          this.showToast('播放失败');
-          this.stopPreview();
-        };
-        
-        // 更新状态
+
+        audio.onended = () => this.stopPreview();
+        audio.onerror = () => { this.toast('播放失败'); this.stopPreview(); };
+
         this.currentAudio = audio;
         this.currentAudioFilename = filename;
         this.currentPlayBtn = btn;
-        
-        audio.play().catch(e => {
-            console.error(e);
-            this.stopPreview();
-        });
-        
+
+        audio.play().catch(() => this.stopPreview());
         btn.querySelector('.material-icons').textContent = 'stop';
-        btn.classList.add('playing');
       }
-      
+
       stopPreview() {
         if (this.currentAudio) {
           this.currentAudio.pause();
@@ -595,30 +206,23 @@
           this.currentAudio = null;
         }
         this.currentAudioFilename = null;
-        
         if (this.currentPlayBtn) {
           this.currentPlayBtn.querySelector('.material-icons').textContent = 'play_arrow';
-          this.currentPlayBtn.classList.remove('playing');
           this.currentPlayBtn = null;
         }
       }
 
-      toFileUrl(filePath) {
-        if (!filePath) return '';
-        const normalized = filePath.replace(/\\/g, '/');
-        return `file:///${encodeURI(normalized)}`;
-      }
+      toFileUrl(filePath) { return `file:///${encodeURI(filePath.replace(/\\/g, '/'))}`; }
 
-      showToast(msg) {
-        const toast = document.getElementById('toast');
-        toast.textContent = msg;
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 2000);
+      toast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 1800);
       }
     }
 
-    // 初始化
-    document.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', () => {
       window.effectsManager = new EffectsManager();
     });
   </script>

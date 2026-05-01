@@ -20,7 +20,6 @@ const voiceConfig = {
 async function synthesizeTTS(text, voice, rate = '+0%') {
   try {
     ensureDir(tempDir);
-
     const voiceName = voiceConfig[voice] || voice || voiceConfig.female;
     const outputPath = path.join(tempDir, `tts_${Date.now()}.mp3`);
 
@@ -29,7 +28,6 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
 
     const writeStream = fs.createWriteStream(outputPath);
     const { audioStream } = await tts.toStream(text, { rate });
-
     audioStream.pipe(writeStream);
 
     await new Promise((resolve, reject) => {
@@ -38,25 +36,23 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
       audioStream.on('error', reject);
     });
 
-    if (fs.existsSync(outputPath)) {
-      return { success: true, path: outputPath };
-    }
-
+    if (fs.existsSync(outputPath)) return { success: true, path: outputPath };
     return { success: false, error: '音频文件生成失败' };
   } catch (error) {
-    if (isNetworkError(error)) {
-      return { success: false, error: 'EdgeTTS 网络不可用' };
-    }
+    if (isNetworkError(error)) return { success: false, error: 'EdgeTTS 网络不可用' };
     console.error('EdgeTTS 合成失败:', error);
     return { success: false, error: error.message || 'EdgeTTS 合成失败' };
   }
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  // 文件操作
-  saveFile: (filePath, content) => ipcRenderer.invoke('save-file', filePath, content),
+  // 文件/项目
+  saveFile: (filePath, content, meta) => ipcRenderer.invoke('save-file', filePath, content, meta),
+  openProjectFile: (filePath) => ipcRenderer.invoke('open-project-file', filePath),
+  selectProjectPath: () => ipcRenderer.invoke('select-project-path'),
+
   onSaveAs: (callback) => ipcRenderer.on('menu-save-as', (event, filePath) => callback(filePath)),
-  onFileOpened: (callback) => ipcRenderer.on('file-opened', (event, content, filePath) => callback(content, filePath)),
+  onMenuOpenProject: (callback) => ipcRenderer.on('menu-open-project', (event, filePath) => callback(filePath)),
   onMenuNew: (callback) => ipcRenderer.on('menu-new', () => callback()),
   onMenuSave: (callback) => ipcRenderer.on('menu-save', () => callback()),
   onMenuEdit: (callback) => ipcRenderer.on('menu-edit', (event, action) => callback(action)),
@@ -66,6 +62,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listSounds: () => ipcRenderer.invoke('list-sounds'),
   setEffectId: (filename, customId) => ipcRenderer.invoke('set-effect-id', filename, customId),
   removeEffectMapping: (filename) => ipcRenderer.invoke('remove-effect-mapping', filename),
+  deleteSound: (filename) => ipcRenderer.invoke('delete-sound', filename),
   getSoundsPath: () => ipcRenderer.invoke('get-sounds-path'),
   importSound: (sourcePath) => ipcRenderer.invoke('import-sound', sourcePath),
   selectAudioFile: () => ipcRenderer.invoke('select-audio-file'),
@@ -115,8 +112,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onShowSyntaxHelp: (callback) => ipcRenderer.on('show-syntax-help', () => callback()),
   onShowRoleManager: (callback) => ipcRenderer.on('show-role-manager', () => callback()),
   onShowSettings: (callback) => ipcRenderer.on('show-settings', () => callback()),
+
   openRoleManagerWindow: () => ipcRenderer.invoke('open-role-manager-window'),
   openSettingsWindow: () => ipcRenderer.invoke('open-settings-window'),
+  openEffectManagerWindow: () => ipcRenderer.invoke('open-effect-manager-window'),
 
   // 设置
   getSettings: () => ipcRenderer.invoke('get-settings'),
@@ -126,7 +125,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 导出
   selectExportPath: () => ipcRenderer.invoke('select-export-path'),
-  selectListextPath: () => ipcRenderer.invoke('select-listext-path'),
-
   platform: process.platform
 });

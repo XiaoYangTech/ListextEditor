@@ -278,7 +278,6 @@
   getAttributeSuggestions(tagName) {
     const map = {
       say: ['role', 'rate'],
-      v: ['id', 'rate'],
       pause: ['dur'],
       fx: ['id', 'dur', 'fade'],
       repeat: ['count']
@@ -380,3 +379,4 @@
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = CodeEditor;
 }
+
