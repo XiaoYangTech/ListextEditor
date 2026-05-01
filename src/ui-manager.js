@@ -334,9 +334,9 @@
         return;
       }
 
-      if (!inBlockMode || textActive) return;
+      if (!inBlockMode) return;
 
-      // 快捷新增（Alt + 数字）
+      // 快捷新增（Alt + 数字）——文本编辑状态也可用
       const addMap = {
         '1': 'say',
         '2': 'pause',
@@ -350,6 +350,9 @@
         this.handleAddBlock(addMap[key]);
         return;
       }
+
+      // 文本编辑状态下：只保留 Alt+数字新增，其它交给文本输入
+      if (textActive) return;
 
       // 块选择导航
       if (e.key === 'ArrowDown' && !isMod) {
