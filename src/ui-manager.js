@@ -312,47 +312,112 @@
     document.addEventListener('keydown', (e) => {
       const isMod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
+      const inBlockMode = this.app.currentMode === 'block' && this.app.renderer;
+      const textActive = this.app.isTextInputActive();
 
-      if (this.app.currentMode === 'block' && this.app.renderer && !this.app.isTextInputActive()) {
-        if (isMod) {
-          if (key === 'z') {
-            e.preventDefault();
-            if (e.shiftKey) this.app.renderer.redo();
-            else this.app.renderer.undo();
-            this.app.fileManager.markUnsaved();
-            return;
-          }
-          if (key === 'y') {
-            e.preventDefault();
-            this.app.renderer.redo();
-            this.app.fileManager.markUnsaved();
-            return;
-          }
-          if (key === 'c') { e.preventDefault(); this.app.renderer.copySelectedBlocks(); return; }
-          if (key === 'x') { e.preventDefault(); this.app.renderer.cutSelectedBlocks(); this.app.fileManager.markUnsaved(); return; }
-          if (key === 'v') { e.preventDefault(); this.app.renderer.pasteClipboard(); this.app.fileManager.markUnsaved(); return; }
-          if (key === 'a') { e.preventDefault(); this.app.renderer.selectAllBlocks(); return; }
-        } else if ((key === 'delete' || key === 'backspace') && this.app.renderer.selectedBlocks?.size > 0) {
-          e.preventDefault();
-          this.app.renderer.deleteSelectedBlocks();
-          this.app.fileManager.markUnsaved();
-          return;
-        }
-      }
-
+      // Global
       if (isMod && key === 's') {
         e.preventDefault();
         this.app.fileManager.saveFile();
-      }
-
-      if (e.key === 'Escape') {
-        this.app.ttsRenderer.stopPlay();
-        document.querySelectorAll('.dialog.active').forEach(d => d.classList.remove('active'));
+        return;
       }
 
       if (e.key === 'F5') {
         e.preventDefault();
         this.app.ttsRenderer.previewPlay();
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        this.app.ttsRenderer.stopPlay();
+        document.querySelectorAll('.dialog.active').forEach(d => d.classList.remove('active'));
+        return;
+      }
+
+      if (!inBlockMode || textActive) return;
+
+      // 快捷新增（Alt + 数字）
+      const addMap = {
+        '1': 'say',
+        '2': 'pause',
+        '3': 'repeat',
+        '4': 'section',
+        '5': 'fx',
+        '6': 'divider'
+      };
+      if (e.altKey && addMap[key]) {
+        e.preventDefault();
+        this.handleAddBlock(addMap[key]);
+        return;
+      }
+
+      // 块选择导航
+      if (e.key === 'ArrowDown' && !isMod) {
+        e.preventDefault();
+        this.app.renderer.selectNextBlock();
+        return;
+      }
+      if (e.key === 'ArrowUp' && !isMod) {
+        e.preventDefault();
+        this.app.renderer.selectPrevBlock();
+        return;
+      }
+
+      // 块重排
+      if (isMod && e.key === 'ArrowDown') {
+        e.preventDefault();
+        this.app.renderer.moveSelectedBlock(1);
+        this.app.fileManager.markUnsaved();
+        return;
+      }
+      if (isMod && e.key === 'ArrowUp') {
+        e.preventDefault();
+        this.app.renderer.moveSelectedBlock(-1);
+        this.app.fileManager.markUnsaved();
+        return;
+      }
+
+      // 选中块编辑
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.app.renderer.focusSelectedBlockEditor();
+        return;
+      }
+
+      // 播放
+      if (e.key === ' ') {
+        e.preventDefault();
+        this.app.ttsRenderer.previewPlay();
+        return;
+      }
+
+      // 原有编辑快捷键
+      if (isMod) {
+        if (key === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) this.app.renderer.redo();
+          else this.app.renderer.undo();
+          this.app.fileManager.markUnsaved();
+          return;
+        }
+        if (key === 'y') {
+          e.preventDefault();
+          this.app.renderer.redo();
+          this.app.fileManager.markUnsaved();
+          return;
+        }
+        if (key === 'c') { e.preventDefault(); this.app.renderer.copySelectedBlocks(); return; }
+        if (key === 'x') { e.preventDefault(); this.app.renderer.cutSelectedBlocks(); this.app.fileManager.markUnsaved(); return; }
+        if (key === 'v') { e.preventDefault(); this.app.renderer.pasteClipboard(); this.app.fileManager.markUnsaved(); return; }
+        if (key === 'a') { e.preventDefault(); this.app.renderer.selectAllBlocks(); return; }
+      }
+
+      if (key === 'delete' || key === 'backspace') {
+        if (this.app.renderer.selectedBlocks?.size > 0) {
+          e.preventDefault();
+          this.app.renderer.deleteSelectedBlocks();
+          this.app.fileManager.markUnsaved();
+        }
       }
     });
   }

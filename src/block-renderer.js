@@ -794,6 +794,80 @@
     return null;
   }
 
+  getTopLevelBlocks() {
+    return Array.from(this.container.querySelectorAll(':scope > .block'));
+  }
+
+  getPrimarySelectedBlock() {
+    const ordered = this.getSelectedBlocksOrdered();
+    return ordered.length ? ordered[0] : null;
+  }
+
+  selectNextBlock() {
+    const blocks = this.getTopLevelBlocks();
+    if (!blocks.length) return;
+    const current = this.getPrimarySelectedBlock();
+    if (!current) {
+      this.selectSingleBlock(blocks[0]);
+      return;
+    }
+    const idx = blocks.indexOf(current);
+    const next = blocks[Math.min(blocks.length - 1, idx + 1)];
+    if (next) this.selectSingleBlock(next);
+  }
+
+  selectPrevBlock() {
+    const blocks = this.getTopLevelBlocks();
+    if (!blocks.length) return;
+    const current = this.getPrimarySelectedBlock();
+    if (!current) {
+      this.selectSingleBlock(blocks[0]);
+      return;
+    }
+    const idx = blocks.indexOf(current);
+    const prev = blocks[Math.max(0, idx - 1)];
+    if (prev) this.selectSingleBlock(prev);
+  }
+
+  moveSelectedBlock(offset) {
+    const block = this.getPrimarySelectedBlock();
+    if (!block || !offset) return;
+    const parent = block.parentElement;
+    if (!parent) return;
+    const siblings = Array.from(parent.querySelectorAll(':scope > .block'));
+    const idx = siblings.indexOf(block);
+    if (idx < 0) return;
+    const targetIdx = idx + offset;
+    if (targetIdx < 0 || targetIdx >= siblings.length) return;
+
+    if (offset < 0) {
+      parent.insertBefore(block, siblings[targetIdx]);
+    } else {
+      const ref = siblings[targetIdx].nextSibling;
+      parent.insertBefore(block, ref);
+    }
+
+    this.selectSingleBlock(block);
+    this.onBlockChange();
+    window.app?.uiManager?.refreshSectionJump?.();
+  }
+
+  focusSelectedBlockEditor() {
+    const block = this.getPrimarySelectedBlock();
+    if (!block) return;
+    const textarea = block.querySelector('textarea');
+    if (textarea) {
+      textarea.focus();
+      return;
+    }
+    const tag = block.dataset.tagName;
+    if (tag === 'pause') this.showPauseEditor(block);
+    else if (tag === 'fx') this.showFxEditor(block);
+    else if (tag === 'repeat') this.showRepeatEditor(block);
+    else if (tag === 'section') this.showSectionEditor(block);
+    else if (tag === 'say') this.showSayEditor(block);
+  }
+
   generateId() {
     return `block_${Math.random().toString(36).slice(2, 10)}`;
   }
