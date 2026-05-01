@@ -7,237 +7,47 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
   <style>
-    :root {
-      --primary: #1976d2;
-      --primary-dark: #1565c0;
-      --bg: #fafafa;
-      --surface: #ffffff;
-      --line: #e0e0e0;
-      --muted: #757575;
-      --danger: #b00020;
-      --tab-bg: #e3f2fd;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'Roboto', 'Microsoft YaHei', sans-serif;
-      background: var(--bg);
-      color: #212121;
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 20px;
-      background: var(--primary);
-      color: #fff;
-    }
-
-    .header h1 { font-size: 18px; font-weight: 500; }
-
-    .header-actions { display: flex; gap: 8px; }
-
-    .btn {
-      border: none;
-      border-radius: 8px;
-      padding: 8px 14px;
-      cursor: pointer;
-      font-size: 13px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s ease;
-    }
-
-    .btn-primary {
-      background: rgba(255,255,255,0.2);
-      color: #fff;
-    }
-    .btn-primary:hover { background: rgba(255,255,255,0.3); }
-
-    .btn-surface {
-      background: #fff;
-      color: #333;
-      border: 1px solid var(--line);
-    }
-    .btn-surface:hover { background: #f5f5f5; }
-
-    .btn-danger {
-      background: #ffebee;
-      color: var(--danger);
-      border: 1px solid #ffcdd2;
-    }
-    .btn-danger:hover { background: #ffcdd2; }
-
-    .top-panel {
-      border-bottom: 1px solid var(--line);
-      background: var(--surface);
-      padding: 10px 16px;
-      display: grid;
-      gap: 10px;
-    }
-
-    .group-toolbar {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .group-toolbar input {
-      height: 34px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 0 10px;
-      min-width: 180px;
-      font-size: 13px;
-      background: #fff;
-    }
-
-    .path {
-      font-size: 12px;
-      color: var(--muted);
-      font-family: Consolas, monospace;
-      margin-left: auto;
-    }
-
-    .group-tabs {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      background: var(--tab-bg);
-      border-radius: 10px;
-      padding: 8px;
-    }
-
-    .group-tab {
-      border: 1px solid transparent;
-      border-radius: 999px;
-      padding: 6px 12px;
-      font-size: 13px;
-      cursor: pointer;
-      background: transparent;
-      color: #0d47a1;
-      transition: all .2s ease;
-    }
-
-    .group-tab:hover {
-      background: rgba(25,118,210,0.1);
-    }
-
-    .group-tab.active {
-      background: #1976d2;
-      color: #fff;
-      border-color: #1565c0;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-    }
-
-    .group-wrap { padding: 12px 16px; }
-
-    .group-card {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: var(--surface);
-      overflow: hidden;
-    }
-
-    .group-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--line);
-      background: #fcfcfc;
-    }
-
-    .group-title { font-weight: 600; }
-
-    .default-badge {
-      font-size: 11px;
-      color: #8d6e63;
-      background: #fff8e1;
-      border: 1px solid #ffe082;
-      border-radius: 999px;
-      padding: 2px 6px;
-      margin-left: 6px;
-    }
-
-    .effect-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 12px;
-      border-top: 1px dashed #eee;
-    }
-
-    .effect-item:first-child { border-top: none; }
-
-    .effect-info { flex: 1; min-width: 0; }
-
-    .effect-id-row { display: flex; align-items: center; gap: 8px; }
-
-    .effect-id-input {
-      display: none;
-      width: 180px;
-      padding: 4px 8px;
-      border: 1px solid #90caf9;
-      border-radius: 4px;
-      font-size: 13px;
-    }
-
-    .editing .effect-id { display: none; }
-    .editing .effect-id-input { display: block; }
-
-    .meta { font-size: 12px; color: var(--muted); }
-
-    .group-select-inline {
-      height: 30px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      font-size: 12px;
-      padding: 0 8px;
-      background: #fff;
-    }
-
-    .icon-btn {
-      width: 32px;
-      height: 32px;
-      border: none;
-      border-radius: 50%;
-      background: transparent;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .icon-btn:hover { background: #eee; }
-    .icon-btn.delete:hover { background: #ffebee; color: var(--danger); }\n\n    .icon-btn:disabled, .group-select-inline:disabled {\n      opacity: 0.45;\n      cursor: not-allowed;\n      pointer-events: none;\n    }
-
-    .empty {
-      color: var(--muted);
-      font-size: 13px;
-      padding: 16px;
-      text-align: center;
-    }
-
-    .toast {
-      position: fixed;
-      left: 50%;
-      transform: translateX(-50%);
-      bottom: 20px;
-      background: #333;
-      color: #fff;
-      padding: 10px 16px;
-      border-radius: 6px;
-      opacity: 0;
-      transition: opacity .2s;
-      z-index: 999;
-    }
-
-    .toast.show { opacity: 1; }
+    :root { --primary:#1976d2; --bg:#fafafa; --surface:#fff; --line:#e0e0e0; --muted:#757575; --danger:#b00020; --tab-bg:#e3f2fd; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Roboto','Microsoft YaHei',sans-serif; background:var(--bg); color:#212121; }
+    .header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background:var(--primary); color:#fff; }
+    .header h1 { font-size:18px; font-weight:500; }
+    .header-actions { display:flex; gap:8px; }
+    .btn { border:none; border-radius:8px; padding:8px 14px; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; gap:6px; }
+    .btn-primary { background:rgba(255,255,255,.2); color:#fff; }
+    .btn-primary:hover { background:rgba(255,255,255,.3); }
+    .btn-surface { background:#fff; color:#333; border:1px solid var(--line); }
+    .btn-surface:hover { background:#f5f5f5; }
+    .btn-danger { background:#ffebee; color:var(--danger); border:1px solid #ffcdd2; }
+    .btn-danger:hover { background:#ffcdd2; }
+    .top-panel { border-bottom:1px solid var(--line); background:var(--surface); padding:10px 16px; display:grid; gap:10px; }
+    .group-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .group-toolbar input, .group-select-inline { height:34px; border:1px solid var(--line); border-radius:8px; padding:0 10px; font-size:13px; background:#fff; }
+    .group-toolbar input { min-width:180px; }
+    .path { font-size:12px; color:var(--muted); font-family:Consolas, monospace; margin-left:auto; }
+    .group-tabs { display:flex; gap:8px; flex-wrap:wrap; background:var(--tab-bg); border-radius:10px; padding:8px; }
+    .group-tab { border:1px solid transparent; border-radius:999px; padding:6px 12px; font-size:13px; cursor:pointer; background:transparent; color:#0d47a1; }
+    .group-tab:hover { background:rgba(25,118,210,.1); }
+    .group-tab.active { background:#1976d2; color:#fff; border-color:#1565c0; }
+    .group-wrap { padding:12px 16px; }
+    .group-card { border:1px solid var(--line); border-radius:10px; background:var(--surface); overflow:hidden; }
+    .group-header { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid var(--line); background:#fcfcfc; }
+    .group-title { font-weight:600; }
+    .default-badge { font-size:11px; color:#8d6e63; background:#fff8e1; border:1px solid #ffe082; border-radius:999px; padding:2px 6px; margin-left:6px; }
+    .effect-item { display:flex; align-items:center; gap:12px; padding:10px 12px; border-top:1px dashed #eee; }
+    .effect-item:first-child { border-top:none; }
+    .effect-info { flex:1; min-width:0; }
+    .effect-id-row { display:flex; align-items:center; gap:8px; }
+    .effect-id-input { display:none; width:180px; padding:4px 8px; border:1px solid #90caf9; border-radius:4px; font-size:13px; }
+    .editing .effect-id { display:none; } .editing .effect-id-input { display:block; }
+    .meta { font-size:12px; color:var(--muted); }
+    .group-select-inline.small { height:30px; border-radius:6px; font-size:12px; padding:0 8px; }
+    .icon-btn { width:32px; height:32px; border:none; border-radius:50%; background:transparent; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+    .icon-btn:hover { background:#eee; } .icon-btn.delete:hover { background:#ffebee; color:var(--danger); }
+    .icon-btn:disabled, .group-select-inline:disabled { opacity:.45; cursor:not-allowed; pointer-events:none; }
+    .empty { color:var(--muted); font-size:13px; padding:16px; text-align:center; }
+    .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:20px; background:#333; color:#fff; padding:10px 16px; border-radius:6px; opacity:0; transition:opacity .2s; z-index:999; }
+    .toast.show { opacity:1; }
   </style>
 </head>
 <body>
@@ -254,9 +64,9 @@
       <input id="newGroupInput" placeholder="输入新分组名称" />
       <button class="btn btn-surface" id="btnAddGroup"><span class="material-icons" style="font-size:16px;">create_new_folder</span>新增分组</button>
       <button class="btn btn-danger" id="btnDeleteGroup"><span class="material-icons" style="font-size:16px;">delete</span>删除当前分组</button>
+      <select id="importGroupSelect" class="group-select-inline" title="导入音效到分组"></select>
       <span class="path" id="soundsPath"></span>
     </div>
-
     <div id="groupTabs" class="group-tabs"></div>
   </div>
 
@@ -280,7 +90,8 @@
       async init() {
         if (window.electronAPI) {
           const paths = await window.electronAPI.getSoundsPath();
-          document.getElementById('soundsPath').textContent = `默认: ${paths.builtin} | 用户: ${paths.user}`;
+          const builtinRoots = (paths.builtinRoots || [paths.builtin]).join(' | ');
+          document.getElementById('soundsPath').textContent = `内置: ${builtinRoots} | 用户: ${paths.user}`;
         }
         await this.refreshAll();
         this.bind();
@@ -295,6 +106,7 @@
         }
 
         this.renderTabs();
+        this.renderImportGroupSelect();
         this.renderGroup();
         await window.electronAPI.loadEffects();
       }
@@ -305,8 +117,7 @@
         document.getElementById('btnAddEffect').addEventListener('click', async () => {
           const sourcePath = await window.electronAPI.selectAudioFile();
           if (!sourcePath) return;
-
-          const targetGroup = this.activeGroup || '用户音效';
+          const targetGroup = document.getElementById('importGroupSelect')?.value || this.activeGroup || '用户音效';
           const result = await window.electronAPI.importSound(sourcePath, targetGroup);
           if (result.success) {
             this.toast('导入成功');
@@ -327,6 +138,7 @@
             await this.refreshAll();
             this.activeGroup = name;
             this.renderTabs();
+            this.renderImportGroupSelect();
             this.renderGroup();
           } else {
             this.toast('新增失败: ' + (res.error || '未知错误'));
@@ -349,11 +161,12 @@
           if (!tab) return;
           this.activeGroup = tab.dataset.group;
           this.renderTabs();
+          this.renderImportGroupSelect();
           this.renderGroup();
         });
 
         document.getElementById('groupWrap').addEventListener('change', async (e) => {
-          const select = e.target.closest('.group-select-inline');
+          const select = e.target.closest('.group-select-inline.small');
           if (!select) return;
           const item = select.closest('.effect-item');
           if (!item) return;
@@ -393,7 +206,6 @@
               return;
             }
             if (!confirm('确认删除该音效？')) return;
-
             const res = await window.electronAPI.deleteSound(key);
             if (res.success) {
               this.toast('删除成功');
@@ -419,7 +231,7 @@
                   await window.electronAPI.loadEffects();
                   this.toast('ID 已更新');
                 } else {
-                  this.toast('更新失败');
+                  this.toast(result.error || '更新失败');
                   input.value = oldId;
                 }
               }
@@ -432,11 +244,15 @@
         });
       }
 
+      renderImportGroupSelect() {
+        const select = document.getElementById('importGroupSelect');
+        if (!select) return;
+        select.innerHTML = this.groups.map(g => `<option value="${g}" ${g === this.activeGroup ? 'selected' : ''}>导入到：${g}</option>`).join('');
+      }
+
       renderTabs() {
         const tabs = document.getElementById('groupTabs');
-        tabs.innerHTML = this.groups.map(g => `
-          <button class="group-tab ${g === this.activeGroup ? 'active' : ''}" data-group="${g}">${g}</button>
-        `).join('');
+        tabs.innerHTML = this.groups.map(g => `<button class="group-tab ${g === this.activeGroup ? 'active' : ''}" data-group="${g}">${g}</button>`).join('');
       }
 
       renderGroup() {
@@ -465,11 +281,9 @@
                   </div>
                   <div class="meta">${sound.filename} · ${sound.source === 'builtin' ? '默认自带（只读）' : '用户导入'}</div>
                 </div>
-
-                <select class="group-select-inline" ${sound.source === 'builtin' ? 'disabled' : ''}>
-                  ${this.groups.map(g => `<option value=\"${g}\" ${g === sound.group ? 'selected' : ''}>${g}</option>`).join('')}
+                <select class="group-select-inline small" ${sound.source === 'builtin' ? 'disabled' : ''}>
+                  ${this.groups.map(g => `<option value="${g}" ${g === sound.group ? 'selected' : ''}>${g}</option>`).join('')}
                 </select>
-
                 <button class="icon-btn btn-edit" title="编辑ID" ${sound.source === 'builtin' ? 'disabled' : ''}><span class="material-icons">edit</span></button>
                 <button class="icon-btn btn-play" title="试听"><span class="material-icons">play_arrow</span></button>
                 <button class="icon-btn btn-delete delete" title="删除"><span class="material-icons">delete</span></button>
@@ -510,9 +324,7 @@
         }
       }
 
-      toFileUrl(filePath) {
-        return `file:///${encodeURI(filePath.replace(/\\/g, '/'))}`;
-      }
+      toFileUrl(filePath) { return `file:///${encodeURI(filePath.replace(/\\/g, '/'))}`; }
 
       toast(msg) {
         const t = document.getElementById('toast');
@@ -528,4 +340,3 @@
   </script>
 </body>
 </html>
-

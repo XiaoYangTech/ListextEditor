@@ -1,5 +1,6 @@
 ﻿const { BrowserWindow, Menu, dialog, shell } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { ensureDir } = require('./utils');
 
 let mainWindow;
@@ -8,9 +9,23 @@ let roleManagerWindow = null;
 let settingsWindow = null;
 const soundsDir = path.join(path.dirname(process.execPath), 'sounds');
 
-function getMainWindow() {
-  return mainWindow;
+function readPackageMeta() {
+  try {
+    const pkgPath = path.join(__dirname, '../../package.json');
+    const raw = fs.readFileSync(pkgPath, 'utf-8');
+    const pkg = JSON.parse(raw);
+    return {
+      name: pkg.productName || pkg.name || 'Listext Editor',
+      version: pkg.version || '0.0.0',
+      description: pkg.description || '',
+      author: typeof pkg.author === 'string' ? pkg.author : (pkg.author?.name || '')
+    };
+  } catch {
+    return { name: 'Listext Editor', version: '0.0.0', description: '', author: '' };
+  }
 }
+
+function getMainWindow() { return mainWindow; }
 
 function getMainTargetWindow() {
   const focused = BrowserWindow.getFocusedWindow();
@@ -21,9 +36,7 @@ function getMainTargetWindow() {
 
 function sendToMain(channel, ...args) {
   const target = getMainTargetWindow();
-  if (target && target.webContents && !target.webContents.isDestroyed()) {
-    target.webContents.send(channel, ...args);
-  }
+  if (target && target.webContents && !target.webContents.isDestroyed()) target.webContents.send(channel, ...args);
 }
 
 function createMainWindow() {
@@ -50,7 +63,6 @@ function createMainWindow() {
   });
 
   createMenu();
-
   return mainWindow;
 }
 
@@ -61,57 +73,37 @@ function createMenu() {
     {
       label: '文件',
       submenu: [
+        { label: '新建', accelerator: 'CmdOrCtrl+N', click: () => sendToMain('menu-new') },
         {
-          label: '新建',
-          accelerator: 'CmdOrCtrl+N',
-          click: () => sendToMain('menu-new')
-        },
-        {
-          label: '打开项目',
-          accelerator: 'CmdOrCtrl+O',
-          click: async () => {
+          label: '打开项目', accelerator: 'CmdOrCtrl+O', click: async () => {
             const owner = getMainTargetWindow() || mainWindow;
             const result = await dialog.showOpenDialog(owner, {
               filters: [{ name: 'Listext Project', extensions: ['lstx'] }],
               properties: ['openFile']
             });
-            if (!result.canceled && result.filePaths.length > 0) {
-              sendToMain('menu-open-project', result.filePaths[0]);
-            }
+            if (!result.canceled && result.filePaths.length > 0) sendToMain('menu-open-project', result.filePaths[0]);
           }
         },
+        { label: '保存项目', accelerator: 'CmdOrCtrl+S', click: () => sendToMain('menu-save') },
         {
-          label: '保存项目',
-          accelerator: 'CmdOrCtrl+S',
-          click: () => sendToMain('menu-save')
-        },
-        {
-          label: '项目另存为',
-          accelerator: 'CmdOrCtrl+Shift+S',
-          click: async () => {
+          label: '项目另存为', accelerator: 'CmdOrCtrl+Shift+S', click: async () => {
             const owner = getMainTargetWindow() || mainWindow;
             const result = await dialog.showSaveDialog(owner, {
               filters: [{ name: 'Listext Project', extensions: ['lstx'] }],
               defaultPath: 'untitled.lstx'
             });
-            if (!result.canceled) {
-              sendToMain('menu-save-as', result.filePath);
-            }
+            if (!result.canceled) sendToMain('menu-save-as', result.filePath);
           }
         },
         { type: 'separator' },
         {
-          label: '导出音频',
-          accelerator: 'CmdOrCtrl+E',
-          click: async () => {
+          label: '导出音频', accelerator: 'CmdOrCtrl+E', click: async () => {
             const owner = getMainTargetWindow() || mainWindow;
             const result = await dialog.showSaveDialog(owner, {
               filters: [{ name: 'WAV Audio', extensions: ['wav'] }],
               defaultPath: 'listening.wav'
             });
-            if (!result.canceled) {
-              sendToMain('export-audio', result.filePath);
-            }
+            if (!result.canceled) sendToMain('export-audio', result.filePath);
           }
         },
         { type: 'separator' },
@@ -138,10 +130,7 @@ function createMenu() {
         { label: '设置', click: () => openSettingsWindow() },
         {
           label: '打开 sounds 文件夹',
-          click: () => {
-            ensureDir(soundsDir);
-            shell.openPath(soundsDir);
-          }
+          click: () => { ensureDir(soundsDir); shell.openPath(soundsDir); }
         },
         { type: 'separator' },
         { label: '预览播放', accelerator: 'F5', click: () => sendToMain('preview-play') },
@@ -157,11 +146,13 @@ function createMenu() {
           label: '关于',
           click: () => {
             const owner = getMainTargetWindow() || mainWindow;
+            const meta = readPackageMeta();
+            const detail = [meta.description, meta.author ? `开发者：${meta.author}` : ''].filter(Boolean).join('\n');
             dialog.showMessageBox(owner, {
               type: 'info',
-              title: '关于 Listext Editor',
-              message: 'Listext Editor v1.0.0',
-              detail: '外语听力材料合成程序\n\n使用 Listext 语法快速创建听力材料\n语音合成：EdgeTTS'
+              title: `关于 ${meta.name}`,
+              message: `${meta.name} v${meta.version}`,
+              detail: detail || '暂无描述'
             });
           }
         }
@@ -187,11 +178,8 @@ function buildChildWindow(options) {
 }
 
 function openEffectManager() {
-  if (effectManagerWindow && !effectManagerWindow.isDestroyed()) {
-    effectManagerWindow.focus();
-    return;
-  }
-  effectManagerWindow = buildChildWindow({ width: 760, height: 620, title: '音效管理器' });
+  if (effectManagerWindow && !effectManagerWindow.isDestroyed()) return effectManagerWindow.focus();
+  effectManagerWindow = buildChildWindow({ width: 860, height: 680, title: '音效管理器' });
   effectManagerWindow.loadFile('effects-manager.html');
   effectManagerWindow.setMenu(null);
   effectManagerWindow.setMenuBarVisibility(false);
@@ -199,10 +187,7 @@ function openEffectManager() {
 }
 
 function openRoleManager() {
-  if (roleManagerWindow && !roleManagerWindow.isDestroyed()) {
-    roleManagerWindow.focus();
-    return;
-  }
+  if (roleManagerWindow && !roleManagerWindow.isDestroyed()) return roleManagerWindow.focus();
   roleManagerWindow = buildChildWindow({ width: 760, height: 680, title: '角色管理器' });
   roleManagerWindow.loadFile('role-manager.html');
   roleManagerWindow.setMenu(null);
@@ -211,10 +196,7 @@ function openRoleManager() {
 }
 
 function openSettingsWindow() {
-  if (settingsWindow && !settingsWindow.isDestroyed()) {
-    settingsWindow.focus();
-    return;
-  }
+  if (settingsWindow && !settingsWindow.isDestroyed()) return settingsWindow.focus();
   settingsWindow = buildChildWindow({ width: 520, height: 360, resizable: false, title: '设置' });
   settingsWindow.loadFile('settings.html');
   settingsWindow.setMenu(null);
@@ -222,10 +204,4 @@ function openSettingsWindow() {
   settingsWindow.on('closed', () => { settingsWindow = null; });
 }
 
-module.exports = {
-  createMainWindow,
-  getMainWindow,
-  openEffectManager,
-  openRoleManager,
-  openSettingsWindow
-};
+module.exports = { createMainWindow, getMainWindow, openEffectManager, openRoleManager, openSettingsWindow };
