@@ -134,6 +134,7 @@
     <div class="dialog-content dialog-small">
       <div class="dialog-header"><h2>选择音效</h2><button class="dialog-close">&times;</button></div>
       <div class="dialog-body">
+        <div class="form-group"><label>音效分类</label><select id="effectGroupSelect"></select></div>
         <div class="form-group"><label>音效ID</label><select id="effectSelect"></select></div>
         <div class="form-group"><label>持续时间（秒，可选）</label><input type="number" id="effectDuration" min="1" max="300" placeholder="留空表示播放完整音效"></div>
         <div class="form-group"><button class="btn" id="btnOpenEffectManager">打开音效管理器</button></div>
@@ -174,3 +175,4 @@
   <script src="src/main.js"></script>
 </body>
 </html>
+

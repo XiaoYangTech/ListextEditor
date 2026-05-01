@@ -1,4 +1,4 @@
-﻿const { BrowserWindow, Menu, dialog, shell } = require('electron');
+﻿const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { ensureDir } = require('./utils');
@@ -11,17 +11,18 @@ const soundsDir = path.join(path.dirname(process.execPath), 'sounds');
 
 function readPackageMeta() {
   try {
-    const pkgPath = path.join(__dirname, '../../package.json');
+    const appPath = app.getAppPath();
+    const pkgPath = path.join(appPath, 'package.json');
     const raw = fs.readFileSync(pkgPath, 'utf-8');
     const pkg = JSON.parse(raw);
     return {
       name: pkg.productName || pkg.name || 'Listext Editor',
-      version: pkg.version || '0.0.0',
+      version: app.getVersion() || pkg.version || '0.0.0',
       description: pkg.description || '',
       author: typeof pkg.author === 'string' ? pkg.author : (pkg.author?.name || '')
     };
   } catch {
-    return { name: 'Listext Editor', version: '0.0.0', description: '', author: '' };
+    return { name: 'Listext Editor', version: app.getVersion?.() || '0.0.0', description: '', author: '' };
   }
 }
 
@@ -152,7 +153,7 @@ function createMenu() {
               type: 'info',
               title: `关于 ${meta.name}`,
               message: `${meta.name} v${meta.version}`,
-              detail: detail || '暂无描述'
+              detail: detail || `版本：${meta.version}`
             });
           }
         }

@@ -37,6 +37,9 @@
     this.settingsSaveBtn = document.getElementById('settingsSave');
     this.settingsCancelBtn = document.getElementById('settingsCancel');
     this.settingsCloseTopBtn = document.getElementById('settingsCloseTop');
+
+    this.effectMapCache = {};
+    this.soundListCache = [];
   }
 
   initModeSwitcher() {
@@ -100,7 +103,7 @@
     } else if (type === 'fx') {
       this.showEffectDialog((effectId, duration) => {
         if (!effectId) {
-          this.app.updateStatus('请先导入音效');
+          this.app.updateStatus('请先选择音效');
           return;
         }
         this.app.renderer.addBlock('fx', { effectId, duration });
@@ -157,11 +160,16 @@
   initEffectDialog() {
     const effectDialog = document.getElementById('effectDialog');
     const effectSelect = document.getElementById('effectSelect');
+    const effectGroupSelect = document.getElementById('effectGroupSelect');
     const effectDuration = document.getElementById('effectDuration');
     const effectConfirm = document.getElementById('effectConfirm');
 
     document.getElementById('btnOpenEffectManager')?.addEventListener('click', async () => {
       await window.electronAPI?.openEffectManagerWindow?.();
+    });
+
+    effectGroupSelect?.addEventListener('change', () => {
+      this.renderEffectIdsByGroup(effectGroupSelect.value, effectSelect);
     });
 
     effectDialog?.querySelector('.dialog-close')?.addEventListener('click', () => effectDialog.classList.remove('active'));
@@ -178,17 +186,40 @@
     }
   }
 
+  renderEffectIdsByGroup(group, effectSelect) {
+    const ids = Object.keys(this.effectMapCache || {});
+    if (!group) {
+      effectSelect.innerHTML = ids.length ? ids.map(id => `<option value="${id}">${id}</option>`).join('') : '<option value="">（暂无音效）</option>';
+      return;
+    }
+
+    const filtered = ids.filter(id => {
+      const sound = this.soundListCache.find(s => (s.displayId || s.name) === id);
+      return sound && sound.group === group;
+    });
+
+    effectSelect.innerHTML = filtered.length
+      ? filtered.map(id => `<option value="${id}">${id}</option>`).join('')
+      : '<option value="">（该分类暂无音效）</option>';
+  }
+
   async showEffectDialog(callback) {
     this.effectCallback = callback;
     const effectDialog = document.getElementById('effectDialog');
     const effectSelect = document.getElementById('effectSelect');
+    const effectGroupSelect = document.getElementById('effectGroupSelect');
     const effectDuration = document.getElementById('effectDuration');
 
     const effects = await window.electronAPI?.loadEffects() || {};
-    const ids = Object.keys(effects);
-    effectSelect.innerHTML = ids.length
-      ? ids.map(id => `<option value="${id}">${id}</option>`).join('')
-      : '<option value="">（暂无音效，请先在音效管理器导入）</option>';
+    const sounds = await window.electronAPI?.listSounds?.() || [];
+
+    this.effectMapCache = effects;
+    this.soundListCache = sounds;
+
+    const groups = Array.from(new Set(sounds.map(s => s.group))).filter(Boolean);
+    effectGroupSelect.innerHTML = ['<option value="">全部分类</option>', ...groups.map(g => `<option value="${g}">${g}</option>`)].join('');
+
+    this.renderEffectIdsByGroup('', effectSelect);
 
     effectDuration.value = '';
     effectDialog.classList.add('active');
@@ -315,7 +346,6 @@
       const inBlockMode = this.app.currentMode === 'block' && this.app.renderer;
       const textActive = this.app.isTextInputActive();
 
-      // Global
       if (isMod && key === 's') {
         e.preventDefault();
         this.app.fileManager.saveFile();
@@ -336,91 +366,37 @@
 
       if (!inBlockMode) return;
 
-      // 快捷新增（Alt + 数字）——文本编辑状态也可用
-      const addMap = {
-        '1': 'say',
-        '2': 'pause',
-        '3': 'repeat',
-        '4': 'section',
-        '5': 'fx',
-        '6': 'divider'
-      };
+      const addMap = { '1': 'say', '2': 'pause', '3': 'repeat', '4': 'section', '5': 'fx', '6': 'divider' };
       if (e.altKey && addMap[key]) {
         e.preventDefault();
         this.handleAddBlock(addMap[key]);
         return;
       }
 
-      // 文本编辑状态下：只保留 Alt+数字新增，其它交给文本输入
       if (textActive) return;
 
-      // 块选择导航
-      if (e.key === 'ArrowDown' && !isMod) {
-        e.preventDefault();
-        this.app.renderer.selectNextBlock();
-        return;
-      }
-      if (e.key === 'ArrowUp' && !isMod) {
-        e.preventDefault();
-        this.app.renderer.selectPrevBlock();
-        return;
-      }
+      if (e.key === 'ArrowDown' && !isMod) { e.preventDefault(); this.app.renderer.selectNextBlock(); return; }
+      if (e.key === 'ArrowUp' && !isMod) { e.preventDefault(); this.app.renderer.selectPrevBlock(); return; }
 
-      // 块重排
-      if (isMod && e.key === 'ArrowDown') {
-        e.preventDefault();
-        this.app.renderer.moveSelectedBlock(1);
-        this.app.fileManager.markUnsaved();
-        return;
-      }
-      if (isMod && e.key === 'ArrowUp') {
-        e.preventDefault();
-        this.app.renderer.moveSelectedBlock(-1);
-        this.app.fileManager.markUnsaved();
-        return;
-      }
+      if (isMod && e.key === 'ArrowDown') { e.preventDefault(); this.app.renderer.moveSelectedBlock(1); this.app.fileManager.markUnsaved(); return; }
+      if (isMod && e.key === 'ArrowUp') { e.preventDefault(); this.app.renderer.moveSelectedBlock(-1); this.app.fileManager.markUnsaved(); return; }
 
-      // 选中块编辑
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        this.app.renderer.focusSelectedBlockEditor();
-        return;
-      }
+      if (e.key === 'Enter') { e.preventDefault(); this.app.renderer.focusSelectedBlockEditor(); return; }
+      if (e.key === ' ') { e.preventDefault(); this.app.ttsRenderer.previewPlay(); return; }
 
-      // 播放
-      if (e.key === ' ') {
-        e.preventDefault();
-        this.app.ttsRenderer.previewPlay();
-        return;
-      }
-
-      // 原有编辑快捷键
       if (isMod) {
-        if (key === 'z') {
-          e.preventDefault();
-          if (e.shiftKey) this.app.renderer.redo();
-          else this.app.renderer.undo();
-          this.app.fileManager.markUnsaved();
-          return;
-        }
-        if (key === 'y') {
-          e.preventDefault();
-          this.app.renderer.redo();
-          this.app.fileManager.markUnsaved();
-          return;
-        }
+        if (key === 'z') { e.preventDefault(); if (e.shiftKey) this.app.renderer.redo(); else this.app.renderer.undo(); this.app.fileManager.markUnsaved(); return; }
+        if (key === 'y') { e.preventDefault(); this.app.renderer.redo(); this.app.fileManager.markUnsaved(); return; }
         if (key === 'c') { e.preventDefault(); this.app.renderer.copySelectedBlocks(); return; }
         if (key === 'x') { e.preventDefault(); this.app.renderer.cutSelectedBlocks(); this.app.fileManager.markUnsaved(); return; }
         if (key === 'v') { e.preventDefault(); this.app.renderer.pasteClipboard(); this.app.fileManager.markUnsaved(); return; }
         if (key === 'a') { e.preventDefault(); this.app.renderer.selectAllBlocks(); return; }
       }
 
-      if (key === 'delete' || key === 'backspace') {
-        if (this.app.renderer.selectedBlocks?.size > 0) {
-          e.preventDefault();
-          this.app.renderer.deleteSelectedBlocks();
-          this.app.fileManager.markUnsaved();
-        }
+      if ((key === 'delete' || key === 'backspace') && this.app.renderer.selectedBlocks?.size > 0) {
+        e.preventDefault();
+        this.app.renderer.deleteSelectedBlocks();
+        this.app.fileManager.markUnsaved();
       }
     });
   }
