@@ -123,6 +123,17 @@
         localStorage.setItem('listext_roles', JSON.stringify(roles));
       }
 
+      async getLocalVoices() {
+        const existing = speechSynthesis.getVoices();
+        if (existing.length) return existing;
+        return await new Promise(resolve => {
+          let done = false;
+          const finish = (voices) => { if (done) return; done = true; resolve(voices || []); };
+          const timer = setTimeout(() => finish(speechSynthesis.getVoices()), 1200);
+          speechSynthesis.onvoiceschanged = () => { clearTimeout(timer); finish(speechSynthesis.getVoices()); };
+        });
+      }
+
       async populateVoices() {
         const type = this.roleType.value;
         this.roleVoice.innerHTML = '<option value="">加载中...</option>';
@@ -141,7 +152,7 @@
           return;
         }
 
-        const voices = speechSynthesis.getVoices();
+        const voices = await this.getLocalVoices();
         this.roleVoice.innerHTML = voices.length
           ? voices.map(v => `<option value="${v.name}">${v.name} (${v.lang})</option>`).join('')
           : '<option value="">未获取到本地发音人</option>';

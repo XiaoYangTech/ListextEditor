@@ -164,7 +164,7 @@
     const block = this.createBaseBlock('say', node);
     const header = this.createBlockHeader('say', '朗读', 'record_voice_over', true);
     const content = document.createElement('div');
-    content.className = 'block-content repeat-drop-zone';
+    content.className = 'block-content';
     const textarea = document.createElement('textarea');
     textarea.className = 'block-textarea';
     textarea.placeholder = '输入朗读内容...';
@@ -256,7 +256,7 @@
     block._repeatCount = count;
     const header = this.createBlockHeader('repeat', `重复（${count} 次）`, 'repeat', true);
     const content = document.createElement('div');
-    content.className = 'block-content';
+    content.className = 'block-content repeat-drop-zone';
 
     if (node.children && node.children.length > 0) {
       for (const child of node.children) {

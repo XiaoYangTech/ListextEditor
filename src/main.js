@@ -84,6 +84,8 @@ class ListextEditor {
         else this.syncCodeToBlocks();
       } catch (e) {
         console.warn('模式切换同步失败:', e);
+        this.updateStatus('模式切换失败，请先修正语法后再切换');
+        return;
       }
     }
 
