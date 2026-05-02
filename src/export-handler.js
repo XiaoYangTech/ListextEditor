@@ -34,18 +34,19 @@
       const queue = effectiveQueue.buildQueue(ast);
       const effects = await api.loadEffects();
 
-      // fast path: 单任务直接导出源音频（避免白屏）
-      if (queue.length === 1) {
-        const ok = await this.tryFastExportSingleTask(queue[0], targetPath, effectiveQueue, effects, api);
-        if (ok) {
-          this.updateStatus('导出完成');
-          setTimeout(() => window.app?.updateStatus?.('就绪'), 1200);
-          return;
-        }
+      if (queue.length !== 1) {
+        this.updateStatus('当前仅支持单任务 MP3 导出（已移除 WAV 导出）');
+        return;
       }
 
-      // fallback: WAV 混音管线
-      await this.exportWithWavPipeline(queue, targetPath, effectiveQueue, effects, api);
+      const ok = await this.tryFastExportSingleTask(queue[0], targetPath, effectiveQueue, effects, api);
+      if (ok) {
+        this.updateStatus('导出完成');
+        setTimeout(() => window.app?.updateStatus?.('就绪'), 1200);
+        return;
+      }
+
+      this.updateStatus('导出失败：该任务暂不支持 MP3 快速导出');
     } catch (error) {
       console.error('导出过程出错:', error);
       this.updateStatus('导出出错: ' + (error?.message || String(error)));
@@ -55,6 +56,10 @@
   async tryFastExportSingleTask(task, targetPath, playQueue, effects, api) {
     try {
       let ext = (targetPath.split('.').pop() || '').toLowerCase();
+      if (ext !== 'mp3') {
+        targetPath = targetPath.replace(/\.[^\.]+$/, '.mp3');
+        ext = 'mp3';
+      }
 
       if (task.type === 'tts') {
         const role = playQueue.getRole(task.roleId || '');
