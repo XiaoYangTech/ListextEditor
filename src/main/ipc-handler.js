@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execFile } = require('child_process');
+const ffmpegStatic = require('ffmpeg-static');
 const AdmZip = require('adm-zip');
 const { ensureDir } = require('./utils');
 const { openRoleManager, openSettingsWindow, openEffectManager } = require('./window-manager');
@@ -154,7 +155,8 @@ function openProjectPackage(filePath) {
 
 function runFfmpeg(args) {
   return new Promise((resolve, reject) => {
-    execFile('ffmpeg', args, { windowsHide: true }, (error, stdout, stderr) => {
+    const ffmpegBin = ffmpegStatic || 'ffmpeg';
+    execFile(ffmpegBin, args, { windowsHide: true }, (error, stdout, stderr) => {
       if (error) reject(new Error(stderr || error.message));
       else resolve({ stdout, stderr });
     });

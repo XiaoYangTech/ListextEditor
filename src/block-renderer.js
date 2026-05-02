@@ -329,6 +329,7 @@
       block.classList.remove('dragging');
       this.clearPlaceholder();
       this.draggingBlock = null;
+      this.restoreAllRepeatEmptyStates();
     });
   }
 
@@ -711,6 +712,7 @@
   enableDropZone(container) {
     container.addEventListener('dragover', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       if (!this.draggingBlock) return;
       if (container === this.draggingBlock || this.draggingBlock.contains(container)) return;
       const children = Array.from(container.querySelectorAll(':scope > .block'));
@@ -734,19 +736,41 @@
 
     container.addEventListener('drop', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       if (!this.draggingBlock || !this.placeholderEl) return;
       if (container === this.draggingBlock || this.draggingBlock.contains(container)) return;
 
       const emptyState = container.querySelector(':scope > .empty-state');
       if (emptyState) emptyState.remove();
 
+      const oldParent = this.draggingBlock.parentElement;
       container.insertBefore(this.draggingBlock, this.placeholderEl);
       this.clearPlaceholder();
+      this.ensureRepeatEmptyState(oldParent);
+      this.ensureRepeatEmptyState(container);
       this.draggingBlock.classList.remove('dragging');
       this.draggingBlock = null;
       this.onBlockChange();
       window.app?.uiManager?.refreshSectionJump?.();
     });
+  }
+
+  ensureRepeatEmptyState(container) {
+    if (!container || !container.classList?.contains('repeat-drop-zone')) return;
+    const hasBlocks = container.querySelector(':scope > .block');
+    const empty = container.querySelector(':scope > .empty-state');
+    if (!hasBlocks && !empty) {
+      const el = document.createElement('div');
+      el.className = 'empty-state';
+      el.style.padding = '16px';
+      el.innerHTML = '<p>拖入积木到重复体内</p>';
+      container.appendChild(el);
+    }
+    if (hasBlocks && empty) empty.remove();
+  }
+
+  restoreAllRepeatEmptyStates() {
+    this.container.querySelectorAll('.repeat-drop-zone').forEach(z => this.ensureRepeatEmptyState(z));
   }
 
   createPlaceholder() {

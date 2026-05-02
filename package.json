@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "listext-editor",
   "version": "1.1.0",
   "description": "Listext Editor是由亿方运维开发组开发的跨平台听力材料编辑与合成工具，具有一起作业听力材料制作工具的100%功能，并且更现代化、可视化、智能化、自主可控。 支持小语种听力制作，满足新高考需求。支持Win/Mac/Linux（信创）三端系统。全面开源免费。",
@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "adm-zip": "^0.5.17",
+    "ffmpeg-static": "^5.3.0",
     "msedge-tts": "^2.0.4",
     "uuid": "^9.0.0"
   },
