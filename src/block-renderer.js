@@ -261,7 +261,10 @@
     if (node.children && node.children.length > 0) {
       for (const child of node.children) {
         const childBlock = this.renderNode(child);
-        if (childBlock) content.appendChild(childBlock);
+        if (childBlock) {
+          content.appendChild(childBlock);
+          this.syncNestedRepeatControl(childBlock);
+        }
       }
     } else {
       content.innerHTML = `<div class="empty-state" style="padding:16px;"><p>拖入积木到重复体内</p></div>`;
@@ -280,7 +283,9 @@
     if (deleteBtn) {
       deleteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        const parent = block.parentElement;
         block.remove();
+        this.ensureRepeatEmptyState(parent);
         this.onBlockChange();
       });
     }
@@ -300,19 +305,38 @@
     if (textarea) {
       const headerEl = block.querySelector('.block-header');
       block.setAttribute('draggable', 'false');
+      block._dragFromHandle = false;
       textarea.addEventListener('input', () => this.onBlockChange());
-      textarea.addEventListener('dragstart', (e) => e.stopPropagation());
-      textarea.addEventListener('mousedown', (e) => e.stopPropagation());
-      textarea.addEventListener('selectstart', (e) => e.stopPropagation());
+      textarea.addEventListener('dragstart', (e) => e.preventDefault());
+      textarea.addEventListener('mousedown', (e) => {
+        block._dragFromHandle = false;
+        e.stopPropagation();
+      });
+      textarea.addEventListener('pointerdown', (e) => {
+        block._dragFromHandle = false;
+        e.stopPropagation();
+      });
+      textarea.addEventListener('selectstart', (e) => {
+        block._dragFromHandle = false;
+        e.stopPropagation();
+      });
 
-      const disableDrag = () => block.setAttribute('draggable', 'false');
-      const enableDragFromHeader = () => block.setAttribute('draggable', 'true');
+      const disableDrag = () => {
+        block._dragFromHandle = false;
+        block.setAttribute('draggable', 'false');
+      };
+      const enableDragFromHeader = () => {
+        block._dragFromHandle = true;
+        block.setAttribute('draggable', 'true');
+      };
 
       headerEl?.addEventListener('pointerdown', enableDragFromHeader);
+      headerEl?.addEventListener('mousedown', enableDragFromHeader);
       headerEl?.addEventListener('pointerup', disableDrag);
+      headerEl?.addEventListener('mouseup', disableDrag);
       headerEl?.addEventListener('mouseleave', disableDrag);
-      textarea.addEventListener('pointerdown', disableDrag);
       textarea.addEventListener('pointerup', disableDrag);
+      textarea.addEventListener('mouseup', disableDrag);
       textarea.addEventListener('blur', disableDrag);
     }
 
@@ -323,6 +347,10 @@
     });
 
     block.addEventListener('dragstart', (e) => {
+      if (textarea && !block._dragFromHandle) {
+        e.preventDefault();
+        return;
+      }
       if (e.target.closest('textarea')) {
         e.preventDefault();
         return;
@@ -336,11 +364,52 @@
 
     block.addEventListener('dragend', () => {
       block.classList.remove('dragging');
-      if (textarea) block.setAttribute('draggable', 'false');
+      if (textarea) {
+        block._dragFromHandle = false;
+        block.setAttribute('draggable', 'false');
+      }
       this.clearPlaceholder();
       this.draggingBlock = null;
       this.restoreAllRepeatEmptyStates();
     });
+  }
+
+  ensureMoveOutButton(block) {
+    const actions = block.querySelector('.block-header .block-actions');
+    if (!actions || actions.querySelector('.btn-move-out')) return;
+
+    const btn = document.createElement('button');
+    btn.className = 'block-action-btn btn-move-out';
+    btn.title = '移出重复块';
+    btn.innerHTML = '<span class="material-icons">outdent</span>';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const repeatContent = block.parentElement;
+      const repeatBlock = repeatContent?.closest('.block[data-tag-name="repeat"]');
+      if (!repeatBlock || !repeatBlock.parentElement) return;
+      repeatBlock.after(block);
+      this.syncNestedRepeatControl(block);
+      this.ensureRepeatEmptyState(repeatContent);
+      this.onBlockChange();
+      window.app?.uiManager?.refreshSectionJump?.();
+    });
+
+    actions.insertBefore(btn, actions.firstChild);
+  }
+
+  syncNestedRepeatControl(block) {
+    if (!block) return;
+    const actions = block.querySelector('.block-header .block-actions');
+    if (!actions) return;
+
+    const isNested = !!block.parentElement?.classList?.contains('repeat-drop-zone');
+    const existing = actions.querySelector('.btn-move-out');
+
+    if (isNested) {
+      if (!existing) this.ensureMoveOutButton(block);
+    } else if (existing) {
+      existing.remove();
+    }
   }
 
   showPauseEditor(block) {
@@ -554,7 +623,11 @@
   deleteSelectedBlocks() {
     const selected = this.getSelectedBlocksOrdered();
     if (!selected.length) return;
-    selected.forEach(block => block.remove());
+    selected.forEach(block => {
+      const parent = block.parentElement;
+      block.remove();
+      this.ensureRepeatEmptyState(parent);
+    });
     this.clearSelection();
     this.onBlockChange();
     window.app?.uiManager?.refreshSectionJump?.();
@@ -576,6 +649,7 @@
       if (insertAfter && insertAfter.parentElement === container) insertAfter.after(block);
       else container.appendChild(block);
       this.blocks.push(block);
+      this.syncNestedRepeatControl(block);
       insertAfter = block;
     });
 
@@ -758,6 +832,7 @@
       this.clearPlaceholder();
       this.ensureRepeatEmptyState(oldParent);
       this.ensureRepeatEmptyState(container);
+      this.syncNestedRepeatControl(this.draggingBlock);
       this.draggingBlock.classList.remove('dragging');
       this.draggingBlock = null;
       this.onBlockChange();
@@ -814,9 +889,16 @@
     if (!blockId) return;
     const target = this.container.querySelector(`.block[data-id="${blockId}"]`);
     if (!target) return;
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    const containerRect = this.container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const top = this.container.scrollTop + (targetRect.top - containerRect.top) - (this.container.clientHeight / 2) + (targetRect.height / 2);
+    this.container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+
     target.classList.add('selected');
-    setTimeout(() => target.classList.remove('selected'), 1200);
+    setTimeout(() => {
+      if (!this.selectedBlocks.has(target)) target.classList.remove('selected');
+    }, 1200);
   }
 
   findBlockByKeyword(keyword) {
@@ -925,4 +1007,5 @@
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = BlockRenderer;
 }
+
 

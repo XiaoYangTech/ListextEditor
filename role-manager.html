@@ -95,10 +95,20 @@
       }
 
       bind() {
-        this.roleType.addEventListener('change', () => this.populateVoices());
+        this.roleType.addEventListener('change', async () => {
+          if (this.roleType.value === 'local') {
+            await this.getLocalVoices();
+          }
+          await this.populateVoices();
+        });
         this.btnSave.addEventListener('click', () => this.saveRole());
         this.btnClear.addEventListener('click', () => this.clearForm());
-        this.btnRefresh.addEventListener('click', () => this.populateVoices());
+        this.btnRefresh.addEventListener('click', async () => {
+          if (this.roleType.value === 'local') {
+            await this.getLocalVoices();
+          }
+          await this.populateVoices();
+        });
       }
 
       async init() {
@@ -112,6 +122,9 @@
 
         this.roleType.value = 'edge';
         await this.populateVoices();
+        if (!this.disableLocalTts && 'speechSynthesis' in window) {
+          this.getLocalVoices().catch(() => []);
+        }
         this.renderRoles();
       }
 
@@ -125,13 +138,49 @@
       }
 
       async getLocalVoices() {
-        const existing = speechSynthesis.getVoices();
-        if (existing.length) return existing;
+        if (!('speechSynthesis' in window)) return [];
+
+        try { speechSynthesis.getVoices(); } catch {}
+
         return await new Promise(resolve => {
           let done = false;
-          const finish = (voices) => { if (done) return; done = true; resolve(voices || []); };
-          const timer = setTimeout(() => finish(speechSynthesis.getVoices()), 1200);
-          speechSynthesis.onvoiceschanged = () => { clearTimeout(timer); finish(speechSynthesis.getVoices()); };
+          let pollTimer = null;
+          let timeoutTimer = null;
+
+          const readVoices = () => {
+            try { return speechSynthesis.getVoices() || []; }
+            catch { return []; }
+          };
+
+          const finish = (voices) => {
+            if (done) return;
+            done = true;
+            if (pollTimer) clearInterval(pollTimer);
+            if (timeoutTimer) clearTimeout(timeoutTimer);
+            try { speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged); } catch {}
+            resolve(Array.from(voices || []));
+          };
+
+          const onVoicesChanged = () => {
+            const voices = readVoices();
+            if (voices.length) finish(voices);
+          };
+
+          const immediate = readVoices();
+          if (immediate.length) {
+            finish(immediate);
+            return;
+          }
+
+          try { speechSynthesis.addEventListener('voiceschanged', onVoicesChanged); }
+          catch { speechSynthesis.onvoiceschanged = onVoicesChanged; }
+
+          pollTimer = setInterval(() => {
+            const voices = readVoices();
+            if (voices.length) finish(voices);
+          }, 250);
+
+          timeoutTimer = setTimeout(() => finish(readVoices()), 3000);
         });
       }
 
@@ -153,10 +202,11 @@
           return;
         }
 
+        this.roleVoice.innerHTML = '<option value="">加载本地发音人中...</option>';
         const voices = await this.getLocalVoices();
         this.roleVoice.innerHTML = voices.length
           ? voices.map(v => `<option value="${v.name}">${v.name} (${v.lang})</option>`).join('')
-          : '<option value="">未获取到本地发音人</option>';
+          : '<option value="">未获取到本地发音人，可点上方刷新重试</option>';
       }
 
       renderRoles() {
