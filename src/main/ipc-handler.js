@@ -1,6 +1,8 @@
 ﻿const { ipcMain, shell, net, session, app } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { execFile } = require('child_process');
 const AdmZip = require('adm-zip');
 const { ensureDir } = require('./utils');
 const { openRoleManager, openSettingsWindow, openEffectManager } = require('./window-manager');
@@ -61,7 +63,7 @@ function saveProjectPackage(filePath, payload) {
     if (!absPath || !fs.existsSync(absPath)) continue;
     const filename = path.basename(absPath);
     const buf = fs.readFileSync(absPath);
-    zip.addFile(`sounds/${filename}`, buf);
+    zip.addFile('sounds/' + filename, buf);
     bundledSounds.push({ fxId, filename });
   }
 
@@ -73,7 +75,7 @@ function saveProjectPackage(filePath, payload) {
 
 function makeSafeProjectGroup(title) {
   const safe = String(title || '未命名项目').replace(/[\\/:*?"<>|]/g, '_').slice(0, 40);
-  return `来自项目:${safe}`;
+  return '来自项目:' + safe;
 }
 
 function writeProjectSoundsAndMappings(zip, projectTitle) {
@@ -104,20 +106,18 @@ function writeProjectSoundsAndMappings(zip, projectTitle) {
     while (fs.existsSync(out)) {
       const ext = path.extname(originalFilename);
       const base = path.basename(originalFilename, ext);
-      finalFilename = `${base}_${counter}${ext}`;
+      finalFilename = base + '_' + counter + ext;
       out = path.join(userSoundsDir, finalFilename);
       counter++;
     }
 
     fs.writeFileSync(out, entry.getData());
 
-    const key = `user:用户音效:${finalFilename}`;
+    const key = 'user:用户音效:' + finalFilename;
     config.meta[key] = { ...(config.meta[key] || {}), group, origin: 'lstx-import', project: projectTitle || '' };
 
     const mapItem = bundledSounds.find(x => x.filename === originalFilename);
-    if (mapItem?.fxId) {
-      config.mappings[key] = mapItem.fxId;
-    }
+    if (mapItem && mapItem.fxId) config.mappings[key] = mapItem.fxId;
   }
 
   saveEffectsConfig(config);
@@ -152,18 +152,75 @@ function openProjectPackage(filePath) {
   };
 }
 
+function runFfmpeg(args) {
+  return new Promise((resolve, reject) => {
+    execFile('ffmpeg', args, { windowsHide: true }, (error, stdout, stderr) => {
+      if (error) reject(new Error(stderr || error.message));
+      else resolve({ stdout, stderr });
+    });
+  });
+}
+
+async function composeMp3(targetPath, segments) {
+  ensureDir(tempDir);
+  const jobDir = path.join(tempDir, 'compose_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
+  ensureDir(jobDir);
+
+  await runFfmpeg(['-version']);
+
+  const partPaths = [];
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const part = path.join(jobDir, 'part_' + String(i).padStart(4, '0') + '.mp3');
+
+    if (seg.type === 'silence') {
+      const dur = Math.max(0, Number(seg.duration || 0));
+      if (dur <= 0) continue;
+      await runFfmpeg(['-y', '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo', '-t', String(dur), '-q:a', '4', part]);
+      partPaths.push(part);
+      continue;
+    }
+
+    if (seg.type === 'file') {
+      const args = ['-y', '-i', seg.path];
+      if (seg.maxDuration && Number(seg.maxDuration) > 0) args.push('-t', String(Number(seg.maxDuration)));
+      if (seg.fadeDuration && Number(seg.fadeDuration) > 0 && seg.maxDuration && Number(seg.maxDuration) > 0) {
+        const st = Math.max(0, Number(seg.maxDuration) - Number(seg.fadeDuration));
+        args.push('-af', 'afade=t=out:st=' + st + ':d=' + Number(seg.fadeDuration));
+      }
+      args.push('-ac', '2', '-ar', '44100', '-q:a', '4', part);
+      await runFfmpeg(args);
+      partPaths.push(part);
+    }
+  }
+
+  if (!partPaths.length) return { success: false, error: '没有可合成片段' };
+
+  const listFile = path.join(jobDir, 'concat.txt');
+  const listContent = partPaths.map(p => "file '" + p.replace(/'/g, "''") + "'").join(os.EOL);
+  fs.writeFileSync(listFile, listContent, 'utf-8');
+
+  ensureDir(path.dirname(targetPath));
+  await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', targetPath]);
+
+  return { success: true, filePath: targetPath };
+}
+
 function registerIpcHandlers() {
   ipcMain.handle('save-file', async (event, filePath, content, meta = {}) => {
-    try {
-      return saveProjectPackage(filePath, { content, ...meta });
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    try { return saveProjectPackage(filePath, { content, ...meta }); }
+    catch (error) { return { success: false, error: error.message }; }
   });
 
   ipcMain.handle('open-project-file', async (event, filePath) => {
+    try { return openProjectPackage(filePath); }
+    catch (error) { return { success: false, error: error.message }; }
+  });
+
+  ipcMain.handle('compose-mp3', async (event, targetPath, segments) => {
     try {
-      return openProjectPackage(filePath);
+      if (!targetPath || !Array.isArray(segments)) return { success: false, error: '参数不完整' };
+      return await composeMp3(targetPath, segments);
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -216,7 +273,13 @@ function registerIpcHandlers() {
     try {
       if (fs.existsSync(tempDir)) {
         const files = fs.readdirSync(tempDir);
-        files.forEach(file => fs.unlinkSync(path.join(tempDir, file)));
+        files.forEach(file => {
+          const p = path.join(tempDir, file);
+          try {
+            if (fs.lstatSync(p).isDirectory()) fs.rmSync(p, { recursive: true, force: true });
+            else fs.unlinkSync(p);
+          } catch {}
+        });
       }
       return { success: true };
     } catch (error) {

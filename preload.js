@@ -120,6 +120,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openRoleManagerWindow: () => ipcRenderer.invoke('open-role-manager-window'),
   openSettingsWindow: () => ipcRenderer.invoke('open-settings-window'),
   openEffectManagerWindow: () => ipcRenderer.invoke('open-effect-manager-window'),
+  composeMp3: (targetPath, segments) => ipcRenderer.invoke('compose-mp3', targetPath, segments),
 
   // 设置
   getSettings: () => ipcRenderer.invoke('get-settings'),
