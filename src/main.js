@@ -187,3 +187,4 @@ class ListextEditor {
 window.addEventListener('DOMContentLoaded', () => {
   window.app = new ListextEditor();
 });
+

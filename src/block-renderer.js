@@ -164,7 +164,7 @@
     const block = this.createBaseBlock('say', node);
     const header = this.createBlockHeader('say', '朗读', 'record_voice_over', true);
     const content = document.createElement('div');
-    content.className = 'block-content';
+    content.className = 'block-content repeat-drop-zone';
     const textarea = document.createElement('textarea');
     textarea.className = 'block-textarea';
     textarea.placeholder = '输入朗读内容...';
@@ -712,6 +712,7 @@
     container.addEventListener('dragover', (e) => {
       e.preventDefault();
       if (!this.draggingBlock) return;
+      if (container === this.draggingBlock || this.draggingBlock.contains(container)) return;
       const children = Array.from(container.querySelectorAll(':scope > .block'));
       let insertBefore = null;
       for (const child of children) {
@@ -734,6 +735,11 @@
     container.addEventListener('drop', (e) => {
       e.preventDefault();
       if (!this.draggingBlock || !this.placeholderEl) return;
+      if (container === this.draggingBlock || this.draggingBlock.contains(container)) return;
+
+      const emptyState = container.querySelector(':scope > .empty-state');
+      if (emptyState) emptyState.remove();
+
       container.insertBefore(this.draggingBlock, this.placeholderEl);
       this.clearPlaceholder();
       this.draggingBlock.classList.remove('dragging');
