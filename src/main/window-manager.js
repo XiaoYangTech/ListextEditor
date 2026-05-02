@@ -114,8 +114,8 @@ function createMenu() {
           label: '导出音频', accelerator: 'CmdOrCtrl+E', click: async () => {
             const owner = getMainTargetWindow() || mainWindow;
             const result = await dialog.showSaveDialog(owner, {
-              filters: [{ name: 'WAV Audio', extensions: ['wav'] }],
-              defaultPath: 'listening.wav'
+              filters: [{ name: 'Audio Files', extensions: ['mp3','wav'] }],
+              defaultPath: 'listening.mp3'
             });
             if (!result.canceled) sendToMain('export-audio', result.filePath);
           }

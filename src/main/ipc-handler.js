@@ -174,8 +174,8 @@ function registerIpcHandlers() {
     const { dialog, BrowserWindow } = require('electron');
     const win = BrowserWindow.getFocusedWindow();
     const result = await dialog.showSaveDialog(win, {
-      filters: [{ name: 'Audio Files', extensions: ['wav', 'mp3'] }],
-      defaultPath: 'export.wav'
+      filters: [{ name: 'Audio Files', extensions: ['mp3','wav'] }],
+      defaultPath: 'export.mp3'
     });
     return result.canceled ? null : result.filePath;
   });
