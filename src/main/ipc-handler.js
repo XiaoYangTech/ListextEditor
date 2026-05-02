@@ -5,6 +5,7 @@ const AdmZip = require('adm-zip');
 const { ensureDir } = require('./utils');
 const { openRoleManager, openSettingsWindow, openEffectManager } = require('./window-manager');
 const { userSoundsDir, buildEffectsMap } = require('./sound-handler');
+const { loadEffectsConfig, saveEffectsConfig } = require('./config-handler');
 
 const tempDir = path.join(app.getPath('temp'), 'listext-editor');
 
@@ -43,7 +44,7 @@ function saveProjectPackage(filePath, payload) {
   const tabTitle = payload?.title || 'untitled.lstx';
 
   const zip = new AdmZip();
-  const effectMap = buildEffectsMap(); // id -> abs path
+  const effectMap = buildEffectsMap();
   const usedFxIds = parseFxIds(content);
   const bundledSounds = [];
 
@@ -70,24 +71,77 @@ function saveProjectPackage(filePath, payload) {
   return { success: true, filePath: safePath, bundled: bundledSounds.length };
 }
 
+function makeSafeProjectGroup(title) {
+  const safe = String(title || '未命名项目').replace(/[\\/:*?"<>|]/g, '_').slice(0, 40);
+  return `来自项目:${safe}`;
+}
+
+function writeProjectSoundsAndMappings(zip, projectTitle) {
+  const config = loadEffectsConfig();
+  const group = makeSafeProjectGroup(projectTitle);
+  if (!config.groups) config.groups = [];
+  if (!config.groups.includes(group)) config.groups.push(group);
+  if (!config.meta) config.meta = {};
+  if (!config.mappings) config.mappings = {};
+
+  const assetsMapEntry = zip.getEntry('assets-map.json');
+  let bundledSounds = [];
+  if (assetsMapEntry) {
+    try {
+      const assetsMap = JSON.parse(assetsMapEntry.getData().toString('utf-8'));
+      bundledSounds = Array.isArray(assetsMap.bundledSounds) ? assetsMap.bundledSounds : [];
+    } catch {}
+  }
+
+  const soundEntries = zip.getEntries().filter(e => e.entryName.startsWith('sounds/') && !e.isDirectory);
+  ensureDir(userSoundsDir);
+
+  for (const entry of soundEntries) {
+    const originalFilename = path.basename(entry.entryName);
+    let finalFilename = originalFilename;
+    let out = path.join(userSoundsDir, finalFilename);
+    let counter = 1;
+    while (fs.existsSync(out)) {
+      const ext = path.extname(originalFilename);
+      const base = path.basename(originalFilename, ext);
+      finalFilename = `${base}_${counter}${ext}`;
+      out = path.join(userSoundsDir, finalFilename);
+      counter++;
+    }
+
+    fs.writeFileSync(out, entry.getData());
+
+    const key = `user:用户音效:${finalFilename}`;
+    config.meta[key] = { ...(config.meta[key] || {}), group, origin: 'lstx-import', project: projectTitle || '' };
+
+    const mapItem = bundledSounds.find(x => x.filename === originalFilename);
+    if (mapItem?.fxId) {
+      config.mappings[key] = mapItem.fxId;
+    }
+  }
+
+  saveEffectsConfig(config);
+}
+
 function openProjectPackage(filePath) {
   if (!fs.existsSync(filePath)) return { success: false, error: '文件不存在' };
-  const zip = new AdmZip(filePath);
 
+  const zip = new AdmZip(filePath);
   const projectEntry = zip.getEntry('project.json');
   if (!projectEntry) return { success: false, error: '无效项目文件：缺少 project.json' };
 
-  const project = JSON.parse(projectEntry.getData().toString('utf-8'));
-
-  const entries = zip.getEntries().filter(e => e.entryName.startsWith('sounds/') && !e.isDirectory);
-  if (entries.length > 0) {
-    ensureDir(userSoundsDir);
-    for (const entry of entries) {
-      const filename = path.basename(entry.entryName);
-      const out = path.join(userSoundsDir, filename);
-      fs.writeFileSync(out, entry.getData());
-    }
+  let project;
+  try {
+    project = JSON.parse(projectEntry.getData().toString('utf-8'));
+  } catch {
+    return { success: false, error: '无效项目文件：project.json 解析失败' };
   }
+
+  if (typeof project.content !== 'string') {
+    return { success: false, error: '无效项目文件：content 字段异常' };
+  }
+
+  writeProjectSoundsAndMappings(zip, project.title || path.basename(filePath));
 
   return {
     success: true,
@@ -174,7 +228,7 @@ function registerIpcHandlers() {
     const { dialog, BrowserWindow } = require('electron');
     const win = BrowserWindow.getFocusedWindow();
     const result = await dialog.showSaveDialog(win, {
-      filters: [{ name: 'Audio Files', extensions: ['mp3','wav'] }],
+      filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav'] }],
       defaultPath: 'export.mp3'
     });
     return result.canceled ? null : result.filePath;

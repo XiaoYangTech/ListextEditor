@@ -10,22 +10,61 @@
     }
   }
 
+  async normalizeImportedRoles(roles) {
+    const list = Array.isArray(roles) ? roles : [];
+    const platform = this.api?.platform || 'win32';
+    const edgeVoiceSet = new Set();
+
+    try {
+      const r = await this.api?.listEdgeVoices?.();
+      (r?.voices || []).forEach(v => edgeVoiceSet.add(v));
+    } catch {}
+
+    const notes = [];
+    const normalized = list.map(role => {
+      const copy = { ...role };
+
+      // Linux/macOS 默认禁用 local -> edge
+      if ((platform === 'linux' || platform === 'darwin') && copy.type === 'local') {
+        copy.type = 'edge';
+        notes.push(`角色 ${copy.id || copy.name || 'unknown'} 已从系统TTS切换为EdgeTTS`);
+      }
+
+      if (copy.type === 'edge') {
+        if (!copy.voice || (edgeVoiceSet.size > 0 && !edgeVoiceSet.has(copy.voice))) {
+          const fallback = 'zh-CN-XiaoxiaoNeural';
+          notes.push(`角色 ${copy.id || copy.name || 'unknown'} 语音缺失，已替换为 ${fallback}`);
+          copy.voice = fallback;
+        }
+      }
+
+      return copy;
+    });
+
+    return { roles: normalized, notes };
+  }
+
   async openProjectByPath(filePath) {
     if (!filePath || !this.api?.openProjectFile) return false;
     const result = await this.api.openProjectFile(filePath);
+
     if (!result?.success) {
       this.app.updateStatus('打开失败: ' + (result?.error || '未知错误'));
       return false;
     }
 
-    if (Array.isArray(result.roles)) {
-      localStorage.setItem('listext_roles', JSON.stringify(result.roles));
+    const normalized = await this.normalizeImportedRoles(result.roles || []);
+    localStorage.setItem('listext_roles', JSON.stringify(normalized.roles));
+
+    if (normalized.notes.length) {
+      alert('导入提示：\n' + normalized.notes.join('\n'));
     }
 
     const title = result.title || filePath.split(/[/\\]/).pop();
     if (this.app.tabManager) {
       this.app.tabManager.createNewTab(title, result.content || '', filePath, true);
     }
+
     this.app.uiManager?.refreshSectionJump?.();
     this.app.updateStatus('项目已打开');
     return true;
@@ -50,10 +89,7 @@
 
     const content = this.app.getContent();
     const roles = JSON.parse(localStorage.getItem('listext_roles') || '[]');
-    const result = await this.api?.saveFile(filePath, content, {
-      title: tab.title,
-      roles
-    });
+    const result = await this.api?.saveFile(filePath, content, { title: tab.title, roles });
 
     if (result?.success) {
       const finalPath = result.filePath || filePath;
@@ -85,9 +121,7 @@
     if (!tab) return;
     const name = tab.filePath || '未保存';
     const dirty = tab.isDirty ? ' *' : '';
-    if (this.app.uiManager?.currentFileEl) {
-      this.app.uiManager.currentFileEl.textContent = `${name}${dirty}`;
-    }
+    if (this.app.uiManager?.currentFileEl) this.app.uiManager.currentFileEl.textContent = `${name}${dirty}`;
     this.app.updateStatus(tab.isDirty ? '有未保存更改' : '就绪');
   }
 

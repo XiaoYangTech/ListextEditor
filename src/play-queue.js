@@ -60,7 +60,9 @@ class PlayQueue {
       case 'say': {
         const roleId = node.attrs?.role || '';
         const role = roleId ? this.getRole(roleId) : null;
-        const ttsType = role?.type || 'local';
+        const platform = window.electronAPI?.platform;
+        const defaultTtsType = (platform === 'linux' || platform === 'darwin') ? 'edge' : 'local';
+        const ttsType = role?.type || defaultTtsType;
         const voice = role?.voice || null;
         const rate = node.attrs?.rate ? parseFloat(node.attrs.rate) : this.ttsEngine.getRateForNode(node);
         return {
