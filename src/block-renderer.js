@@ -12,8 +12,6 @@
     this.lastSnapshot = '';
     this.draggingBlock = null;
     this.placeholderEl = null;
-    this.dragArmedBlock = null;
-
     this.init();
   }
 
@@ -27,11 +25,7 @@
           this.clearSelection();
         }
       });
-      this.enableDropZone(this.container);
-      window.addEventListener('mouseup', () => this.disarmBlockDrag());
-      window.addEventListener('pointerup', () => this.disarmBlockDrag());
-      window.addEventListener('blur', () => this.disarmBlockDrag());
-    }
+      this.enableDropZone(this.container);    }
   }
 
   async loadEffectLibrary() {
@@ -276,85 +270,10 @@
 
     block.appendChild(header);
     block.appendChild(content);
-    block.appendChild(this.createRepeatExitDropZone(block, content));
 
     this.attachBlockEvents(block, null, 'repeat');
     this.enableDropZone(content);
     return block;
-  }
-
-  armBlockDrag(block) {
-    if (!block) return;
-    if (this.dragArmedBlock && this.dragArmedBlock !== block) {
-      this.disarmBlockDrag(this.dragArmedBlock);
-    }
-    this.dragArmedBlock = block;
-    block._dragFromHandle = true;
-    block.setAttribute('draggable', 'true');
-  }
-
-  disarmBlockDrag(block = null) {
-    const target = block || this.dragArmedBlock;
-    if (!target) return;
-    target._dragFromHandle = false;
-    target.setAttribute('draggable', 'false');
-    if (!block || this.dragArmedBlock === target) {
-      this.dragArmedBlock = null;
-    }
-  }
-
-  createRepeatExitDropZone(repeatBlock, repeatContent) {
-    const zone = document.createElement('div');
-    zone.className = 'repeat-exit-drop-zone';
-    zone.style.marginTop = '8px';
-    zone.style.padding = '8px 10px';
-    zone.style.border = '1px dashed #90CAF9';
-    zone.style.borderRadius = '6px';
-    zone.style.background = '#E3F2FD';
-    zone.style.color = '#1565C0';
-    zone.style.fontSize = '12px';
-    zone.style.textAlign = 'center';
-    zone.style.opacity = '0.75';
-    zone.textContent = '拖到这里移出重复块';
-
-    const canExit = () => this.draggingBlock && this.draggingBlock.parentElement === repeatContent;
-    const deactivate = () => {
-      zone.style.background = '#E3F2FD';
-      zone.style.opacity = '0.75';
-    };
-    const activate = () => {
-      zone.style.background = '#BBDEFB';
-      zone.style.opacity = '1';
-    };
-
-    zone.addEventListener('dragover', (e) => {
-      if (!canExit()) return;
-      e.preventDefault();
-      e.stopPropagation();
-      activate();
-    });
-
-    zone.addEventListener('dragleave', () => deactivate());
-
-    zone.addEventListener('drop', (e) => {
-      if (!canExit()) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const movedBlock = this.draggingBlock;
-      const oldParent = movedBlock.parentElement;
-      repeatBlock.after(movedBlock);
-      this.clearPlaceholder();
-      this.syncNestedRepeatControl(movedBlock);
-      this.ensureRepeatEmptyState(oldParent);
-      this.restoreAllRepeatEmptyStates();
-      movedBlock.classList.remove('dragging');
-      this.draggingBlock = null;
-      deactivate();
-      this.onBlockChange();
-      window.app?.uiManager?.refreshSectionJump?.();
-    });
-
-    return zone;
   }
 
   attachBlockEvents(block, textarea = null, editType = null) {
@@ -381,39 +300,20 @@
       });
     }
 
+    const headerEl = block.querySelector('.block-header');
+    const dragSource = textarea ? (headerEl || block) : block;
+
     if (textarea) {
-      const headerEl = block.querySelector('.block-header');
       block.setAttribute('draggable', 'false');
-      block._dragFromHandle = false;
+      dragSource.setAttribute('draggable', 'true');
       textarea.setAttribute('draggable', 'false');
       textarea.style.userSelect = 'text';
       textarea.style.webkitUserSelect = 'text';
       textarea.addEventListener('input', () => this.onBlockChange());
       textarea.addEventListener('dragstart', (e) => e.preventDefault());
-
-      const disableDrag = () => this.disarmBlockDrag(block);
-      const enableDragFromHeader = () => this.armBlockDrag(block);
-
-      textarea.addEventListener('mousedown', (e) => {
-        disableDrag();
-        e.stopPropagation();
-      });
-      textarea.addEventListener('pointerdown', (e) => {
-        disableDrag();
-        e.stopPropagation();
-      });
-      textarea.addEventListener('selectstart', () => disableDrag());
-
-      headerEl?.addEventListener('pointerdown', enableDragFromHeader);
-      headerEl?.addEventListener('mousedown', enableDragFromHeader);
-      headerEl?.addEventListener('pointerup', disableDrag);
-      headerEl?.addEventListener('mouseup', disableDrag);
-      headerEl?.addEventListener('mouseleave', () => {
-        if (!block.classList.contains('dragging')) disableDrag();
-      });
-      textarea.addEventListener('pointerup', disableDrag);
-      textarea.addEventListener('mouseup', disableDrag);
-      textarea.addEventListener('blur', disableDrag);
+      textarea.addEventListener('mousedown', (e) => e.stopPropagation());
+      textarea.addEventListener('pointerdown', (e) => e.stopPropagation());
+      textarea.addEventListener('selectstart', (e) => e.stopPropagation());
     }
 
     block.addEventListener('click', (e) => {
@@ -422,15 +322,9 @@
       else this.selectSingleBlock(block);
     });
 
-    block.addEventListener('dragstart', (e) => {
-      if (textarea && (!block._dragFromHandle || this.dragArmedBlock !== block)) {
+    dragSource.addEventListener('dragstart', (e) => {
+      if (textarea && !e.target.closest('.block-header')) {
         e.preventDefault();
-        this.disarmBlockDrag(block);
-        return;
-      }
-      if (e.target.closest('textarea')) {
-        e.preventDefault();
-        this.disarmBlockDrag(block);
         return;
       }
       this.draggingBlock = block;
@@ -440,15 +334,65 @@
       if (!this.placeholderEl) this.placeholderEl = this.createPlaceholder();
     });
 
-    block.addEventListener('dragend', () => {
+    dragSource.addEventListener('dragend', () => {
       block.classList.remove('dragging');
-      if (textarea) {
-        this.disarmBlockDrag(block);
-      }
       this.clearPlaceholder();
       this.draggingBlock = null;
       this.restoreAllRepeatEmptyStates();
     });
+
+    block.addEventListener('dragover', (e) => {
+      const placement = this.getDropPlacementForBlock(block, e.clientY);
+      if (!placement) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (!this.placeholderEl) this.placeholderEl = this.createPlaceholder();
+      const insertBefore = placement.before ? placement.referenceBlock : placement.referenceBlock.nextSibling;
+      if (insertBefore) placement.container.insertBefore(this.placeholderEl, insertBefore);
+      else placement.container.appendChild(this.placeholderEl);
+    });
+
+    block.addEventListener('drop', (e) => {
+      const placement = this.getDropPlacementForBlock(block, e.clientY);
+      if (!placement || !this.draggingBlock) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const oldParent = this.draggingBlock.parentElement;
+      const insertBefore = placement.before ? placement.referenceBlock : placement.referenceBlock.nextSibling;
+      placement.container.insertBefore(this.draggingBlock, insertBefore || null);
+      this.clearPlaceholder();
+      this.ensureRepeatEmptyState(oldParent);
+      this.ensureRepeatEmptyState(placement.container);
+      this.syncNestedRepeatControl(this.draggingBlock);
+      this.draggingBlock.classList.remove('dragging');
+      this.draggingBlock = null;
+      this.onBlockChange();
+      window.app?.uiManager?.refreshSectionJump?.();
+    });
+  }
+
+  getDropPlacementForBlock(targetBlock, clientY) {
+    if (!this.draggingBlock || !targetBlock) return null;
+    if (targetBlock === this.draggingBlock) return null;
+    if (this.draggingBlock.contains(targetBlock)) return null;
+
+    let container = targetBlock.parentElement;
+    let referenceBlock = targetBlock;
+    if (!container) return null;
+
+    if (targetBlock.contains(this.draggingBlock)) {
+      if (targetBlock.dataset.tagName !== 'repeat') return null;
+      container = targetBlock.parentElement;
+      referenceBlock = targetBlock;
+      if (!container) return null;
+    }
+
+    const rect = referenceBlock.getBoundingClientRect();
+    return {
+      container,
+      referenceBlock,
+      before: clientY < rect.top + rect.height / 2
+    };
   }
 
   ensureMoveOutButton(block) {
