@@ -110,6 +110,7 @@
           this.roleType.value = 'edge';
         }
 
+        this.roleType.value = 'edge';
         await this.populateVoices();
         this.renderRoles();
       }
@@ -204,9 +205,11 @@
         this.renderRoles();
       }
 
-      clearForm() {
+      async clearForm() {
         this.roleId.value = '';
         this.roleName.value = '';
+        this.roleType.value = this.disableLocalTts ? 'edge' : 'edge';
+        await this.populateVoices();
         this.roleVoice.value = '';
       }
 

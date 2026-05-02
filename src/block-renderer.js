@@ -298,13 +298,22 @@
     }
 
     if (textarea) {
+      const headerEl = block.querySelector('.block-header');
+      block.setAttribute('draggable', 'false');
       textarea.addEventListener('input', () => this.onBlockChange());
       textarea.addEventListener('dragstart', (e) => e.stopPropagation());
+      textarea.addEventListener('mousedown', (e) => e.stopPropagation());
+      textarea.addEventListener('selectstart', (e) => e.stopPropagation());
+
       const disableDrag = () => block.setAttribute('draggable', 'false');
-      const enableDrag = () => block.setAttribute('draggable', 'true');
+      const enableDragFromHeader = () => block.setAttribute('draggable', 'true');
+
+      headerEl?.addEventListener('pointerdown', enableDragFromHeader);
+      headerEl?.addEventListener('pointerup', disableDrag);
+      headerEl?.addEventListener('mouseleave', disableDrag);
       textarea.addEventListener('pointerdown', disableDrag);
-      textarea.addEventListener('pointerup', enableDrag);
-      textarea.addEventListener('blur', enableDrag);
+      textarea.addEventListener('pointerup', disableDrag);
+      textarea.addEventListener('blur', disableDrag);
     }
 
     block.addEventListener('click', (e) => {
@@ -327,6 +336,7 @@
 
     block.addEventListener('dragend', () => {
       block.classList.remove('dragging');
+      if (textarea) block.setAttribute('draggable', 'false');
       this.clearPlaceholder();
       this.draggingBlock = null;
       this.restoreAllRepeatEmptyStates();
