@@ -54,7 +54,7 @@
 
   async tryFastExportSingleTask(task, targetPath, playQueue, effects, api) {
     try {
-      const ext = (targetPath.split('.').pop() || '').toLowerCase();
+      let ext = (targetPath.split('.').pop() || '').toLowerCase();
 
       if (task.type === 'tts') {
         const role = playQueue.getRole(task.roleId || '');
@@ -66,7 +66,11 @@
         if (!fileRes?.success || !fileRes.data) return false;
 
         // TTS 输出通常 mp3。若用户选 wav，走混音管线。
-        if (ext === 'wav') return false;
+        if (ext === 'wav') {
+          targetPath = targetPath.replace(/\.wav$/i, '.mp3');
+          ext = 'mp3';
+          this.updateStatus('检测到单任务导出，已自动改为 mp3 以避免白屏');
+        }
 
         const save = await api.saveBinary(targetPath, fileRes.data);
         return !!save?.success;
@@ -81,7 +85,11 @@
         if (!fileRes?.success || !fileRes.data) return false;
 
         // 源音效通常压缩格式，wav 时走混音管线
-        if (ext === 'wav') return false;
+        if (ext === 'wav') {
+          targetPath = targetPath.replace(/\.wav$/i, '.mp3');
+          ext = 'mp3';
+          this.updateStatus('检测到单任务导出，已自动改为 mp3 以避免白屏');
+        }
 
         const save = await api.saveBinary(targetPath, fileRes.data);
         return !!save?.success;
