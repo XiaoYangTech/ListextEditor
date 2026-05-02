@@ -95,7 +95,7 @@
       }
 
       bind() {
-        this.roleType.addEventListener('change', async () => { if (this.roleType.value === 'local' && 'speechSynthesis' in window) { try { speechSynthesis.cancel(); } catch {} } await this.populateVoices(); });
+        this.roleType.addEventListener('change', () => this.populateVoices());
         this.btnSave.addEventListener('click', () => this.saveRole());
         this.btnClear.addEventListener('click', () => this.clearForm());
         this.btnRefresh.addEventListener('click', () => this.populateVoices());
@@ -130,7 +130,7 @@
         return await new Promise(resolve => {
           let done = false;
           const finish = (voices) => { if (done) return; done = true; resolve(voices || []); };
-          const timer = setTimeout(() => finish(speechSynthesis.getVoices()), 2500);
+          const timer = setTimeout(() => finish(speechSynthesis.getVoices()), 1200);
           speechSynthesis.onvoiceschanged = () => { clearTimeout(timer); finish(speechSynthesis.getVoices()); };
         });
       }
@@ -246,4 +246,3 @@
   </script>
 </body>
 </html>
-
