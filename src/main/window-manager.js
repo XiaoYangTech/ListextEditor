@@ -21,7 +21,7 @@ function readPackageMeta() {
     try {
       if (!fs.existsSync(pkgPath)) continue;
       const raw = fs.readFileSync(pkgPath, 'utf-8');
-      const pkg = JSON.parse(raw);
+      const pkg = JSON.parse(raw.replace(/^\uFEFF/, ""));
       return {
         name: pkg.productName || pkg.name || app.getName() || 'Listext Editor',
         version: app.getVersion() || pkg.version || '0.0.0',
