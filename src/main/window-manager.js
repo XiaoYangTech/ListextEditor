@@ -211,7 +211,7 @@ function openRoleManager() {
 
 function openSettingsWindow() {
   if (settingsWindow && !settingsWindow.isDestroyed()) return settingsWindow.focus();
-  settingsWindow = buildChildWindow({ width: 520, height: 360, resizable: false, title: '设置' });
+  settingsWindow = buildChildWindow({ width: 800, height: 600, resizable: true, title: '设置' });
   settingsWindow.loadFile('settings.html');
   settingsWindow.setMenu(null);
   settingsWindow.setMenuBarVisibility(false);

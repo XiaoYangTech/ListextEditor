@@ -9,6 +9,7 @@ class ListextEditor {
     this.ttsEngine = new TTSEngine();
     this.playQueue = new PlayQueue(this.ttsEngine, this.parser);
     this.currentMode = 'block';
+    this.originalCode = '';
 
     this.init();
     this.tabManager = new TabManager(this);
@@ -106,13 +107,19 @@ class ListextEditor {
   }
 
   syncBlocksToCode() {
-    const ast = this.renderer.collectAST();
-    const code = this.parser.stringify(ast);
-    this.codeEditor.setValue(code.trim());
+    if (this.originalCode) {
+      this.codeEditor.setValue(this.originalCode);
+      this.originalCode = '';
+    } else {
+      const ast = this.renderer.collectAST();
+      const code = this.parser.stringify(ast);
+      this.codeEditor.setValue(code.trim());
+    }
   }
 
   syncCodeToBlocks() {
     const code = this.codeEditor.getValue();
+    this.originalCode = code;
     const ast = this.parser.parse(code);
     this.renderer.render(ast);
     this.uiManager.refreshSectionJump();

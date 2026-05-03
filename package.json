@@ -7,14 +7,12 @@
     "start": "electron .",
     "build": "electron-builder",
     "build:win:x64": "electron-builder --win nsis --x64",
-    "build:win:arm64": "electron-builder --win nsis --arm64",
-    "build:mac:x64": "electron-builder --mac dmg zip --x64",
-    "build:mac:arm64": "electron-builder --mac dmg zip --arm64",
-    "build:linux:x64": "electron-builder --linux AppImage deb rpm tar.gz --x64",
-    "build:linux:arm64": "electron-builder --linux AppImage deb rpm tar.gz --arm64",
-    "build:linux:loong64": "electron-builder --linux AppImage tar.gz --loong64",
+    "build:win:ia32": "electron-builder --win nsis --ia32",
+    "build:linux:x64": "electron-builder --linux AppImage deb rpm --x64",
+    "build:linux:arm64": "electron-builder --linux AppImage deb rpm --arm64",
+    "build:linux:loong64": "electron-builder --linux AppImage --loong64",
     "build:xinchuang": "npm run build:linux:arm64 && npm run build:linux:loong64",
-    "build:all": "npm run build:win:x64 && npm run build:win:arm64 && npm run build:mac:x64 && npm run build:mac:arm64 && npm run build:linux:x64 && npm run build:linux:arm64 && npm run build:linux:loong64"
+    "build:all": "npm run build:win:x64 && npm run build:win:ia32 && npm run build:linux:x64 && npm run build:linux:arm64 && npm run build:linux:loong64"
   },
   "keywords": [
     "electron",
@@ -68,28 +66,24 @@
           "target": "nsis",
           "arch": [
             "x64",
-            "arm64"
+            "ia32"
           ]
         }
-      ]
+      ],
+      "certificateFile": null,
+      "certificatePassword": null
     },
-    "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
-      ]
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ListextEditor",
+      "installerIcon": null,
+      "uninstallerIcon": null,
+      "installerHeaderIcon": null,
+      "defaultInstallationFolder": "ProgramFiles",
+      "allowElevation": true
     },
     "linux": {
       "category": "Utility",
@@ -114,14 +108,6 @@
           "arch": [
             "x64",
             "arm64"
-          ]
-        },
-        {
-          "target": "tar.gz",
-          "arch": [
-            "x64",
-            "arm64",
-            "loong64"
           ]
         }
       ]

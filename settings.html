@@ -1,10 +1,11 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>设置</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family?family=Material+Icons" rel="stylesheet">
   <style>
     :root {
       --md-primary: #1976D2;
@@ -14,94 +15,253 @@
       --md-divider: #E0E0E0;
       --md-on-surface: #212121;
       --md-on-surface-variant: #757575;
+      --md-error: #D32F2F;
+      --md-warning: #F57C00;
+      --md-success: #388E3C;
+      --nav-width: 220px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Roboto', 'Microsoft YaHei', sans-serif; background: var(--md-background); color: var(--md-on-surface); }
-    .header { padding: 16px 20px; background: var(--md-primary); color: #fff; font-size: 18px; font-weight: 500; }
-    .container { padding: 16px; }
-    .card { background: var(--md-surface); border: 1px solid var(--md-divider); border-radius: 8px; padding: 16px; }
-    .form-group { margin-bottom: 12px; }
-    .form-group label { display:block; font-size: 12px; color: var(--md-on-surface-variant); margin-bottom: 6px; }
-    .form-group input, .form-group select { width:100%; padding:10px; border:1px solid var(--md-divider); border-radius: 6px; font-size: 14px; }
-    .form-group input:focus, .form-group select:focus { outline:none; border-color: var(--md-primary); }
-    .footer { margin-top: 16px; display:flex; justify-content:flex-end; gap: 8px; }
-    .btn { border:none; border-radius:6px; padding:8px 12px; cursor:pointer; font-size:13px; }
-    .btn-primary { background: var(--md-primary); color:#fff; }
+    body { font-family: 'Roboto', 'Microsoft YaHei', sans-serif; background: var(--md-background); color: var(--md-on-surface); display: flex; height: 100vh; }
+    
+    /* 左侧导航 */
+    .nav-panel { width: var(--nav-width); background: var(--md-surface); border-right: 1px solid var(--md-divider); display: flex; flex-direction: column; }
+    .nav-header { padding: 16px 20px; font-size: 18px; font-weight: 500; border-bottom: 1px solid var(--md-divider); }
+    .nav-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; cursor: pointer; transition: background 0.2s; }
+    .nav-item:hover { background: rgba(25, 118, 210, 0.08); }
+    .nav-item.active { background: rgba(25, 118, 210, 0.12); color: var(--md-primary); border-right: 3px solid var(--md-primary); }
+    .nav-item .material-icons { font-size: 20px; }
+    
+    /* 右侧内容 */
+    .content-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .content-header { padding: 16px 24px; font-size: 16px; font-weight: 500; border-bottom: 1px solid var(--md-divider); background: var(--md-surface); }
+    .content-body { flex: 1; overflow-y: auto; padding: 24px; }
+    
+    .card { background: var(--md-surface); border: 1px solid var(--md-divider); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+    .card-title { font-size: 14px; font-weight: 500; margin-bottom: 16px; color: var(--md-on-surface-variant); }
+    
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; color: var(--md-on-surface-variant); margin-bottom: 6px; }
+    .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid var(--md-divider); border-radius: 6px; font-size: 14px; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--md-primary); }
+    .form-group input.error { border-color: var(--md-error); }
+    .form-group .hint { font-size: 12px; color: var(--md-on-surface-variant); margin-top: 4px; }
+    .form-group .error-msg { font-size: 12px; color: var(--md-error); margin-top: 4px; }
+    
+    .path-row { display: flex; gap: 8px; align-items: center; }
+    .path-row input { flex: 1; }
+    .path-row .btn { flex-shrink: 0; }
+    
+    .shortcut-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--md-divider); }
+    .shortcut-row:last-child { border-bottom: none; }
+    .shortcut-label { flex: 1; font-size: 14px; }
+    .shortcut-input { width: 140px; padding: 8px 12px; border: 1px solid var(--md-divider); border-radius: 6px; font-size: 13px; text-align: center; cursor: pointer; transition: border-color 0.2s; }
+    .shortcut-input:focus { outline: none; border-color: var(--md-primary); }
+    .shortcut-input.conflict { border-color: var(--md-warning); background: rgba(245, 124, 0, 0.1); }
+    
+    .conflict-warning { display: flex; align-items: center; gap: 8px; padding: 12px; background: rgba(245, 124, 0, 0.1); border-radius: 6px; margin-top: 16px; }
+    .conflict-warning .material-icons { color: var(--md-warning); }
+    .conflict-warning span { font-size: 13px; color: var(--md-warning); }
+    
+    .btn { border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s; }
+    .btn-primary { background: var(--md-primary); color: #fff; }
     .btn-primary:hover { background: var(--md-primary-dark); }
     .btn-ghost { background: #eee; color: #333; }
-    .status { margin-top: 10px; font-size: 12px; color: var(--md-on-surface-variant); }
+    .btn-ghost:hover { background: #ddd; }
+    .btn-outline { background: transparent; border: 1px solid var(--md-divider); color: var(--md-on-surface); }
+    .btn-outline:hover { background: #f5f5f5; }
+    
+    .footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .status { font-size: 12px; color: var(--md-on-surface-variant); margin-top: 12px; }
+    
+    /* 页面切换 */
+    .settings-page { display: none; }
+    .settings-page.active { display: block; }
   </style>
 </head>
 <body>
-  <div class="header">设置</div>
-  <div class="container">
-    <div class="card">
-      <div class="form-group">
-        <label>代理模式</label>
-        <select id="proxyMode">
-          <option value="system">系统代理</option>
-          <option value="direct">不使用代理</option>
-          <option value="manual">手动代理</option>
-        </select>
+  <!-- 左侧导航 -->
+  <nav class="nav-panel">
+    <div class="nav-header">设置</div>
+    <div class="nav-list">
+      <div class="nav-item active" data-page="shortcuts">
+        <span>快捷键</span>
       </div>
-      <div class="form-group">
-        <label>代理地址</label>
-        <input id="proxyUrl" type="text" placeholder="http://127.0.0.1:7890">
+      <div class="nav-item" data-page="storage">
+        <span>存储位置</span>
       </div>
-      <div class="footer">
-        <button id="btnReload" class="btn btn-ghost">重载</button>
-        <button id="btnSave" class="btn btn-primary">保存</button>
+      <div class="nav-item" data-page="proxy">
+        <span>网络代理</span>
       </div>
+    </div>
+  </nav>
+
+  <!-- 右侧内容 -->
+  <main class="content-panel">
+    <div class="content-header" id="page-title">快捷键</div>
+    <div class="content-body">
+      
+      <!-- 快捷键设置页 -->
+      <div id="shortcuts-page" class="settings-page active">
+        <div class="card">
+          <div class="card-title">编辑器快捷键</div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">保存项目</span>
+            <input class="shortcut-input" data-action="save" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">打开项目</span>
+            <input class="shortcut-input" data-action="open" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">导出音频</span>
+            <input class="shortcut-input" data-action="export" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">切换积木/代码模式</span>
+            <input class="shortcut-input" data-action="toggleMode" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">新建标签页</span>
+            <input class="shortcut-input" data-action="addBlock" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">删除选中块</span>
+            <input class="shortcut-input" data-action="deleteBlock" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">打开音效管理器</span>
+            <input class="shortcut-input" data-action="openEffects" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">撤销</span>
+            <input class="shortcut-input" data-action="undo" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">重做</span>
+            <input class="shortcut-input" data-action="redo" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">剪切</span>
+            <input class="shortcut-input" data-action="cut" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">复制</span>
+            <input class="shortcut-input" data-action="copy" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">粘贴</span>
+            <input class="shortcut-input" data-action="paste" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">全选</span>
+            <input class="shortcut-input" data-action="selectAll" readonly placeholder="按下快捷键">
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">插入块快捷键</div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">插入朗读块</span>
+            <input class="shortcut-input" data-action="insertSay" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">插入停顿块</span>
+            <input class="shortcut-input" data-action="insertPause" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">插入重复块</span>
+            <input class="shortcut-input" data-action="insertRepeat" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">插入分节块</span>
+            <input class="shortcut-input" data-action="insertSection" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">插入音效块</span>
+            <input class="shortcut-input" data-action="insertFx" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">插入分割线块</span>
+            <input class="shortcut-input" data-action="insertDivider" readonly placeholder="按下快捷键">
+          </div>
+          <div id="conflict-warning" class="conflict-warning" style="display:none;">
+            <span class="material-icons">warning</span>
+            <span id="conflict-msg">检测到快捷键冲突</span>
+          </div>
+        </div>
+        <div class="footer">
+          <button id="btnResetShortcuts" class="btn btn-outline">恢复默认</button>
+          <button id="btnSaveShortcuts" class="btn btn-primary">保存快捷键</button>
+        </div>
+      </div>
+      
+      <!-- 存储位置设置页 -->
+      <div id="storage-page" class="settings-page">
+        <div class="card">
+          <div class="card-title">文件存储位置</div>
+          <div class="form-group">
+            <label>项目文件默认保存位置</label>
+            <div class="path-row">
+              <input id="projectsPath" type="text" readonly placeholder="选择目录">
+              <button class="btn btn-outline" id="btnBrowseProjects">浏览</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>用户音效存储位置</label>
+            <div class="path-row">
+              <input id="soundsPath" type="text" readonly placeholder="选择目录">
+              <button class="btn btn-outline" id="btnBrowseSounds">浏览</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>临时文件缓存位置</label>
+            <div class="path-row">
+              <input id="cachePath" type="text" readonly placeholder="选择目录">
+              <button class="btn btn-outline" id="btnBrowseCache">浏览</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>角色配置存储位置</label>
+            <div class="path-row">
+              <input id="rolesPath" type="text" readonly placeholder="选择目录">
+              <button class="btn btn-outline" id="btnBrowseRoles">浏览</button>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <button id="btnResetPaths" class="btn btn-outline">恢复默认</button>
+          <button id="btnSavePaths" class="btn btn-primary">保存设置</button>
+        </div>
+      </div>
+      
+      <!-- 网络代理设置页 -->
+      <div id="proxy-page" class="settings-page">
+        <div class="card">
+          <div class="card-title">网络代理配置</div>
+          <div class="form-group">
+            <label>代理模式</label>
+            <select id="proxyMode">
+              <option value="system">系统代理</option>
+              <option value="direct">不使用代理</option>
+              <option value="manual">手动代理</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>代理地址</label>
+            <input id="proxyUrl" type="text" placeholder="http://127.0.0.1:7890">
+            <div class="hint">仅手动代理模式下生效</div>
+          </div>
+        </div>
+        <div class="footer">
+          <button id="btnReloadProxy" class="btn btn-ghost">重载</button>
+          <button id="btnSaveProxy" class="btn btn-primary">保存</button>
+        </div>
+      </div>
+      
       <div id="status" class="status">就绪</div>
     </div>
-  </div>
+  </main>
 
-  <script>
-    class SettingsPage {
-      constructor() {
-        this.proxyMode = document.getElementById('proxyMode');
-        this.proxyUrl = document.getElementById('proxyUrl');
-        this.status = document.getElementById('status');
-        this.btnSave = document.getElementById('btnSave');
-        this.btnReload = document.getElementById('btnReload');
-
-        this.bind();
-        this.load();
-      }
-
-      bind() {
-        this.btnSave.addEventListener('click', () => this.save());
-        this.btnReload.addEventListener('click', () => this.load());
-      }
-
-      async load() {
-        if (!window.electronAPI?.getSettings) return;
-        const settings = await window.electronAPI.getSettings();
-        this.proxyMode.value = settings?.proxyMode || 'system';
-        this.proxyUrl.value = settings?.proxyUrl || '';
-        this.setStatus('已加载设置');
-      }
-
-      async save() {
-        if (!window.electronAPI?.saveSettings) return;
-        const current = await window.electronAPI.getSettings();
-        const payload = {
-          ...current,
-          proxyMode: this.proxyMode.value,
-          proxyUrl: this.proxyUrl.value.trim()
-        };
-        const result = await window.electronAPI.saveSettings(payload);
-        this.setStatus(result?.success ? '设置已保存' : '保存失败');
-      }
-
-      setStatus(text) {
-        this.status.textContent = text;
-      }
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-      window.settingsPage = new SettingsPage();
-    });
-  </script>
+  <script src="src/settings.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
@@ -58,6 +58,16 @@
       </div>
 
       <div id="codeMode" class="editor-mode">
+        <!-- 代码模式快捷工具栏 -->
+        <div class="code-toolbar">
+          <button class="code-quick-btn" data-tag="say"><span class="material-icons">record_voice_over</span>朗读</button>
+          <button class="code-quick-btn" data-tag="pause"><span class="material-icons">timer</span>停顿</button>
+          <button class="code-quick-btn" data-tag="repeat"><span class="material-icons">repeat</span>重复</button>
+          <button class="code-quick-btn" data-tag="section"><span class="material-icons">bookmark</span>分节</button>
+          <div class="divider"></div>
+          <button class="code-quick-btn" data-tag="fx"><span class="material-icons">music_note</span>音效</button>
+          <button class="code-quick-btn" data-tag="divider"><span class="material-icons">horizontal_rule</span>分割线</button>
+        </div>
         <div class="code-editor-wrapper">
           <div class="line-numbers" id="lineNumbers"></div>
           <pre id="codeHighlight" class="code-highlight"></pre>

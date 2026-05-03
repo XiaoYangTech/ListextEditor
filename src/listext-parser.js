@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Listext 语法解析器
  */
 class ListextParser {

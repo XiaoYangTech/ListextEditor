@@ -128,6 +128,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getNotice: () => ipcRenderer.invoke('get-notice'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
 
+  // 快捷键
+  getShortcuts: () => ipcRenderer.invoke('get-shortcuts'),
+  saveShortcuts: (shortcuts) => ipcRenderer.invoke('save-shortcuts', shortcuts),
+
+  // 存储路径
+  getStoragePaths: () => ipcRenderer.invoke('get-storage-paths'),
+  saveStoragePaths: (paths) => ipcRenderer.invoke('save-storage-paths', paths),
+  resetStoragePaths: () => ipcRenderer.invoke('reset-storage-paths'),
+  selectDirectory: (defaultPath) => ipcRenderer.invoke('select-directory', defaultPath),
+
+  // 项目音效
+  addProjectSound: (soundEntry) => ipcRenderer.invoke('add-project-sound', soundEntry),
+
   // 导出
   selectExportPath: () => ipcRenderer.invoke('select-export-path'),
   platform: process.platform

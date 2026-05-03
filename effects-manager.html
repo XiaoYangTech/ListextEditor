@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
@@ -64,7 +64,6 @@
       <input id="newGroupInput" placeholder="输入新分组名称" />
       <button class="btn btn-surface" id="btnAddGroup"><span class="material-icons" style="font-size:16px;">create_new_folder</span>新增分组</button>
       <button class="btn btn-danger" id="btnDeleteGroup"><span class="material-icons" style="font-size:16px;">delete</span>删除当前分组</button>
-      <select id="importGroupSelect" class="group-select-inline" title="导入音效到分组"></select>
       <span class="path" id="soundsPath"></span>
     </div>
     <div id="groupTabs" class="group-tabs"></div>
@@ -106,7 +105,6 @@
         }
 
         this.renderTabs();
-        this.renderImportGroupSelect();
         this.renderGroup();
         await window.electronAPI.loadEffects();
       }
@@ -117,7 +115,7 @@
         document.getElementById('btnAddEffect').addEventListener('click', async () => {
           const sourcePath = await window.electronAPI.selectAudioFile();
           if (!sourcePath) return;
-          const targetGroup = document.getElementById('importGroupSelect')?.value || this.activeGroup || '用户音效';
+          const targetGroup = this.activeGroup || '用户音效';
           const result = await window.electronAPI.importSound(sourcePath, targetGroup);
           if (result.success) {
             this.toast('导入成功');
@@ -138,7 +136,6 @@
             await this.refreshAll();
             this.activeGroup = name;
             this.renderTabs();
-            this.renderImportGroupSelect();
             this.renderGroup();
           } else {
             this.toast('新增失败: ' + (res.error || '未知错误'));
@@ -242,12 +239,6 @@
             input.onkeydown = (ev) => { if (ev.key === 'Enter') input.blur(); };
           }
         });
-      }
-
-      renderImportGroupSelect() {
-        const select = document.getElementById('importGroupSelect');
-        if (!select) return;
-        select.innerHTML = this.groups.map(g => `<option value="${g}" ${g === this.activeGroup ? 'selected' : ''}>导入到：${g}</option>`).join('');
       }
 
       renderTabs() {

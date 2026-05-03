@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 const { app, session } = require('electron');
 const { ensureDir } = require('./utils');
@@ -12,7 +12,30 @@ function getDefaultSettings() {
   return {
     proxyMode: 'system',
     proxyUrl: '',
-    noticeDismissDate: ''
+    noticeDismissDate: '',
+    shortcuts: getDefaultShortcuts(),
+    storagePaths: getDefaultStoragePaths()
+  };
+}
+
+function getDefaultShortcuts() {
+  return {
+    save: 'Ctrl+S',
+    open: 'Ctrl+O',
+    export: 'Ctrl+E',
+    toggleMode: 'Ctrl+M',
+    addBlock: 'Ctrl+N',
+    deleteBlock: 'Delete',
+    openEffects: 'Ctrl+Shift+E'
+  };
+}
+
+function getDefaultStoragePaths() {
+  return {
+    projects: path.join(app.getPath('documents'), 'ListextEditor', 'Projects'),
+    sounds: path.join(app.getPath('userData'), 'sounds-user'),
+    cache: path.join(app.getPath('temp'), 'listext-editor'),
+    roles: path.join(app.getPath('userData'), 'roles')
   };
 }
 
@@ -108,6 +131,34 @@ function saveEffectsConfig(config) {
   }
 }
 
+function getShortcuts() {
+  const settings = loadSettings();
+  return { ...getDefaultShortcuts(), ...(settings.shortcuts || {}) };
+}
+
+function saveShortcuts(shortcuts) {
+  const settings = loadSettings();
+  settings.shortcuts = { ...getDefaultShortcuts(), ...shortcuts };
+  return saveSettings(settings);
+}
+
+function getStoragePaths() {
+  const settings = loadSettings();
+  return { ...getDefaultStoragePaths(), ...(settings.storagePaths || {}) };
+}
+
+function saveStoragePaths(paths) {
+  const settings = loadSettings();
+  settings.storagePaths = { ...getDefaultStoragePaths(), ...paths };
+  return saveSettings(settings);
+}
+
+function resetStoragePaths() {
+  const settings = loadSettings();
+  settings.storagePaths = getDefaultStoragePaths();
+  return saveSettings(settings);
+}
+
 function registerConfigHandlers(ipcMain) {
   ipcMain.handle('get-settings', async () => loadSettings());
 
@@ -116,6 +167,21 @@ function registerConfigHandlers(ipcMain) {
     const success = saveSettings(merged);
     if (success) await applyProxySettings(merged);
     return { success };
+  });
+
+  // 快捷键相关
+  ipcMain.handle('get-shortcuts', async () => getShortcuts());
+  ipcMain.handle('save-shortcuts', async (event, shortcuts) => {
+    return { success: saveShortcuts(shortcuts) };
+  });
+
+  // 存储路径相关
+  ipcMain.handle('get-storage-paths', async () => getStoragePaths());
+  ipcMain.handle('save-storage-paths', async (event, paths) => {
+    return { success: saveStoragePaths(paths) };
+  });
+  ipcMain.handle('reset-storage-paths', async () => {
+    return { success: resetStoragePaths() };
   });
 }
 
@@ -126,5 +192,12 @@ module.exports = {
   applyProxySettings,
   loadEffectsConfig,
   saveEffectsConfig,
-  registerConfigHandlers
+  registerConfigHandlers,
+  getShortcuts,
+  saveShortcuts,
+  getStoragePaths,
+  saveStoragePaths,
+  resetStoragePaths,
+  getDefaultShortcuts,
+  getDefaultStoragePaths
 };

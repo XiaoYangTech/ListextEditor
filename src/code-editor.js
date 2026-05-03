@@ -1,4 +1,4 @@
-﻿class CodeEditor {
+class CodeEditor {
   constructor(elements, parser, callbacks) {
     this.editor = elements.codeEditor;
     this.lineNumbers = elements.lineNumbers;
@@ -39,6 +39,44 @@
     this.editor.addEventListener('keydown', (e) => {
       if (this.handleKeydown(e)) return;
     });
+
+    this.initCodeToolbar();
+  }
+
+  initCodeToolbar() {
+    document.querySelectorAll('.code-quick-btn').forEach(btn => {
+      btn.addEventListener('click', () => this.insertTagTemplate(btn.dataset.tag));
+    });
+  }
+
+  insertTagTemplate(tag) {
+    const templates = {
+      say: '<say role="">|</say>',
+      pause: '<pause dur="1">',
+      repeat: '<repeat count="2">\n  |\n</repeat>',
+      section: '<section title="分节标题">\n  |\n</section>',
+      fx: '<fx id="">',
+      divider: '<divider>'
+    };
+
+    const template = templates[tag] || '';
+    const cursorPlaceholder = '|';
+    const cursorPos = template.indexOf(cursorPlaceholder);
+    const insertText = template.replace(cursorPlaceholder, '');
+
+    const start = this.editor.selectionStart;
+    const end = this.editor.selectionEnd;
+    const before = this.editor.value.substring(0, start);
+    const after = this.editor.value.substring(end);
+
+    this.editor.value = before + insertText + after;
+
+    const newPos = start + (cursorPos >= 0 ? cursorPos : insertText.length);
+    this.editor.setSelectionRange(newPos, newPos);
+
+    this.refreshView();
+    if (this.callbacks.onInput) this.callbacks.onInput();
+    this.editor.focus();
   }
 
   getValue() {

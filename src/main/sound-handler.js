@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 const { app, dialog, BrowserWindow } = require('electron');
 const { ensureDir } = require('./utils');
@@ -7,6 +7,9 @@ const { loadEffectsConfig, saveEffectsConfig, DEFAULT_GROUPS } = require('./conf
 const userSoundsDir = path.join(app.getPath('userData'), 'sounds-user');
 const builtInSoundsDir = path.join(process.resourcesPath, 'default-sounds');
 const devBuiltInSoundsDir = path.join(process.cwd(), 'assets', 'default-sounds');
+
+// 项目音效临时存储（内存中，不持久化）
+let projectSounds = [];
 
 const BUILTIN_GROUP_DIRS = {
   '开场音乐': 'opening-music',
@@ -96,7 +99,11 @@ function scanUserSounds() {
 
 function scanSoundsFolder() {
   ensureBuiltInGroupDirs();
-  return [...scanBuiltInSounds(), ...scanUserSounds()];
+  const builtIn = scanBuiltInSounds();
+  const user = scanUserSounds();
+  // 项目音效标记为临时，仅在当前会话显示
+  const project = projectSounds.map(s => ({ ...s, temporary: true }));
+  return [...builtIn, ...user, ...project];
 }
 
 function ensureGroupExists(config, group) {
@@ -271,6 +278,21 @@ function registerSoundHandlers(ipcMain, mainWindow) {
   });
 }
 
+// 添加项目音效
+function addProjectSound(soundEntry) {
+  projectSounds.push(soundEntry);
+}
+
+// 清理项目音效
+function clearProjectSounds() {
+  projectSounds = [];
+}
+
+// 获取项目音效列表
+function getProjectSounds() {
+  return [...projectSounds];
+}
+
 module.exports = {
   scanSoundsFolder,
   registerSoundHandlers,
@@ -278,5 +300,8 @@ module.exports = {
   getBuiltInDir,
   getBuiltInRoots,
   buildEffectsMap,
+  addProjectSound,
+  clearProjectSounds,
+  getProjectSounds,
   BUILTIN_GROUP_DIRS
 };

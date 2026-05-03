@@ -1,4 +1,4 @@
-﻿const { ipcMain, shell, net, session, app } = require('electron');
+const { ipcMain, shell, net, session, app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -7,7 +7,7 @@ const ffmpegStatic = require('ffmpeg-static');
 const AdmZip = require('adm-zip');
 const { ensureDir } = require('./utils');
 const { openRoleManager, openSettingsWindow, openEffectManager } = require('./window-manager');
-const { userSoundsDir, buildEffectsMap } = require('./sound-handler');
+const { userSoundsDir, buildEffectsMap, clearProjectSounds, addProjectSound } = require('./sound-handler');
 const { loadEffectsConfig, saveEffectsConfig } = require('./config-handler');
 
 const tempDir = path.join(app.getPath('temp'), 'listext-editor');
@@ -215,6 +215,7 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle('open-project-file', async (event, filePath) => {
+    clearProjectSounds(); // 清理上一项目的临时音效
     try { return openProjectPackage(filePath); }
     catch (error) { return { success: false, error: error.message }; }
   });
@@ -237,6 +238,12 @@ function registerIpcHandlers() {
   ipcMain.handle('open-role-manager-window', async () => { openRoleManager(); return { success: true }; });
   ipcMain.handle('open-settings-window', async () => { openSettingsWindow(); return { success: true }; });
   ipcMain.handle('open-effect-manager-window', async () => { openEffectManager(); return { success: true }; });
+
+  // 项目音效
+  ipcMain.handle('add-project-sound', async (event, soundEntry) => {
+    addProjectSound(soundEntry);
+    return { success: true };
+  });
 
   ipcMain.handle('get-notice', async () => {
     try {
@@ -307,6 +314,16 @@ function registerIpcHandlers() {
       defaultPath: 'untitled.lstx'
     });
     return result.canceled ? null : normalizeExt(result.filePath);
+  });
+
+  ipcMain.handle('select-directory', async (event, defaultPath) => {
+    const { dialog, BrowserWindow } = require('electron');
+    const win = BrowserWindow.getFocusedWindow();
+    const result = await dialog.showOpenDialog(win, {
+      defaultPath: defaultPath || undefined,
+      properties: ['openDirectory', 'createDirectory']
+    });
+    return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0];
   });
 }
 

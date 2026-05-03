@@ -208,6 +208,42 @@ body {
   margin: 0 4px;
 }
 
+/* 代码模式快捷工具栏 */
+.code-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--md-surface);
+  border-bottom: 1px solid var(--md-divider);
+  flex-wrap: wrap;
+}
+
+.code-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1px solid var(--md-divider);
+  border-radius: 16px;
+  background: var(--md-background);
+  color: var(--md-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.code-quick-btn:hover {
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+  border-color: var(--md-primary);
+}
+
+.code-quick-btn .material-icons {
+  font-size: 16px;
+}
+
 /* 绉湪瀹瑰櫒 */
 .block-container {
   flex: 1;

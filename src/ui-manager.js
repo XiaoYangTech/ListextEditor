@@ -1,11 +1,65 @@
-﻿class UIManager {
+class UIManager {
   constructor(app) {
     this.app = app;
+    this.shortcuts = {};
     this.initElements();
     this.initModeSwitcher();
     this.initToolbar();
     this.initDialogs();
-    this.initKeyboardShortcuts();
+    this.loadShortcuts().then(() => this.initKeyboardShortcuts());
+  }
+
+  async loadShortcuts() {
+    const defaults = {
+      save: 'Ctrl+S',
+      open: 'Ctrl+O',
+      export: 'Ctrl+E',
+      toggleMode: 'Ctrl+M',
+      addBlock: 'Ctrl+N',
+      deleteBlock: 'Delete',
+      openEffects: 'Ctrl+Shift+E',
+      undo: 'Ctrl+Z',
+      redo: 'Ctrl+Shift+Z',
+      cut: 'Ctrl+X',
+      copy: 'Ctrl+C',
+      paste: 'Ctrl+V',
+      selectAll: 'Ctrl+A',
+      insertSay: 'Ctrl+1',
+      insertPause: 'Ctrl+2',
+      insertRepeat: 'Ctrl+3',
+      insertSection: 'Ctrl+4',
+      insertFx: 'Ctrl+5',
+      insertDivider: 'Ctrl+6'
+    };
+    try {
+      if (window.electronAPI?.getShortcuts) {
+        const saved = await window.electronAPI.getShortcuts();
+        this.shortcuts = { ...defaults, ...saved };
+      } else {
+        this.shortcuts = defaults;
+      }
+    } catch (_) {
+      this.shortcuts = defaults;
+    }
+  }
+
+  parseShortcut(shortcut) {
+    const parts = shortcut.split('+');
+    return {
+      ctrl: parts.includes('Ctrl'),
+      alt: parts.includes('Alt'),
+      shift: parts.includes('Shift'),
+      key: parts[parts.length - 1].toLowerCase()
+    };
+  }
+
+  matchShortcut(e, shortcut) {
+    const s = this.parseShortcut(shortcut);
+    const isMod = e.ctrlKey || e.metaKey;
+    return (isMod === s.ctrl) &&
+           (e.altKey === s.alt) &&
+           (e.shiftKey === s.shift) &&
+           (e.key.toLowerCase() === s.key);
   }
 
   initElements() {
@@ -344,12 +398,115 @@
       const isMod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
       const inBlockMode = this.app.currentMode === 'block' && this.app.renderer;
+      const inCodeMode = this.app.currentMode === 'code';
       const textActive = this.app.isTextInputActive();
+      const codeEditorActive = document.activeElement === this.app.codeEditor?.editor;
 
-      if (isMod && key === 's') {
+      // 如果代码编辑器获得焦点，只处理特定的快捷键
+      if (codeEditorActive) {
+        if (this.matchShortcut(e, this.shortcuts.save)) {
+          e.preventDefault();
+          this.app.fileManager.saveFile();
+          return;
+        }
+        if (this.matchShortcut(e, this.shortcuts.toggleMode)) {
+          e.preventDefault();
+          this.app.switchMode('block');
+          return;
+        }
+        if (this.matchShortcut(e, this.shortcuts.insertSay)) {
+          e.preventDefault();
+          this.app.codeEditor.insertTagTemplate('say');
+          return;
+        }
+        if (this.matchShortcut(e, this.shortcuts.insertPause)) {
+          e.preventDefault();
+          this.app.codeEditor.insertTagTemplate('pause');
+          return;
+        }
+        if (this.matchShortcut(e, this.shortcuts.insertRepeat)) {
+          e.preventDefault();
+          this.app.codeEditor.insertTagTemplate('repeat');
+          return;
+        }
+        if (this.matchShortcut(e, this.shortcuts.insertSection)) {
+          e.preventDefault();
+          this.app.codeEditor.insertTagTemplate('section');
+          return;
+        }
+        if (this.matchShortcut(e, this.shortcuts.insertFx)) {
+          e.preventDefault();
+          this.app.codeEditor.insertTagTemplate('fx');
+          return;
+        }
+        if (this.matchShortcut(e, this.shortcuts.insertDivider)) {
+          e.preventDefault();
+          this.app.codeEditor.insertTagTemplate('divider');
+          return;
+        }
+        return;
+      }
+
+      // 使用配置的快捷键
+      if (this.matchShortcut(e, this.shortcuts.save)) {
         e.preventDefault();
         this.app.fileManager.saveFile();
         return;
+      }
+
+      if (this.matchShortcut(e, this.shortcuts.toggleMode)) {
+        e.preventDefault();
+        this.app.switchMode(this.app.currentMode === 'block' ? 'code' : 'block');
+        return;
+      }
+
+      if (this.matchShortcut(e, this.shortcuts.openEffects)) {
+        e.preventDefault();
+        this.openEffectManager();
+        return;
+      }
+
+      // 编辑快捷键（仅在积木模式）
+      if (inBlockMode) {
+        if (this.matchShortcut(e, this.shortcuts.undo)) {
+          e.preventDefault();
+          this.app.renderer.undo();
+          this.app.fileManager.markUnsaved();
+          return;
+        }
+
+        if (this.matchShortcut(e, this.shortcuts.redo)) {
+          e.preventDefault();
+          this.app.renderer.redo();
+          this.app.fileManager.markUnsaved();
+          return;
+        }
+
+        if (this.matchShortcut(e, this.shortcuts.cut)) {
+          e.preventDefault();
+          this.app.renderer.cutSelectedBlocks();
+          this.app.fileManager.markUnsaved();
+          return;
+        }
+
+        if (this.matchShortcut(e, this.shortcuts.copy)) {
+          e.preventDefault();
+          this.app.renderer.copySelectedBlocks();
+          return;
+        }
+
+        if (this.matchShortcut(e, this.shortcuts.paste)) {
+          e.preventDefault();
+          this.app.renderer.pasteClipboard();
+          this.app.fileManager.markUnsaved();
+          return;
+        }
+
+        if (this.matchShortcut(e, this.shortcuts.selectAll)) {
+          e.preventDefault();
+          this.app.renderer.selectAllBlocks();
+          return;
+        }
       }
 
       if (e.key === 'F5') {
@@ -384,16 +541,7 @@
       if (e.key === 'Enter') { e.preventDefault(); this.app.renderer.focusSelectedBlockEditor(); return; }
       if (e.key === ' ') { e.preventDefault(); this.app.ttsRenderer.previewPlay(); return; }
 
-      if (isMod) {
-        if (key === 'z') { e.preventDefault(); if (e.shiftKey) this.app.renderer.redo(); else this.app.renderer.undo(); this.app.fileManager.markUnsaved(); return; }
-        if (key === 'y') { e.preventDefault(); this.app.renderer.redo(); this.app.fileManager.markUnsaved(); return; }
-        if (key === 'c') { e.preventDefault(); this.app.renderer.copySelectedBlocks(); return; }
-        if (key === 'x') { e.preventDefault(); this.app.renderer.cutSelectedBlocks(); this.app.fileManager.markUnsaved(); return; }
-        if (key === 'v') { e.preventDefault(); this.app.renderer.pasteClipboard(); this.app.fileManager.markUnsaved(); return; }
-        if (key === 'a') { e.preventDefault(); this.app.renderer.selectAllBlocks(); return; }
-      }
-
-      if ((key === 'delete' || key === 'backspace') && this.app.renderer.selectedBlocks?.size > 0) {
+      if (this.matchShortcut(e, this.shortcuts.deleteBlock) && this.app.renderer.selectedBlocks?.size > 0) {
         e.preventDefault();
         this.app.renderer.deleteSelectedBlocks();
         this.app.fileManager.markUnsaved();
