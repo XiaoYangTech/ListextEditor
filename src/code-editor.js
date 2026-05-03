@@ -7,6 +7,7 @@ class CodeEditor {
     this.errorContainer = elements.errorContainer;
     this.parser = parser;
     this.callbacks = callbacks || {};
+    this.updateScheduled = false;
 
     this.init();
   }
@@ -18,6 +19,10 @@ class CodeEditor {
       this.refreshView();
       if (this.callbacks.onInput) this.callbacks.onInput();
       this.updateSuggestions();
+    });
+
+    this.editor.addEventListener('paste', (e) => {
+      e.stopPropagation();
     });
 
     this.editor.addEventListener('click', () => {
@@ -32,7 +37,8 @@ class CodeEditor {
       setTimeout(() => this.hideSuggestions(), 200);
     });
 
-    this.editor.addEventListener('scroll', () => {
+    this.editor.addEventListener('scroll', (e) => {
+      e.stopPropagation();
       this.syncScroll();
     });
 
@@ -74,7 +80,11 @@ class CodeEditor {
     const newPos = start + (cursorPos >= 0 ? cursorPos : insertText.length);
     this.editor.setSelectionRange(newPos, newPos);
 
-    this.refreshView();
+    this.updateScheduled = false;
+    this.updateLineNumbers();
+    this.updateCodeHighlight();
+    this.validateCode();
+    this.syncScroll();
     if (this.callbacks.onInput) this.callbacks.onInput();
     this.editor.focus();
   }
@@ -85,7 +95,11 @@ class CodeEditor {
 
   setValue(value) {
     this.editor.value = value;
-    this.refreshView();
+    this.updateScheduled = false;
+    this.updateLineNumbers();
+    this.updateCodeHighlight();
+    this.validateCode();
+    this.syncScroll();
   }
 
   focus() {
@@ -93,10 +107,16 @@ class CodeEditor {
   }
 
   refreshView() {
-    this.updateLineNumbers();
-    this.updateCodeHighlight();
-    this.validateCode();
-    this.syncScroll();
+    if (this.updateScheduled) return;
+    this.updateScheduled = true;
+
+    requestAnimationFrame(() => {
+      this.updateLineNumbers();
+      this.updateCodeHighlight();
+      this.validateCode();
+      this.syncScroll();
+      this.updateScheduled = false;
+    });
   }
 
   syncScroll() {
@@ -111,15 +131,21 @@ class CodeEditor {
 
   updateLineNumbers() {
     const lines = this.editor.value.split('\n');
-    this.lineNumbers.innerHTML = lines.map((_, i) =>
+    const html = lines.map((_, i) =>
       `<div class="line-number">${i + 1}</div>`
     ).join('');
+    if (this.lineNumbers.innerHTML !== html) {
+      this.lineNumbers.innerHTML = html;
+    }
   }
 
   updateCodeHighlight() {
     if (!this.highlight) return;
     const source = this.editor.value;
-    this.highlight.innerHTML = this.highlightListext(source);
+    const html = this.highlightListext(source);
+    if (this.highlight.innerHTML !== html) {
+      this.highlight.innerHTML = html;
+    }
   }
 
   highlightListext(text) {
@@ -295,7 +321,11 @@ class CodeEditor {
     const nextPos = before.length + cursorOffset;
     this.editor.selectionStart = this.editor.selectionEnd = nextPos;
     this.hideSuggestions();
-    this.refreshView();
+    this.updateScheduled = false;
+    this.updateLineNumbers();
+    this.updateCodeHighlight();
+    this.validateCode();
+    this.syncScroll();
     if (this.callbacks.onInput) this.callbacks.onInput();
   }
 
@@ -309,7 +339,11 @@ class CodeEditor {
     const nextPos = before.length + value.length + 2;
     this.editor.selectionStart = this.editor.selectionEnd = nextPos;
     this.hideSuggestions();
-    this.refreshView();
+    this.updateScheduled = false;
+    this.updateLineNumbers();
+    this.updateCodeHighlight();
+    this.validateCode();
+    this.syncScroll();
     if (this.callbacks.onInput) this.callbacks.onInput();
   }
 

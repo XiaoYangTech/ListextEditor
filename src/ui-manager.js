@@ -398,7 +398,6 @@ class UIManager {
       const isMod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
       const inBlockMode = this.app.currentMode === 'block' && this.app.renderer;
-      const inCodeMode = this.app.currentMode === 'code';
       const textActive = this.app.isTextInputActive();
       const codeEditorActive = document.activeElement === this.app.codeEditor?.editor;
 
