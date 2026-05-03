@@ -10,3 +10,4 @@ sounds-user/
 user-sounds/
 effects-config.local.json
 settings.local.json
+.claude/

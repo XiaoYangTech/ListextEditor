@@ -277,6 +277,8 @@
   }
 
   attachBlockEvents(block, textarea = null, editType = null) {
+    block.setAttribute('draggable', 'false');
+
     const deleteBtn = block.querySelector('.btn-delete');
     if (deleteBtn) {
       deleteBtn.addEventListener('click', (e) => {
@@ -300,54 +302,49 @@
       });
     }
 
-    // 重构拖动逻辑：只有header可以拖动
     const headerEl = block.querySelector('.block-header');
+    const dragSource = headerEl || block;
+
+    dragSource.setAttribute('draggable', 'true');
 
     if (textarea) {
-      // 有textarea的块：只允许header拖动
-      block.setAttribute('draggable', 'false');
-      if (headerEl) {
-        headerEl.setAttribute('draggable', 'true');
-      }
       textarea.setAttribute('draggable', 'false');
       textarea.style.userSelect = 'text';
       textarea.style.webkitUserSelect = 'text';
-      textarea.style.cursor = 'text';
       textarea.addEventListener('input', () => this.onBlockChange());
-
-      // 完全禁用textarea的拖动能力
-      textarea.addEventListener('mousedown', (e) => {
-        e.stopPropagation();
-      });
-      textarea.addEventListener('dragstart', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
-
-      // 只在header上监听dragstart
-      if (headerEl) {
-        headerEl.addEventListener('dragstart', (e) => {
-          this.handleDragStart(e, block);
-        });
-        headerEl.addEventListener('dragend', () => {
-          this.handleDragEnd(block);
-        });
-      }
-    } else {
-      // 没有textarea的块：整个块可以拖动
-      block.setAttribute('draggable', 'true');
-      block.addEventListener('dragstart', (e) => {
-        this.handleDragStart(e, block);
-      });
-      block.addEventListener('dragend', () => {
-        this.handleDragEnd(block);
-      });
+      textarea.addEventListener('dragstart', (e) => e.preventDefault());
+      textarea.addEventListener('mousedown', (e) => e.stopPropagation());
+      textarea.addEventListener('pointerdown', (e) => e.stopPropagation());
+      textarea.addEventListener('selectstart', (e) => e.stopPropagation());
     }
 
     block.addEventListener('click', (e) => {
       if (e.target.closest('textarea, input, select')) return;
       if (e.ctrlKey || e.metaKey) this.toggleBlockSelection(block);
       else this.selectSingleBlock(block);
+    });
+
+    dragSource.addEventListener('dragstart', (e) => {
+      if (e.target.closest('.block-action-btn')) {
+        e.preventDefault();
+        return;
+      }
+      if (textarea && !e.target.closest('.block-header')) {
+        e.preventDefault();
+        return;
+      }
+      this.draggingBlock = block;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', block.dataset.id);
+      block.classList.add('dragging');
+      if (!this.placeholderEl) this.placeholderEl = this.createPlaceholder();
+    });
+
+    dragSource.addEventListener('dragend', () => {
+      block.classList.remove('dragging');
+      this.clearPlaceholder();
+      this.draggingBlock = null;
+      this.restoreAllRepeatEmptyStates();
     });
 
     block.addEventListener('dragover', (e) => {
@@ -380,21 +377,6 @@
     });
   }
 
-  handleDragStart(e, block) {
-    this.draggingBlock = block;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', block.dataset.id);
-    block.classList.add('dragging');
-    if (!this.placeholderEl) this.placeholderEl = this.createPlaceholder();
-  }
-
-  handleDragEnd(block) {
-    block.classList.remove('dragging');
-    this.clearPlaceholder();
-    this.draggingBlock = null;
-    this.restoreAllRepeatEmptyStates();
-  }
-
   getDropPlacementForBlock(targetBlock, clientY) {
     if (!this.draggingBlock || !targetBlock) return null;
     if (targetBlock === this.draggingBlock) return null;
@@ -404,31 +386,11 @@
     let referenceBlock = targetBlock;
     if (!container) return null;
 
-    // 重构：处理从repeat块内拖出的情况
     if (targetBlock.contains(this.draggingBlock)) {
-      // 正在拖动的块在目标块内部
-      if (targetBlock.dataset.tagName === 'repeat') {
-        // 目标是repeat块，允许拖到repeat外部
-        const repeatParent = targetBlock.parentElement;
-        if (!repeatParent) return null;
-
-        // 检查是否拖到repeat的header区域（上半部分）
-        const repeatRect = targetBlock.getBoundingClientRect();
-        const headerEl = targetBlock.querySelector('.block-header');
-        const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 40;
-
-        // 如果鼠标在header区域，允许拖出到repeat外部
-        if (clientY < repeatRect.top + headerHeight) {
-          container = repeatParent;
-          referenceBlock = targetBlock;
-        } else {
-          // 否则不允许拖动（避免在repeat内部混乱）
-          return null;
-        }
-      } else {
-        // 目标不是repeat块，不允许拖动
-        return null;
-      }
+      if (targetBlock.dataset.tagName !== 'repeat') return null;
+      container = targetBlock.parentElement;
+      referenceBlock = targetBlock;
+      if (!container) return null;
     }
 
     const rect = referenceBlock.getBoundingClientRect();
@@ -860,10 +822,10 @@
 
   enableDropZone(container) {
     container.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
       if (!this.draggingBlock) return;
       if (container === this.draggingBlock || this.draggingBlock.contains(container)) return;
+      e.preventDefault();
+      e.stopPropagation();
       const children = Array.from(container.querySelectorAll(':scope > .block'));
       let insertBefore = null;
       for (const child of children) {
@@ -884,10 +846,10 @@
     });
 
     container.addEventListener('drop', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
       if (!this.draggingBlock || !this.placeholderEl) return;
       if (container === this.draggingBlock || this.draggingBlock.contains(container)) return;
+      e.preventDefault();
+      e.stopPropagation();
 
       const emptyState = container.querySelector(':scope > .empty-state');
       if (emptyState) emptyState.remove();
@@ -1072,6 +1034,4 @@
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = BlockRenderer;
 }
-
-
 
