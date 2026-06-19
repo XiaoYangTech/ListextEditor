@@ -1,10 +1,11 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>角色管理器</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
   <style>
     :root { --md-primary:#1976D2; --md-primary-dark:#1565C0; --md-bg:#FAFAFA; --md-surface:#FFF; --md-on:#212121; --md-sub:#757575; --md-divider:#E0E0E0; --md-error:#B00020; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -13,7 +14,8 @@
     .header h1 { font-size:18px; font-weight:500; }
     .container { padding:16px; }
     .card { background:var(--md-surface); border:1px solid var(--md-divider); border-radius:8px; padding:16px; margin-bottom:12px; }
-    .tip { background:#fff8e1; border:1px solid #ffe082; color:#6d4c41; padding:10px 12px; border-radius:6px; font-size:12px; margin-bottom:12px; }
+    .tip { background:#e3f2fd; border:1px solid #90caf9; color:#1565c0; padding:10px 12px; border-radius:6px; font-size:12px; margin-bottom:12px; }
+    .tip code { background:#bbdefb; padding:2px 4px; border-radius:3px; font-family:Consolas,monospace; }
     .list-item { border:1px solid var(--md-divider); border-radius:6px; padding:10px 12px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
     .meta { font-size:12px; color:var(--md-sub); margin-top:4px; }
     .actions { display:flex; gap:8px; }
@@ -28,19 +30,23 @@
     .btn-danger { background:#ffebee; color:var(--md-error); }
     .row-end { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
     .empty { color:var(--md-sub); font-size:13px; }
+    .source-tag { font-size:11px; padding:2px 6px; border-radius:999px; margin-left:8px; }
+    .source-code { background:#e8f5e9; color:#2e7d32; }
+    .source-ui { background:#fff3e0; color:#e65100; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>角色管理器</h1>
-    <button id="btnRefresh" class="btn btn-ghost">刷新发音人</button>
   </div>
 
   <div class="container">
-    <div id="platformTip" class="tip" style="display:none;"></div>
+    <div class="tip">
+      角色跟随项目保存。你也可以在代码中使用 <code>&lt;role id="teacher" name="老师" voice="zh-CN-XiaoxiaoNeural"/&gt;</code> 定义角色。
+    </div>
 
     <div class="card">
-      <h3 style="margin-bottom:12px; font-size:15px;">角色列表</h3>
+      <h3 style="margin-bottom:12px; font-size:15px;">项目角色列表</h3>
       <div id="roleList"></div>
     </div>
 
@@ -84,8 +90,6 @@
         this.roleVoice = document.getElementById('roleVoice');
         this.btnSave = document.getElementById('btnSave');
         this.btnClear = document.getElementById('btnClear');
-        this.btnRefresh = document.getElementById('btnRefresh');
-        this.platformTip = document.getElementById('platformTip');
 
         this.platform = window.electronAPI?.platform || '';
         this.disableLocalTts = this.platform === 'linux' || this.platform === 'darwin';
@@ -103,18 +107,10 @@
         });
         this.btnSave.addEventListener('click', () => this.saveRole());
         this.btnClear.addEventListener('click', () => this.clearForm());
-        this.btnRefresh.addEventListener('click', async () => {
-          if (this.roleType.value === 'local') {
-            await this.getLocalVoices();
-          }
-          await this.populateVoices();
-        });
       }
 
       async init() {
         if (this.disableLocalTts) {
-          this.platformTip.style.display = 'block';
-          this.platformTip.textContent = '当前平台（Linux/macOS）已禁用系统TTS，请使用 EdgeTTS。';
           const localOption = this.roleType.querySelector('option[value="local"]');
           if (localOption) localOption.disabled = true;
           this.roleType.value = 'edge';
@@ -122,65 +118,65 @@
 
         this.roleType.value = 'edge';
         await this.populateVoices();
-        if (!this.disableLocalTts && 'speechSynthesis' in window) {
-          this.getLocalVoices().catch(() => []);
+        await this.renderRoles();
+      }
+
+      async getRoles() {
+        if (window.electronAPI) {
+          try {
+            const data = await window.electronAPI.getProjectData();
+            return data?.roles || [];
+          } catch {
+            return [];
+          }
         }
-        this.renderRoles();
+        return [];
       }
 
-      getRoles() {
-        try { return JSON.parse(localStorage.getItem('listext_roles') || '[]'); }
-        catch { return []; }
+      async setRoles(roles) {
+        if (window.electronAPI) {
+          await window.electronAPI.setProjectRoles(roles);
+        }
       }
 
-      setRoles(roles) {
-        localStorage.setItem('listext_roles', JSON.stringify(roles));
+      getRolesFromCode(content) {
+        const roles = [];
+        const regex = /<role\s+([^>]+)\/?>/gi;
+        let m;
+        while ((m = regex.exec(content)) !== null) {
+          const attrs = {};
+          const attrRegex = /(\w+)=["']([^"']*)["']/g;
+          let am;
+          while ((am = attrRegex.exec(m[1])) !== null) {
+            attrs[am[1]] = am[2];
+          }
+          if (attrs.id) {
+            roles.push({
+              id: attrs.id,
+              name: attrs.name || attrs.id,
+              type: attrs.type || 'edge',
+              voice: attrs.voice || '',
+              source: 'code'
+            });
+          }
+        }
+        return roles;
       }
 
       async getLocalVoices() {
         if (!('speechSynthesis' in window)) return [];
-
         try { speechSynthesis.getVoices(); } catch {}
-
         return await new Promise(resolve => {
           let done = false;
-          let pollTimer = null;
-          let timeoutTimer = null;
-
-          const readVoices = () => {
-            try { return speechSynthesis.getVoices() || []; }
-            catch { return []; }
-          };
-
           const finish = (voices) => {
             if (done) return;
             done = true;
-            if (pollTimer) clearInterval(pollTimer);
-            if (timeoutTimer) clearTimeout(timeoutTimer);
-            try { speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged); } catch {}
             resolve(Array.from(voices || []));
           };
-
-          const onVoicesChanged = () => {
-            const voices = readVoices();
-            if (voices.length) finish(voices);
-          };
-
-          const immediate = readVoices();
-          if (immediate.length) {
-            finish(immediate);
-            return;
-          }
-
-          try { speechSynthesis.addEventListener('voiceschanged', onVoicesChanged); }
-          catch { speechSynthesis.onvoiceschanged = onVoicesChanged; }
-
-          pollTimer = setInterval(() => {
-            const voices = readVoices();
-            if (voices.length) finish(voices);
-          }, 250);
-
-          timeoutTimer = setTimeout(() => finish(readVoices()), 3000);
+          const immediate = speechSynthesis.getVoices();
+          if (immediate.length) { finish(immediate); return; }
+          speechSynthesis.onvoiceschanged = () => finish(speechSynthesis.getVoices());
+          setTimeout(() => finish(speechSynthesis.getVoices()), 3000);
         });
       }
 
@@ -202,39 +198,66 @@
           return;
         }
 
-        this.roleVoice.innerHTML = '<option value="">加载本地发音人中...</option>';
         const voices = await this.getLocalVoices();
         this.roleVoice.innerHTML = voices.length
           ? voices.map(v => `<option value="${v.name}">${v.name} (${v.lang})</option>`).join('')
-          : '<option value="">未获取到本地发音人，可点上方刷新重试</option>';
+          : '<option value="">未获取到本地发音人</option>';
       }
 
-      renderRoles() {
-        const roles = this.getRoles();
-        if (!roles.length) {
-          this.roleList.innerHTML = '<div class="empty">尚未添加角色</div>';
+      async renderRoles() {
+        const uiRoles = (await this.getRoles()).filter(r => r.source !== 'code');
+
+        let codeContent = '';
+        try {
+          const data = await window.electronAPI.getProjectData();
+          codeContent = data?.content || '';
+        } catch {}
+        const codeRoles = this.getRolesFromCode(codeContent);
+
+        if (!uiRoles.length && !codeRoles.length) {
+          this.roleList.innerHTML = '<div class="empty">尚未添加角色。可通过此界面添加，或在代码中使用 &lt;role&gt; 标签定义。</div>';
           return;
         }
 
-        this.roleList.innerHTML = roles.map(role => `
-          <div class="list-item" data-id="${role.id}">
-            <div>
-              <div><strong>${role.name}</strong> (${role.id})</div>
-              <div class="meta">${role.type === 'edge' ? 'EdgeTTS' : '系统TTS'} · ${role.voice || '未设置'}</div>
-            </div>
-            <div class="actions">
-              <button class="btn btn-ghost" data-action="edit" data-id="${role.id}">编辑</button>
-              <button class="btn btn-danger" data-action="delete" data-id="${role.id}">删除</button>
-            </div>
-          </div>
-        `).join('');
+        let html = '';
 
-        this.roleList.querySelectorAll('button[data-action="edit"]').forEach(btn => btn.addEventListener('click', () => this.editRole(btn.dataset.id)));
-        this.roleList.querySelectorAll('button[data-action="delete"]').forEach(btn => btn.addEventListener('click', () => this.deleteRole(btn.dataset.id)));
+        if (codeRoles.length) {
+          html += '<div style="margin-bottom:8px;font-size:12px;color:#757575;">代码中定义的角色（只读）</div>';
+          html += codeRoles.map(role => `
+            <div class="list-item" data-id="${role.id}">
+              <div>
+                <div><strong>${role.name}</strong> (${role.id})<span class="source-tag source-code">代码定义</span></div>
+                <div class="meta">EdgeTTS · ${role.voice || '未设置'}</div>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        if (uiRoles.length) {
+          if (codeRoles.length) html += '<div style="margin:12px 0 8px;font-size:12px;color:#757575;">手动添加的角色</div>';
+          html += uiRoles.map(role => `
+            <div class="list-item" data-id="${role.id}">
+              <div>
+                <div><strong>${role.name}</strong> (${role.id})<span class="source-tag source-ui">手动添加</span></div>
+                <div class="meta">${role.type === 'edge' ? 'EdgeTTS' : '系统TTS'} · ${role.voice || '未设置'}</div>
+              </div>
+              <div class="actions">
+                <button class="btn btn-ghost" data-action="edit" data-id="${role.id}">编辑</button>
+                <button class="btn btn-danger" data-action="delete" data-id="${role.id}">删除</button>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        this.roleList.innerHTML = html;
+
+        this.roleList.querySelectorAll('button[data-action="edit"]').forEach(btn => btn.addEventListener('click', async () => await this.editRole(btn.dataset.id)));
+        this.roleList.querySelectorAll('button[data-action="delete"]').forEach(btn => btn.addEventListener('click', async () => await this.deleteRole(btn.dataset.id)));
       }
 
       async editRole(id) {
-        const role = this.getRoles().find(r => r.id === id);
+        const roles = await this.getRoles();
+        const role = roles.find(r => r.id === id);
         if (!role) return;
 
         this.roleId.value = role.id;
@@ -249,21 +272,21 @@
         this.roleVoice.value = role.voice || '';
       }
 
-      deleteRole(id) {
-        const roles = this.getRoles().filter(r => r.id !== id);
-        this.setRoles(roles);
-        this.renderRoles();
+      async deleteRole(id) {
+        const roles = (await this.getRoles()).filter(r => r.id !== id);
+        await this.setRoles(roles);
+        await this.renderRoles();
       }
 
       async clearForm() {
         this.roleId.value = '';
         this.roleName.value = '';
-        this.roleType.value = this.disableLocalTts ? 'edge' : 'edge';
+        this.roleType.value = 'edge';
         await this.populateVoices();
         this.roleVoice.value = '';
       }
 
-      saveRole() {
+      async saveRole() {
         const id = this.roleId.value.trim();
         const name = this.roleName.value.trim();
         const type = this.roleType.value;
@@ -279,14 +302,14 @@
           return;
         }
 
-        const roles = this.getRoles();
-        const payload = { id, name, type, voice };
-        const idx = roles.findIndex(r => r.id === id);
+        const roles = await this.getRoles();
+        const payload = { id, name, type, voice, source: 'ui' };
+        const idx = roles.findIndex(r => r.id === id && r.source !== 'code');
         if (idx >= 0) roles[idx] = payload;
         else roles.push(payload);
 
-        this.setRoles(roles);
-        this.renderRoles();
+        await this.setRoles(roles);
+        await this.renderRoles();
       }
     }
 

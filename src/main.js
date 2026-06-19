@@ -1,7 +1,3 @@
-﻿/**
- * Listext Editor 主程序
- */
-
 class ListextEditor {
   constructor() {
     this.parser = new ListextParser();
@@ -69,10 +65,55 @@ class ListextEditor {
     window.electronAPI.onShowSettings(() => this.uiManager.showSettingsDialog());
 
     window.electronAPI.onMenuEdit((action) => this.handleEditAction(action));
+
+    window.electronAPI.onProjectEffectsChanged((effects) => {
+      const tab = this.tabManager?.getActiveTab();
+      if (tab) {
+        tab.effects = effects;
+        this.fileManager.markUnsaved();
+      }
+      if (this.codeEditor) {
+        this.codeEditor.projectEffects = effects || [];
+      }
+    });
+
+    window.electronAPI.onProjectRolesChanged((roles) => {
+      const tab = this.tabManager?.getActiveTab();
+      if (tab) {
+        tab.roles = roles;
+        this.fileManager.markUnsaved();
+      }
+      if (this.codeEditor) {
+        this.codeEditor.projectRoles = roles || [];
+      }
+    });
+
+    window.addEventListener('beforeunload', () => {
+      if (window.app?.playQueue?.isPlaying) {
+        window.app.playQueue.stop();
+      }
+    });
   }
 
   loadDefaultContent() {
     if (this.tabManager) this.fileManager.newFile();
+  }
+
+  getActiveProjectData() {
+    const tab = this.tabManager?.getActiveTab();
+    return {
+      roles: tab?.roles || [],
+      effects: tab?.effects || []
+    };
+  }
+
+  updateActiveProjectData(data) {
+    const tab = this.tabManager?.getActiveTab();
+    if (tab) {
+      if (data.roles) tab.roles = data.roles;
+      if (data.effects) tab.effects = data.effects;
+      this.fileManager.markUnsaved();
+    }
   }
 
   switchMode(mode, sync = true) {
@@ -97,6 +138,15 @@ class ListextEditor {
       this.codeEditor.hideSuggestions();
       this.uiManager.refreshSectionJump();
     } else {
+      const projectData = this.getActiveProjectData();
+      this.codeEditor.projectRoles = projectData.roles || [];
+      this.codeEditor.projectEffects = projectData.effects || [];
+      if (window.electronAPI) {
+        window.electronAPI.getProjectData().then(data => {
+          if (data?.effects) this.codeEditor.projectEffects = data.effects;
+          if (data?.roles) this.codeEditor.projectRoles = data.roles;
+        }).catch(() => {});
+      }
       this.codeEditor.refreshView();
     }
 
@@ -151,6 +201,8 @@ class ListextEditor {
     }
 
     if (safeMode === 'code') {
+      const projectData = this.getActiveProjectData();
+      this.codeEditor.setProjectContext(projectData.roles, projectData.effects);
       this.codeEditor.refreshView();
     }
   }
@@ -196,4 +248,3 @@ class ListextEditor {
 window.addEventListener('DOMContentLoaded', () => {
   window.app = new ListextEditor();
 });
-

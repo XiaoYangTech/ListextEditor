@@ -1,6 +1,8 @@
-﻿/**
+/**
  * PlayQueue - 播放队列管理器
  */
+const DEFAULT_EDGE_VOICE = 'zh-CN-XiaoxiaoNeural';
+
 class PlayQueue {
   constructor(ttsEngine, parser) {
     this.ttsEngine = ttsEngine;
@@ -17,10 +19,26 @@ class PlayQueue {
     this.onBlockHighlight = null;
     this.onTtsFallback = null;
     this.onTtsError = null;
+    this.currentEffectAudio = null;
+    this.effectFadeTimer = null;
   }
 
   async loadEffects() {
-    if (window.electronAPI) this.effectLibrary = await window.electronAPI.loadEffects();
+    const tab = window.app?.tabManager?.getActiveTab();
+    const projectEffects = tab?.effects || [];
+    const builtinSounds = window.electronAPI ? await window.electronAPI.listBuiltinSounds() || [] : [];
+
+    this.effectLibrary = {};
+    for (const effect of projectEffects) {
+      let effectPath = effect.path;
+      if (!effectPath && effect.source === 'builtin') {
+        const builtin = builtinSounds.find(b => b.filename === effect.filename);
+        if (builtin) effectPath = builtin.path;
+      }
+      if (effectPath) {
+        this.effectLibrary[effect.id] = effectPath;
+      }
+    }
   }
 
   buildQueue(ast) {
@@ -144,10 +162,6 @@ class PlayQueue {
     if (task.ttsType === 'edge' && window.electronAPI) {
       const ratePercent = this.convertRateToEdge(task.rate || 1.0);
       const voiceName = this.resolveVoice(task);
-      if (!voiceName) {
-        if (this.onTtsFallback) this.onTtsFallback();
-        return this.playLocalTTS(task);
-      }
       try {
         const res = await window.electronAPI.synthesizeTTS(task.text, voiceName, ratePercent);
         if (res?.success && res.path) {
@@ -166,9 +180,9 @@ class PlayQueue {
         throw new Error(res?.error || 'EdgeTTS 合成失败');
       } catch (error) {
         if (!this.isPlaying) return;
-        if (this.onTtsFallback) this.onTtsFallback();
-        return this.playLocalTTS(task);
+        if (this.onTtsError) this.onTtsError('EdgeTTS 合成失败: ' + (error.message || error));
       }
+      return;
     }
 
     return this.playLocalTTS(task);
@@ -214,7 +228,21 @@ class PlayQueue {
       const audio = new Audio();
       audio.src = this.toFileUrl(effectPath);
       let resolved = false;
-      const done = () => { if (!resolved) { resolved = true; resolve(); } };
+      const done = () => {
+        if (!resolved) {
+          resolved = true;
+          if (this.currentEffectAudio === audio) {
+            this.currentEffectAudio = null;
+          }
+          if (this.effectFadeTimer) {
+            clearInterval(this.effectFadeTimer);
+            this.effectFadeTimer = null;
+          }
+          resolve();
+        }
+      };
+
+      this.currentEffectAudio = audio;
 
       audio.onended = done;
       audio.onerror = done;
@@ -225,18 +253,27 @@ class PlayQueue {
         const startFadeAt = total - fadeMs;
         if (fadeMs > 0 && startFadeAt > 0) {
           setTimeout(() => {
+            if (resolved) return;
             const startVolume = audio.volume;
             const steps = Math.max(1, Math.floor(fadeMs / 50));
             let step = 0;
-            const timer = setInterval(() => {
+            this.effectFadeTimer = setInterval(() => {
               step++;
               const ratio = 1 - step / steps;
               audio.volume = Math.max(0, startVolume * ratio);
-              if (step >= steps) clearInterval(timer);
+              if (step >= steps) {
+                clearInterval(this.effectFadeTimer);
+                this.effectFadeTimer = null;
+              }
             }, 50);
           }, startFadeAt);
         }
-        setTimeout(() => { try { audio.pause(); } catch {} done(); }, total);
+        setTimeout(() => {
+          if (!resolved) {
+            try { audio.pause(); } catch {}
+            done();
+          }
+        }, total);
       }
 
       audio.play().catch(done);
@@ -244,19 +281,16 @@ class PlayQueue {
   }
 
   getRole(id) {
-    try {
-      const raw = localStorage.getItem('listext_roles') || '[]';
-      const roles = JSON.parse(raw);
-      return roles.find(r => r.id === id) || null;
-    } catch {
-      return null;
-    }
+    const tab = window.app?.tabManager?.getActiveTab();
+    const roles = tab?.roles || [];
+    return roles.find(r => r.id === id) || null;
   }
 
   resolveVoice(task) {
     if (task.voice) return task.voice;
     const role = task.roleId ? this.getRole(task.roleId) : null;
     if (role?.voice) return role.voice;
+    if (task.ttsType === 'edge') return DEFAULT_EDGE_VOICE;
     return null;
   }
 
@@ -289,6 +323,15 @@ class PlayQueue {
       this.currentAudio.pause();
       this.currentAudio.currentTime = 0;
       this.currentAudio = null;
+    }
+    if (this.currentEffectAudio) {
+      this.currentEffectAudio.pause();
+      this.currentEffectAudio.currentTime = 0;
+      this.currentEffectAudio = null;
+    }
+    if (this.effectFadeTimer) {
+      clearInterval(this.effectFadeTimer);
+      this.effectFadeTimer = null;
     }
   }
 

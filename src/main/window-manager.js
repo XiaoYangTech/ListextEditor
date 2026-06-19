@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { ensureDir } = require('./utils');
@@ -23,7 +23,7 @@ function readPackageMeta() {
       const raw = fs.readFileSync(pkgPath, 'utf-8');
       const pkg = JSON.parse(raw.replace(/^\uFEFF/, ""));
       return {
-        name: pkg.productName || pkg.name || app.getName() || 'Listext Editor',
+        name: pkg.productName || pkg.name || app.getName() || '亿方听力大师',
         version: app.getVersion() || pkg.version || '0.0.0',
         description: pkg.description || '',
         author: typeof pkg.author === 'string' ? pkg.author : (pkg.author?.name || '')
@@ -32,7 +32,7 @@ function readPackageMeta() {
   }
 
   return {
-    name: app.getName() || 'Listext Editor',
+    name: app.getName() || '亿方听力大师',
     version: app.getVersion() || '0.0.0',
     description: '',
     author: ''
@@ -53,6 +53,12 @@ function sendToMain(channel, ...args) {
   if (target && target.webContents && !target.webContents.isDestroyed()) target.webContents.send(channel, ...args);
 }
 
+function getAppTitle() {
+  const meta = readPackageMeta();
+  const osName = process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux';
+  return `亿方听力大师 v${meta.version} ${osName}`;
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -65,10 +71,14 @@ function createMainWindow() {
       preload: path.join(__dirname, '../../preload.js'),
       sandbox: false
     },
-    title: 'Listext Editor'
+    title: getAppTitle()
   });
 
   mainWindow.loadFile('index.html');
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.setTitle(getAppTitle());
+  });
 
   mainWindow.on('closed', () => {
     if (effectManagerWindow && !effectManagerWindow.isDestroyed()) effectManagerWindow.close();
@@ -154,7 +164,7 @@ function createMenu() {
     {
       label: '帮助',
       submenu: [
-        { label: 'Listext 语法说明', click: () => sendToMain('show-syntax-help') },
+        { label: '语法说明', click: () => sendToMain('show-syntax-help') },
         { type: 'separator' },
         {
           label: '关于',

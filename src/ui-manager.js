@@ -91,9 +91,6 @@ class UIManager {
     this.settingsSaveBtn = document.getElementById('settingsSave');
     this.settingsCancelBtn = document.getElementById('settingsCancel');
     this.settingsCloseTopBtn = document.getElementById('settingsCloseTop');
-
-    this.effectMapCache = {};
-    this.soundListCache = [];
   }
 
   initModeSwitcher() {
@@ -214,16 +211,11 @@ class UIManager {
   initEffectDialog() {
     const effectDialog = document.getElementById('effectDialog');
     const effectSelect = document.getElementById('effectSelect');
-    const effectGroupSelect = document.getElementById('effectGroupSelect');
     const effectDuration = document.getElementById('effectDuration');
     const effectConfirm = document.getElementById('effectConfirm');
 
     document.getElementById('btnOpenEffectManager')?.addEventListener('click', async () => {
-      await window.electronAPI?.openEffectManagerWindow?.();
-    });
-
-    effectGroupSelect?.addEventListener('change', () => {
-      this.renderEffectIdsByGroup(effectGroupSelect.value, effectSelect);
+      await this.openEffectManager();
     });
 
     effectDialog?.querySelector('.dialog-close')?.addEventListener('click', () => effectDialog.classList.remove('active'));
@@ -238,23 +230,26 @@ class UIManager {
         effectDialog.classList.remove('active');
       });
     }
-  }
 
-  renderEffectIdsByGroup(group, effectSelect) {
-    const ids = Object.keys(this.effectMapCache || {});
-    if (!group) {
-      effectSelect.innerHTML = ids.length ? ids.map(id => `<option value="${id}">${id}</option>`).join('') : '<option value="">（暂无音效）</option>';
-      return;
+    if (window.electronAPI?.onProjectEffectsChanged) {
+      window.electronAPI.onProjectEffectsChanged(async () => {
+        if (!effectDialog?.classList.contains('active')) return;
+        let effects = [];
+        try {
+          const data = await window.electronAPI.getProjectData();
+          effects = data?.effects || [];
+        } catch {}
+        this._effectDialogEffects = effects;
+        const groups = [...new Set(effects.map(e => e.group || '未分组'))].filter(Boolean);
+        if (effectGroupSelect) {
+          const prevGroup = effectGroupSelect.value;
+          effectGroupSelect.innerHTML = '<option value="">全部分类</option>' +
+            groups.map(g => `<option value="${g}">${g}</option>`).join('');
+          if (groups.includes(prevGroup)) effectGroupSelect.value = prevGroup;
+        }
+        this._filterEffectSelect();
+      });
     }
-
-    const filtered = ids.filter(id => {
-      const sound = this.soundListCache.find(s => (s.displayId || s.name) === id);
-      return sound && sound.group === group;
-    });
-
-    effectSelect.innerHTML = filtered.length
-      ? filtered.map(id => `<option value="${id}">${id}</option>`).join('')
-      : '<option value="">（该分类暂无音效）</option>';
   }
 
   async showEffectDialog(callback) {
@@ -264,19 +259,38 @@ class UIManager {
     const effectGroupSelect = document.getElementById('effectGroupSelect');
     const effectDuration = document.getElementById('effectDuration');
 
-    const effects = await window.electronAPI?.loadEffects() || {};
-    const sounds = await window.electronAPI?.listSounds?.() || [];
+    let effects = this.app.getActiveProjectData().effects || [];
+    if (!effects.length && window.electronAPI) {
+      try {
+        const data = await window.electronAPI.getProjectData();
+        effects = data?.effects || [];
+      } catch {}
+    }
 
-    this.effectMapCache = effects;
-    this.soundListCache = sounds;
+    this._effectDialogEffects = effects;
+    const groups = [...new Set(effects.map(e => e.group || '未分组'))].filter(Boolean);
 
-    const groups = Array.from(new Set(sounds.map(s => s.group))).filter(Boolean);
-    effectGroupSelect.innerHTML = ['<option value="">全部分类</option>', ...groups.map(g => `<option value="${g}">${g}</option>`)].join('');
+    if (effectGroupSelect) {
+      effectGroupSelect.innerHTML = '<option value="">全部分类</option>' +
+        groups.map(g => `<option value="${g}">${g}</option>`).join('');
+      effectGroupSelect.onchange = () => this._filterEffectSelect();
+    }
 
-    this.renderEffectIdsByGroup('', effectSelect);
-
+    this._filterEffectSelect();
     effectDuration.value = '';
     effectDialog.classList.add('active');
+  }
+
+  _filterEffectSelect() {
+    const effectSelect = document.getElementById('effectSelect');
+    const effectGroupSelect = document.getElementById('effectGroupSelect');
+    if (!effectSelect) return;
+    const effects = this._effectDialogEffects || [];
+    const group = effectGroupSelect?.value || '';
+    const filtered = group ? effects.filter(e => (e.group || '未分组') === group) : effects;
+    effectSelect.innerHTML = filtered.length
+      ? filtered.map(e => `<option value="${e.id}">${e.id}</option>`).join('')
+      : '<option value="">（暂无音效）</option>';
   }
 
   initUnsavedDialog() {
@@ -305,7 +319,13 @@ class UIManager {
   }
 
   initRoleManagerDialog() {}
-  async openRoleManager() { await window.electronAPI?.openRoleManagerWindow?.(); }
+  async openRoleManager() {
+    await window.electronAPI?.openRoleManagerWindow?.();
+  }
+
+  async openEffectManager() {
+    await window.electronAPI?.openEffectManagerWindow?.();
+  }
 
   initSyntaxHelpDialog() {
     const dialog = document.getElementById('syntaxHelpDialog');
@@ -401,7 +421,6 @@ class UIManager {
       const textActive = this.app.isTextInputActive();
       const codeEditorActive = document.activeElement === this.app.codeEditor?.editor;
 
-      // 如果代码编辑器获得焦点，只处理特定的快捷键
       if (codeEditorActive) {
         if (this.matchShortcut(e, this.shortcuts.save)) {
           e.preventDefault();
@@ -446,7 +465,6 @@ class UIManager {
         return;
       }
 
-      // 使用配置的快捷键
       if (this.matchShortcut(e, this.shortcuts.save)) {
         e.preventDefault();
         this.app.fileManager.saveFile();
@@ -465,7 +483,6 @@ class UIManager {
         return;
       }
 
-      // 编辑快捷键（仅在积木模式）
       if (inBlockMode) {
         if (this.matchShortcut(e, this.shortcuts.undo)) {
           e.preventDefault();
@@ -547,8 +564,4 @@ class UIManager {
       }
     });
   }
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = UIManager;
 }

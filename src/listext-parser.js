@@ -1,6 +1,3 @@
-/**
- * Listext 语法解析器
- */
 class ListextParser {
   constructor() {
     this.tagDefinitions = {
@@ -9,7 +6,8 @@ class ListextParser {
       repeat: { type: 'structure', name: '重复', description: '内部内容重复播放 count 次' },
       fx: { type: 'control', name: '音效', description: '播放音效' },
       divider: { type: 'control', name: '分割线', description: '可视化分割线，不影响播放' },
-      section: { type: 'structure', name: '分节', description: '章节锚点，可快速跳转' }
+      section: { type: 'structure', name: '分节', description: '章节锚点，可快速跳转' },
+      role: { type: 'definition', name: '角色', description: '定义角色（ID、名称、发音人）' }
     };
   }
 
@@ -114,7 +112,7 @@ class ListextParser {
   }
 
   isSelfClosing(tagName) {
-    return ['pause', 'fx', 'divider', 'section'].includes(tagName);
+    return ['pause', 'fx', 'divider', 'section', 'role'].includes(tagName);
   }
 
   hasChildren(tagName) {
@@ -193,8 +191,4 @@ class ListextParser {
 
     return errors;
   }
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = ListextParser;
 }

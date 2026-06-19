@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Listext Editor</title>
+  <title>亿方听力大师</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
   <link rel="stylesheet" href="styles/main.css" />
@@ -66,6 +66,7 @@
           <button class="code-quick-btn" data-tag="section"><span class="material-icons">bookmark</span>分节</button>
           <div class="divider"></div>
           <button class="code-quick-btn" data-tag="fx"><span class="material-icons">music_note</span>音效</button>
+          <button class="code-quick-btn" data-tag="role"><span class="material-icons">person_add</span>角色</button>
           <button class="code-quick-btn" data-tag="divider"><span class="material-icons">horizontal_rule</span>分割线</button>
         </div>
         <div class="code-editor-wrapper">
@@ -92,30 +93,45 @@
         <button class="dialog-close">&times;</button>
       </div>
       <div class="dialog-body">
-        <div class="syntax-help" style="max-height:420px; overflow-y:auto;">
-          <h3>基础标签</h3>
-          <table>
-            <tr><td><code>&lt;say&gt;</code></td><td>朗读文本，支持 role、rate</td></tr>
-            <tr><td><code>&lt;pause&gt;</code></td><td>停顿，支持 dur(秒)</td></tr>
-            <tr><td><code>&lt;repeat&gt;</code></td><td>重复，支持 count</td></tr>
-            <tr><td><code>&lt;fx&gt;</code></td><td>音效，支持 id、dur、fade</td></tr>
-            <tr><td><code>&lt;divider&gt;</code></td><td>分割线（视觉辅助）</td></tr>
-            <tr><td><code>&lt;section&gt;</code></td><td>分节锚点，支持 title，无需闭合</td></tr>
-          </table>
+          <div class="syntax-help" style="max-height:420px; overflow-y:auto;">
+            <h3>基础标签</h3>
+            <table>
+              <tr><td><code>&lt;say&gt;</code></td><td>朗读文本，支持 role、rate 属性</td></tr>
+              <tr><td><code>&lt;pause&gt;</code></td><td>停顿，支持 dur 属性（秒）</td></tr>
+              <tr><td><code>&lt;repeat&gt;</code></td><td>重复内部内容，支持 count 属性</td></tr>
+              <tr><td><code>&lt;fx&gt;</code></td><td>播放音效，支持 id、dur、fade 属性</td></tr>
+              <tr><td><code>&lt;role&gt;</code></td><td>定义角色，支持 id、name、type、voice 属性（自闭合）</td></tr>
+              <tr><td><code>&lt;divider&gt;</code></td><td>分割线（视觉辅助）</td></tr>
+              <tr><td><code>&lt;section&gt;</code></td><td>分节锚点，支持 title 属性</td></tr>
+            </table>
 
-          <h3>完整示例</h3>
-          <button id="btnCopySyntaxExample" class="btn btn-primary" style="margin-bottom:8px;">复制示例代码</button>
-          <pre id="syntaxExampleCode" class="syntax-example">&lt;section title="第一部分"&gt;
-&lt;say role="teacher"&gt;第一部分 听力理解&lt;/say&gt;
-&lt;pause dur="2"&gt;
-&lt;fx id="bell"&gt;
-&lt;repeat count="2"&gt;
-  &lt;say role="man"&gt;你觉得这件衣服怎么样？&lt;/say&gt;
-  &lt;say role="woman"&gt;颜色有点深，不过样式不错。&lt;/say&gt;
-&lt;/repeat&gt;
-&lt;say role="question"&gt;女的是什么意思？&lt;/say&gt;
-&lt;pause dur="10"&gt;</pre>
-        </div>
+            <h3>属性说明</h3>
+            <table>
+              <tr><td><code>role</code></td><td>朗读角色ID，需先用 &lt;role&gt; 定义</td></tr>
+              <tr><td><code>rate</code></td><td>语速倍率，如 0.8（慢）、1.0（正常）、1.2（快）</td></tr>
+              <tr><td><code>dur</code></td><td>持续时间（秒）</td></tr>
+              <tr><td><code>fade</code></td><td>淡出时间（秒），需配合 dur 使用</td></tr>
+              <tr><td><code>count</code></td><td>重复次数</td></tr>
+              <tr><td><code>voice</code></td><td>EdgeTTS 发音人，如 zh-CN-XiaoxiaoNeural</td></tr>
+            </table>
+
+            <h3>完整示例</h3>
+            <button id="btnCopySyntaxExample" class="btn btn-primary" style="margin-bottom:8px;">复制示例代码</button>
+            <pre id="syntaxExampleCode" class="syntax-example">&lt;role id="teacher" name="老师" voice="zh-CN-YunxiNeural"/&gt;
+&lt;role id="student" name="学生" voice="zh-CN-XiaoxiaoNeural"/&gt;
+
+&lt;section title="听力理解"&gt;
+  &lt;say role="teacher"&gt;第一部分 听力理解&lt;/say&gt;
+  &lt;pause dur="2"&gt;
+  &lt;fx id="bell" dur="3"&gt;
+  &lt;repeat count="2"&gt;
+    &lt;say role="student"&gt;你觉得这件衣服怎么样？&lt;/say&gt;
+    &lt;say role="teacher"&gt;颜色有点深，不过样式不错。&lt;/say&gt;
+  &lt;/repeat&gt;
+  &lt;say role="teacher"&gt;女的是什么意思？&lt;/say&gt;
+  &lt;pause dur="10"&gt;
+&lt;/section&gt;</pre>
+          </div>
       </div>
     </div>
   </div>

@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 app.commandLine.appendSwitch('no-sandbox');
 const path = require('path');
 const { createMainWindow, getMainWindow } = require('./src/main/window-manager');
@@ -25,7 +25,7 @@ async function initApp() {
   // Register IPC handlers
   registerIpcHandlers();
   registerConfigHandlers(ipcMain);
-  registerSoundHandlers(ipcMain, mainWindow);
+  registerSoundHandlers(ipcMain);
   
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -1,4 +1,3 @@
-﻿// preload.js
 const { contextBridge, ipcRenderer } = require('electron');
 const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 const fs = require('fs');
@@ -46,7 +45,6 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  // 文件/项目
   saveFile: (filePath, content, meta) => ipcRenderer.invoke('save-file', filePath, content, meta),
   openProjectFile: (filePath) => ipcRenderer.invoke('open-project-file', filePath),
   selectProjectPath: () => ipcRenderer.invoke('select-project-path'),
@@ -57,21 +55,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuSave: (callback) => ipcRenderer.on('menu-save', () => callback()),
   onMenuEdit: (callback) => ipcRenderer.on('menu-edit', (event, action) => callback(action)),
 
-  // 音效管理
-  loadEffects: () => ipcRenderer.invoke('load-effects'),
-  listSounds: () => ipcRenderer.invoke('list-sounds'),
-  setEffectId: (key, customId) => ipcRenderer.invoke('set-effect-id', key, customId),
-  removeEffectMapping: (filename) => ipcRenderer.invoke('remove-effect-mapping', filename),
-  deleteSound: (key) => ipcRenderer.invoke('delete-sound', key),
-  getSoundsPath: () => ipcRenderer.invoke('get-sounds-path'),
-  importSound: (sourcePath) => ipcRenderer.invoke('import-sound', sourcePath),
-  selectAudioFile: () => ipcRenderer.invoke('select-audio-file'),
-  listEffectGroups: () => ipcRenderer.invoke('list-effect-groups'),
-  addEffectGroup: (name) => ipcRenderer.invoke('add-effect-group', name),
-  deleteEffectGroup: (name) => ipcRenderer.invoke('delete-effect-group', name),
-  setSoundGroup: (key, group) => ipcRenderer.invoke('set-sound-group', key, group),
+  listBuiltinSounds: () => ipcRenderer.invoke('list-builtin-sounds'),
+  getBuiltInPaths: () => ipcRenderer.invoke('get-built-in-paths'),
 
-  // TTS
   getVoices: async () => voiceConfig,
   synthesizeTTS,
   synthesizeBatch: async (items) => {
@@ -107,12 +93,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   saveBinary: (filePath, base64) => ipcRenderer.invoke('save-binary', filePath, base64),
 
-  // 播放控制
   onPreviewPlay: (callback) => ipcRenderer.on('preview-play', () => callback()),
   onStopPlay: (callback) => ipcRenderer.on('stop-play', () => callback()),
   onExportAudio: (callback) => ipcRenderer.on('export-audio', (event, filePath) => callback(filePath)),
 
-  // 帮助与窗口
   onShowSyntaxHelp: (callback) => ipcRenderer.on('show-syntax-help', () => callback()),
   onShowRoleManager: (callback) => ipcRenderer.on('show-role-manager', () => callback()),
   onShowSettings: (callback) => ipcRenderer.on('show-settings', () => callback()),
@@ -122,27 +106,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openEffectManagerWindow: () => ipcRenderer.invoke('open-effect-manager-window'),
   composeMp3: (targetPath, segments) => ipcRenderer.invoke('compose-mp3', targetPath, segments),
 
-  // 设置
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   getNotice: () => ipcRenderer.invoke('get-notice'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
 
-  // 快捷键
   getShortcuts: () => ipcRenderer.invoke('get-shortcuts'),
   saveShortcuts: (shortcuts) => ipcRenderer.invoke('save-shortcuts', shortcuts),
 
-  // 存储路径
   getStoragePaths: () => ipcRenderer.invoke('get-storage-paths'),
   saveStoragePaths: (paths) => ipcRenderer.invoke('save-storage-paths', paths),
   resetStoragePaths: () => ipcRenderer.invoke('reset-storage-paths'),
   selectDirectory: (defaultPath) => ipcRenderer.invoke('select-directory', defaultPath),
 
-  // 项目音效
-  addProjectSound: (soundEntry) => ipcRenderer.invoke('add-project-sound', soundEntry),
-
-  // 导出
+  selectAudioFile: () => ipcRenderer.invoke('select-audio-file'),
   selectExportPath: () => ipcRenderer.invoke('select-export-path'),
-  platform: process.platform
-});
+  platform: process.platform,
 
+  getProjectData: () => ipcRenderer.invoke('get-project-data'),
+  setProjectEffects: (effects) => ipcRenderer.invoke('set-project-effects', effects),
+  setProjectRoles: (roles) => ipcRenderer.invoke('set-project-roles', roles),
+  onProjectEffectsChanged: (callback) => ipcRenderer.on('project-effects-changed', (event, effects) => callback(effects)),
+  onProjectRolesChanged: (callback) => ipcRenderer.on('project-roles-changed', (event, roles) => callback(roles))
+});

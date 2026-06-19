@@ -1,7 +1,3 @@
-﻿/**
- * 标签页管理器
- */
-
 class TabManager {
   constructor(editor) {
     this.editor = editor;
@@ -50,23 +46,38 @@ class TabManager {
     return this.tabs.find(t => t.id === this.activeTabId);
   }
 
-  createNewTab(title = '未命名', content = '', filePath = null, forceNew = false) {
+  createNewTab(title = '未命名', content = '', filePath = null, forceNew = false, projectData = null) {
     if (!forceNew && this.tabs.length === 1) {
       const current = this.tabs[0];
       if (!current.filePath && !current.isDirty && !current.content) {
-        this.updateTab(current.id, { title, content, filePath, isDirty: false });
+        this.updateTab(current.id, {
+          title: title || '未命名',
+          content,
+          filePath,
+          isDirty: false,
+          roles: projectData?.roles || [],
+          effects: projectData?.effects || []
+        });
         return current.id;
       }
     }
 
+    let tabTitle = title || '未命名';
+    if (!filePath && !title) {
+      const existing = this.tabs.filter(t => !t.filePath && t.title.match(/^untitled\d*\.lstx$/));
+      tabTitle = `untitled${existing.length + 1}.lstx`;
+    }
+
     const tab = {
       id: this.generateId(),
-      title: title || '未命名',
+      title: tabTitle,
       filePath,
       content: content || '',
       mode: 'block',
       isDirty: false,
-      scrollPos: 0
+      scrollPos: 0,
+      roles: projectData?.roles || [],
+      effects: projectData?.effects || []
     };
 
     this.tabs.push(tab);
@@ -269,8 +280,4 @@ class TabManager {
       activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
   }
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = TabManager;
 }

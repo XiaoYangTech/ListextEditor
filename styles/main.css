@@ -1,4 +1,4 @@
-﻿/* Material Design 2 鍩虹鍙橀噺 */
+/* Material Design 2 鍩虹鍙橀噺 */
 :root {
   --md-primary: #1976D2;
   --md-primary-dark: #1565C0;
@@ -330,18 +330,33 @@ body {
 }
 
 .block-action-btn {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  color: inherit;
-  opacity: 0.7;
-}
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: inherit;
+  }
+  .block-action-btn:hover {
+    background: rgba(0, 0, 0, 0.08);
+    opacity: 1;
+  }
+  .block-action-btn .material-icons {
+    font-size: 18px;
+  }
+  .block-actions .btn-play-only,
+  .block-actions .btn-play-here {
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .block:hover .btn-play-only,
+  .block:hover .btn-play-here {
+    opacity: 1;
+  }
 
 .block-action-btn:hover {
   background: rgba(0, 0, 0, 0.08);
@@ -565,9 +580,11 @@ body {
 /* 浠ｇ爜缂栬緫鍣?*/
 .code-editor-wrapper {
   display: flex;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   background: #1E1E1E;
   position: relative;
+  overflow: visible;
 }
 
 .line-numbers {
@@ -649,7 +666,7 @@ body {
 }
 
 .code-suggestions {
-  position: absolute;
+  position: fixed;
   min-width: 160px;
   max-width: 320px;
   background: #2B2B2B;
@@ -658,7 +675,7 @@ body {
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   font-size: 12px;
-  z-index: 3;
+  z-index: 9999;
   max-height: 240px;
   overflow-y: auto;
 }

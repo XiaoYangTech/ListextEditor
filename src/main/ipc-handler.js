@@ -7,8 +7,7 @@ const ffmpegStatic = require('ffmpeg-static');
 const AdmZip = require('adm-zip');
 const { ensureDir } = require('./utils');
 const { openRoleManager, openSettingsWindow, openEffectManager } = require('./window-manager');
-const { userSoundsDir, buildEffectsMap, clearProjectSounds, addProjectSound } = require('./sound-handler');
-const { loadEffectsConfig, saveEffectsConfig } = require('./config-handler');
+const { getBuiltInDir, getBuiltInRoots, scanBuiltInSounds } = require('./sound-handler');
 
 const tempDir = path.join(app.getPath('temp'), 'listext-editor');
 
@@ -40,88 +39,82 @@ function parseFxIds(content) {
   return Array.from(ids);
 }
 
+function parseRoleDefs(content) {
+  const roles = [];
+  const regex = /<role\s+([^>]+)\/?>/gi;
+  let m;
+  while ((m = regex.exec(content || '')) !== null) {
+    const attrs = {};
+    const attrRegex = /(\w+)=["']([^"']*)["']/g;
+    let am;
+    while ((am = attrRegex.exec(m[1])) !== null) {
+      attrs[am[1]] = am[2];
+    }
+    if (attrs.id) {
+      roles.push({
+        id: attrs.id,
+        name: attrs.name || attrs.id,
+        type: attrs.type || 'edge',
+        voice: attrs.voice || ''
+      });
+    }
+  }
+  return roles;
+}
+
 function saveProjectPackage(filePath, payload) {
   const safePath = normalizeExt(filePath);
   const content = payload?.content || '';
   const roles = payload?.roles || [];
+  const projectEffects = payload?.effects || [];
   const tabTitle = payload?.title || 'untitled.lstx';
 
+  const codeRoles = parseRoleDefs(content);
+  const mergedRoles = [...codeRoles];
+  for (const r of roles) {
+    if (!mergedRoles.find(m => m.id === r.id)) {
+      mergedRoles.push(r);
+    }
+  }
+
   const zip = new AdmZip();
-  const effectMap = buildEffectsMap();
+  const builtInSounds = scanBuiltInSounds();
   const usedFxIds = parseFxIds(content);
   const bundledSounds = [];
 
   zip.addFile('project.json', Buffer.from(JSON.stringify({
-    version: 1,
+    version: 2,
     title: tabTitle,
     content,
-    roles,
+    roles: mergedRoles,
+    effects: projectEffects,
     savedAt: new Date().toISOString()
   }, null, 2), 'utf-8'));
 
   for (const fxId of usedFxIds) {
-    const absPath = effectMap[fxId];
-    if (!absPath || !fs.existsSync(absPath)) continue;
-    const filename = path.basename(absPath);
-    const buf = fs.readFileSync(absPath);
-    zip.addFile('sounds/' + filename, buf);
-    bundledSounds.push({ fxId, filename });
+    const effect = projectEffects.find(e => e.id === fxId);
+    if (!effect) continue;
+
+    let absPath = null;
+    if (effect.source === 'builtin') {
+      const builtin = builtInSounds.find(b => b.filename === effect.filename);
+      if (builtin) absPath = builtin.path;
+    } else if (effect.source === 'imported') {
+      absPath = effect.path;
+    }
+
+    if (absPath && fs.existsSync(absPath)) {
+      const filename = path.basename(absPath);
+      const buf = fs.readFileSync(absPath);
+      zip.addFile('sounds/' + filename, buf);
+      bundledSounds.push({ fxId, filename });
+    }
   }
 
   zip.addFile('assets-map.json', Buffer.from(JSON.stringify({ bundledSounds }, null, 2), 'utf-8'));
   ensureDir(path.dirname(safePath));
   zip.writeZip(safePath);
   return { success: true, filePath: safePath, bundled: bundledSounds.length };
-}
-
-function makeSafeProjectGroup(title) {
-  const safe = String(title || '未命名项目').replace(/[\\/:*?"<>|]/g, '_').slice(0, 40);
-  return '来自项目:' + safe;
-}
-
-function writeProjectSoundsAndMappings(zip, projectTitle) {
-  const config = loadEffectsConfig();
-  const group = makeSafeProjectGroup(projectTitle);
-  if (!config.groups) config.groups = [];
-  if (!config.groups.includes(group)) config.groups.push(group);
-  if (!config.meta) config.meta = {};
-  if (!config.mappings) config.mappings = {};
-
-  const assetsMapEntry = zip.getEntry('assets-map.json');
-  let bundledSounds = [];
-  if (assetsMapEntry) {
-    try {
-      const assetsMap = JSON.parse(assetsMapEntry.getData().toString('utf-8'));
-      bundledSounds = Array.isArray(assetsMap.bundledSounds) ? assetsMap.bundledSounds : [];
-    } catch {}
-  }
-
-  const soundEntries = zip.getEntries().filter(e => e.entryName.startsWith('sounds/') && !e.isDirectory);
-  ensureDir(userSoundsDir);
-
-  for (const entry of soundEntries) {
-    const originalFilename = path.basename(entry.entryName);
-    let finalFilename = originalFilename;
-    let out = path.join(userSoundsDir, finalFilename);
-    let counter = 1;
-    while (fs.existsSync(out)) {
-      const ext = path.extname(originalFilename);
-      const base = path.basename(originalFilename, ext);
-      finalFilename = base + '_' + counter + ext;
-      out = path.join(userSoundsDir, finalFilename);
-      counter++;
-    }
-
-    fs.writeFileSync(out, entry.getData());
-
-    const key = 'user:用户音效:' + finalFilename;
-    config.meta[key] = { ...(config.meta[key] || {}), group, origin: 'lstx-import', project: projectTitle || '' };
-
-    const mapItem = bundledSounds.find(x => x.filename === originalFilename);
-    if (mapItem && mapItem.fxId) config.mappings[key] = mapItem.fxId;
-  }
-
-  saveEffectsConfig(config);
 }
 
 function openProjectPackage(filePath) {
@@ -142,12 +135,36 @@ function openProjectPackage(filePath) {
     return { success: false, error: '无效项目文件：content 字段异常' };
   }
 
-  writeProjectSoundsAndMappings(zip, project.title || path.basename(filePath));
+  const codeRoles = parseRoleDefs(project.content || '');
+  const fileRoles = Array.isArray(project.roles) ? project.roles : [];
+  const mergedRoles = [...codeRoles];
+  for (const r of fileRoles) {
+    if (!mergedRoles.find(m => m.id === r.id)) {
+      mergedRoles.push(r);
+    }
+  }
+
+  const projectEffects = Array.isArray(project.effects) ? project.effects : [];
+  const soundEntries = zip.getEntries().filter(e => e.entryName.startsWith('sounds/') && !e.isDirectory);
+  const tempDir = path.join(app.getPath('temp'), 'listext-editor', 'project_' + Date.now());
+  ensureDir(tempDir);
+
+  for (const entry of soundEntries) {
+    const filename = path.basename(entry.entryName);
+    const out = path.join(tempDir, filename);
+    fs.writeFileSync(out, entry.getData());
+
+    const existing = projectEffects.find(e => e.filename === filename);
+    if (existing && !existing.path) {
+      existing.path = out;
+    }
+  }
 
   return {
     success: true,
     content: project.content || '',
-    roles: Array.isArray(project.roles) ? project.roles : [],
+    roles: mergedRoles,
+    effects: projectEffects,
     title: project.title || path.basename(filePath),
     filePath
   };
@@ -215,7 +232,6 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle('open-project-file', async (event, filePath) => {
-    clearProjectSounds(); // 清理上一项目的临时音效
     try { return openProjectPackage(filePath); }
     catch (error) { return { success: false, error: error.message }; }
   });
@@ -239,12 +255,6 @@ function registerIpcHandlers() {
   ipcMain.handle('open-settings-window', async () => { openSettingsWindow(); return { success: true }; });
   ipcMain.handle('open-effect-manager-window', async () => { openEffectManager(); return { success: true }; });
 
-  // 项目音效
-  ipcMain.handle('add-project-sound', async (event, soundEntry) => {
-    addProjectSound(soundEntry);
-    return { success: true };
-  });
-
   ipcMain.handle('get-notice', async () => {
     try {
       const notice = (await fetchText('https://yifang.yxxblog.top/api/listext-notice/notice.txt')).trim();
@@ -256,44 +266,32 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle('save-binary', async (event, filePath, base64) => {
-    try {
-      if (!filePath || !base64) return { success: false, error: '参数不完整' };
-      ensureDir(path.dirname(filePath));
-      fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    if (!filePath || !base64) return { success: false, error: '参数不完整' };
+    ensureDir(path.dirname(filePath));
+    fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
+    return { success: true };
   });
 
   ipcMain.handle('get-audio-file', async (event, filePath) => {
-    try {
-      if (fs.existsSync(filePath)) {
-        const data = fs.readFileSync(filePath);
-        return { success: true, data: data.toString('base64') };
-      }
-      return { success: false, error: '文件不存在' };
-    } catch (error) {
-      return { success: false, error: error.message };
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath);
+      return { success: true, data: data.toString('base64') };
     }
+    return { success: false, error: '文件不存在' };
   });
 
   ipcMain.handle('cleanup-temp', async () => {
-    try {
-      if (fs.existsSync(tempDir)) {
-        const files = fs.readdirSync(tempDir);
-        files.forEach(file => {
-          const p = path.join(tempDir, file);
-          try {
-            if (fs.lstatSync(p).isDirectory()) fs.rmSync(p, { recursive: true, force: true });
-            else fs.unlinkSync(p);
-          } catch {}
-        });
-      }
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
+    if (fs.existsSync(tempDir)) {
+      const files = fs.readdirSync(tempDir);
+      files.forEach(file => {
+        const p = path.join(tempDir, file);
+        try {
+          if (fs.lstatSync(p).isDirectory()) fs.rmSync(p, { recursive: true, force: true });
+          else fs.unlinkSync(p);
+        } catch {}
+      });
     }
+    return { success: true };
   });
 
   ipcMain.handle('select-export-path', async () => {
@@ -325,9 +323,58 @@ function registerIpcHandlers() {
     });
     return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0];
   });
+
+  ipcMain.handle('list-builtin-sounds', async () => {
+    return scanBuiltInSounds();
+  });
+
+  ipcMain.handle('get-built-in-paths', async () => {
+    return {
+      roots: getBuiltInRoots(),
+      primary: getBuiltInDir()
+    };
+  });
+
+  ipcMain.handle('select-audio-file', async () => {
+    const { dialog, BrowserWindow } = require('electron');
+    const win = BrowserWindow.getFocusedWindow();
+    const result = await dialog.showOpenDialog(win, {
+      filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac'] }],
+      properties: ['openFile']
+    });
+    return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0];
+  });
+
+  const projectDataStore = { effects: [], roles: [] };
+
+  ipcMain.handle('get-project-data', async () => {
+    return projectDataStore;
+  });
+
+  ipcMain.handle('set-project-effects', async (event, effects) => {
+    projectDataStore.effects = effects || [];
+    const { BrowserWindow } = require('electron');
+    const mainWin = BrowserWindow.getAllWindows().find(w => !w.isDestroyed() && w.webContents.getURL().includes('index.html'));
+    if (mainWin) {
+      mainWin.webContents.send('project-effects-changed', projectDataStore.effects);
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle('set-project-roles', async (event, roles) => {
+    projectDataStore.roles = roles || [];
+    const { BrowserWindow } = require('electron');
+    const mainWin = BrowserWindow.getAllWindows().find(w => !w.isDestroyed() && w.webContents.getURL().includes('index.html'));
+    if (mainWin) {
+      mainWin.webContents.send('project-roles-changed', projectDataStore.roles);
+    }
+    return { success: true };
+  });
 }
 
 module.exports = {
   registerIpcHandlers,
-  tempDir
+  tempDir,
+  parseRoleDefs,
+  parseFxIds
 };

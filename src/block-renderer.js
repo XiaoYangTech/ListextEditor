@@ -1,4 +1,4 @@
-﻿class BlockRenderer {
+class BlockRenderer {
   constructor(container, parser) {
     this.container = container;
     this.parser = parser;
@@ -151,6 +151,8 @@
       <div class="block-icon"><span class="material-icons">${icon}</span></div>
       <span class="block-title">${title}</span>
       <div class="block-actions">
+        <button class="block-action-btn btn-play-here" title="从此处播放"><span class="material-icons">play_circle</span></button>
+        <button class="block-action-btn btn-play-only" title="只播放此块"><span class="material-icons">play_circle_outline</span></button>
         ${hasEdit ? `<button class="block-action-btn btn-edit" title="编辑属性"><span class="material-icons">edit</span></button>` : ''}
         <button class="block-action-btn btn-delete" title="删除"><span class="material-icons">delete</span></button>
       </div>
@@ -299,6 +301,43 @@
         else if (editType === 'repeat') this.showRepeatEditor(block);
         else if (editType === 'say') this.showSayEditor(block);
         else if (editType === 'section') this.showSectionEditor(block);
+      });
+    }
+
+    const playOnlyBtn = block.querySelector('.btn-play-only');
+    if (playOnlyBtn) {
+      playOnlyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const app = window.app;
+        if (app && app.ttsRenderer) {
+          const nodeData = block._nodeData;
+          if (nodeData) {
+            const ast = [nodeData];
+            app.playQueue.stop();
+            app.playQueue.play(ast);
+            app.updateStatus('播放当前块...');
+          }
+        }
+      });
+    }
+
+    const playHereBtn = block.querySelector('.btn-play-here');
+    if (playHereBtn) {
+      playHereBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const app = window.app;
+        if (app && app.ttsRenderer) {
+          const allBlocks = this.collectAllBlocks();
+          const idx = allBlocks.indexOf(block);
+          if (idx >= 0) {
+            const nodes = allBlocks.slice(idx).map(b => b._nodeData).filter(Boolean);
+            if (nodes.length) {
+              app.playQueue.stop();
+              app.playQueue.play(nodes);
+              app.updateStatus(`从第 ${idx + 1} 块开始播放...`);
+            }
+          }
+        }
       });
     }
 
@@ -700,6 +739,21 @@
       if (node) ast.push(node);
     });
     return ast;
+  }
+
+  collectAllBlocks() {
+    const all = [];
+    const walk = (container) => {
+      container.querySelectorAll(':scope > .block').forEach(block => {
+        if (block._nodeData) all.push(block);
+        if (block.dataset.tagName === 'repeat') {
+          const inner = block.querySelector('.block-content');
+          if (inner) walk(inner);
+        }
+      });
+    };
+    walk(this.container);
+    return all;
   }
 
   blockToNode(block) {

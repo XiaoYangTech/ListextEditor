@@ -1,4 +1,4 @@
-﻿class ExportHandler {
+class ExportHandler {
   constructor(api, statusCallback) {
     this.api = api || window.electronAPI;
     this.statusCallback = statusCallback;
@@ -33,7 +33,9 @@
       if (!ast.length) return this.updateStatus('没有可导出的内容');
 
       const queue = effectiveQueue.buildQueue(ast);
-      const effects = await api.loadEffects();
+      const projectData = window.app?.getActiveProjectData();
+      const projectEffects = projectData?.effects || [];
+      const builtinSounds = await api.listBuiltinSounds() || [];
 
       const segments = [];
       this.updateStatus(`正在构建导出任务（${queue.length}）...`);
@@ -44,7 +46,7 @@
 
         if (task.type === 'tts') {
           const role = effectiveQueue.getRole(task.roleId || '');
-          const voice = task.voice || (role ? role.voice : null);
+          const voice = task.voice || (role ? role.voice : null) || 'zh-CN-XiaoxiaoNeural';
           const rate = effectiveQueue.convertRateToEdge(task.rate || 1.0);
           const res = await api.synthesizeTTS(task.text || '', voice, rate);
           if (!res?.success || !res.path) {
@@ -53,7 +55,15 @@
           }
           segments.push({ type: 'file', path: res.path });
         } else if (task.type === 'effect') {
-          const effectPath = effects?.[task.effectId];
+          const effect = projectEffects.find(e => e.id === task.effectId);
+          if (!effect) continue;
+
+          let effectPath = effect.path;
+          if (!effectPath && effect.source === 'builtin') {
+            const builtin = builtinSounds.find(b => b.filename === effect.filename);
+            if (builtin) effectPath = builtin.path;
+          }
+
           if (!effectPath) continue;
           segments.push({
             type: 'file',

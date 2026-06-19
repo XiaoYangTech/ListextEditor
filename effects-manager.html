@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
   <style>
-    :root { --primary:#1976d2; --bg:#fafafa; --surface:#fff; --line:#e0e0e0; --muted:#757575; --danger:#b00020; --tab-bg:#e3f2fd; }
+    :root { --primary:#1976d2; --bg:#fafafa; --surface:#fff; --line:#e0e0e0; --muted:#757575; --danger:#b00020; --market-tab:#9c27b0; }
     * { box-sizing:border-box; margin:0; padding:0; }
     body { font-family:'Roboto','Microsoft YaHei',sans-serif; background:var(--bg); color:#212121; }
     .header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background:var(--primary); color:#fff; }
@@ -16,306 +16,167 @@
     .btn { border:none; border-radius:8px; padding:8px 14px; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; gap:6px; }
     .btn-primary { background:rgba(255,255,255,.2); color:#fff; }
     .btn-primary:hover { background:rgba(255,255,255,.3); }
-    .btn-surface { background:#fff; color:#333; border:1px solid var(--line); }
-    .btn-surface:hover { background:#f5f5f5; }
-    .btn-danger { background:#ffebee; color:var(--danger); border:1px solid #ffcdd2; }
-    .btn-danger:hover { background:#ffcdd2; }
-    .top-panel { border-bottom:1px solid var(--line); background:var(--surface); padding:10px 16px; display:grid; gap:10px; }
-    .group-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    .group-toolbar input, .group-select-inline { height:34px; border:1px solid var(--line); border-radius:8px; padding:0 10px; font-size:13px; background:#fff; }
-    .group-toolbar input { min-width:180px; }
-    .path { font-size:12px; color:var(--muted); font-family:Consolas, monospace; margin-left:auto; }
-    .group-tabs { display:flex; gap:8px; flex-wrap:wrap; background:var(--tab-bg); border-radius:10px; padding:8px; }
-    .group-tab { border:1px solid transparent; border-radius:999px; padding:6px 12px; font-size:13px; cursor:pointer; background:transparent; color:#0d47a1; }
-    .group-tab:hover { background:rgba(25,118,210,.1); }
-    .group-tab.active { background:#1976d2; color:#fff; border-color:#1565c0; }
-    .group-wrap { padding:12px 16px; }
-    .group-card { border:1px solid var(--line); border-radius:10px; background:var(--surface); overflow:hidden; }
-    .group-header { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid var(--line); background:#fcfcfc; }
-    .group-title { font-weight:600; }
-    .default-badge { font-size:11px; color:#8d6e63; background:#fff8e1; border:1px solid #ffe082; border-radius:999px; padding:2px 6px; margin-left:6px; }
-    .effect-item { display:flex; align-items:center; gap:12px; padding:10px 12px; border-top:1px dashed #eee; }
-    .effect-item:first-child { border-top:none; }
-    .effect-info { flex:1; min-width:0; }
-    .effect-id-row { display:flex; align-items:center; gap:8px; }
-    .effect-id-input { display:none; width:180px; padding:4px 8px; border:1px solid #90caf9; border-radius:4px; font-size:13px; }
-    .editing .effect-id { display:none; } .editing .effect-id-input { display:block; }
-    .meta { font-size:12px; color:var(--muted); }
-    .group-select-inline.small { height:30px; border-radius:6px; font-size:12px; padding:0 8px; }
+    .btn-market { background:var(--market-tab); color:#fff; }
+    .btn-market:hover { background:#7b1fa2; }
+    .btn-import { background:#4caf50; color:#fff; border:none; border-radius:6px; padding:6px 12px; cursor:pointer; font-size:12px; }
+    .btn-import:hover { background:#388e3c; }
+    .top-panel { border-bottom:1px solid var(--line); background:var(--surface); padding:10px 16px; display:flex; gap:8px; align-items:center; }
+    .tab-btn { border:1px solid transparent; border-radius:999px; padding:6px 14px; font-size:13px; cursor:pointer; background:var(--tab-bg, #e3f2fd); color:#0d47a1; }
+    .tab-btn:hover { background:rgba(25,118,210,.15); }
+    .tab-btn.active { background:#1976d2; color:#fff; }
+    .tab-btn.market { background:#f3e5f5; color:#7b1fa2; }
+    .tab-btn.market:hover { background:#e1bee7; }
+    .tab-btn.market.active { background:#9c27b0; color:#fff; }
+    .content { padding:12px 16px; }
+    .group-card { border:1px solid var(--line); border-radius:10px; background:var(--surface); overflow:hidden; margin-bottom:12px; }
+    .group-header { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid var(--line); background:#fcfcfc; font-weight:600; }
+    .item { display:flex; align-items:center; gap:12px; padding:10px 12px; border-top:1px dashed #eee; }
+    .item:first-child { border-top:none; }
+    .item-info { flex:1; min-width:0; }
+    .item-name { font-weight:500; }
+    .item-meta { font-size:12px; color:var(--muted); }
     .icon-btn { width:32px; height:32px; border:none; border-radius:50%; background:transparent; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
-    .icon-btn:hover { background:#eee; } .icon-btn.delete:hover { background:#ffebee; color:var(--danger); }
-    .icon-btn:disabled, .group-select-inline:disabled { opacity:.45; cursor:not-allowed; pointer-events:none; }
-    .empty { color:var(--muted); font-size:13px; padding:16px; text-align:center; }
+    .icon-btn:hover { background:#ffebee; color:var(--danger); }
+    .empty { color:var(--muted); font-size:13px; padding:24px; text-align:center; }
     .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:20px; background:#333; color:#fff; padding:10px 16px; border-radius:6px; opacity:0; transition:opacity .2s; z-index:999; }
     .toast.show { opacity:1; }
+    .added-badge { color:#4caf50; font-size:12px; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>音效管理器</h1>
     <div class="header-actions">
+      <button class="btn btn-primary" id="btnImportLocal"><span class="material-icons">upload_file</span>导入本地音效</button>
       <button class="btn btn-primary" id="btnRefresh"><span class="material-icons">refresh</span>刷新</button>
-      <button class="btn btn-primary" id="btnAddEffect"><span class="material-icons">add</span>导入音效</button>
     </div>
   </div>
 
   <div class="top-panel">
-    <div class="group-toolbar">
-      <input id="newGroupInput" placeholder="输入新分组名称" />
-      <button class="btn btn-surface" id="btnAddGroup"><span class="material-icons" style="font-size:16px;">create_new_folder</span>新增分组</button>
-      <button class="btn btn-danger" id="btnDeleteGroup"><span class="material-icons" style="font-size:16px;">delete</span>删除当前分组</button>
-      <span class="path" id="soundsPath"></span>
-    </div>
-    <div id="groupTabs" class="group-tabs"></div>
+    <button class="tab-btn active" id="tabProject">项目音效</button>
+    <button class="tab-btn market" id="tabMarket">音效市场</button>
   </div>
 
-  <div id="groupWrap" class="group-wrap"></div>
+  <div id="content" class="content"></div>
   <div id="toast" class="toast"></div>
 
   <script>
-    const DEFAULT_GROUPS = ['开场音乐', '常见音效', '环境音'];
-
     class EffectsManager {
       constructor() {
-        this.sounds = [];
-        this.groups = [];
-        this.activeGroup = '';
-        this.currentAudio = null;
-        this.currentAudioKey = null;
-        this.currentPlayBtn = null;
+        this.projectEffects = [];
+        this.builtinSounds = [];
+        this.view = 'project';
         this.init();
       }
 
       async init() {
-        if (window.electronAPI) {
-          const paths = await window.electronAPI.getSoundsPath();
-          const builtinRoots = (paths.builtinRoots || [paths.builtin]).join(' | ');
-          document.getElementById('soundsPath').textContent = `内置: ${builtinRoots} | 用户: ${paths.user}`;
-        }
         await this.refreshAll();
         this.bind();
       }
 
       async refreshAll() {
-        this.groups = await window.electronAPI.listEffectGroups();
-        this.sounds = await window.electronAPI.listSounds();
-
-        if (!this.activeGroup || !this.groups.includes(this.activeGroup)) {
-          this.activeGroup = this.groups[0] || '';
+        if (window.electronAPI) {
+          try { const d = await window.electronAPI.getProjectData(); this.projectEffects = d?.effects || []; } catch { this.projectEffects = []; }
+          try { this.builtinSounds = await window.electronAPI.listBuiltinSounds() || []; } catch { this.builtinSounds = []; }
         }
+        this.render();
+      }
 
-        this.renderTabs();
-        this.renderGroup();
-        await window.electronAPI.loadEffects();
+      async saveEffects() {
+        if (window.electronAPI) await window.electronAPI.setProjectEffects(this.projectEffects);
       }
 
       bind() {
         document.getElementById('btnRefresh').addEventListener('click', () => this.refreshAll());
-
-        document.getElementById('btnAddEffect').addEventListener('click', async () => {
-          const sourcePath = await window.electronAPI.selectAudioFile();
-          if (!sourcePath) return;
-          const targetGroup = this.activeGroup || '用户音效';
-          const result = await window.electronAPI.importSound(sourcePath, targetGroup);
-          if (result.success) {
-            this.toast('导入成功');
-            await this.refreshAll();
-          } else {
-            this.toast('导入失败: ' + result.error);
-          }
-        });
-
-        document.getElementById('btnAddGroup').addEventListener('click', async () => {
-          const input = document.getElementById('newGroupInput');
-          const name = input.value.trim();
-          if (!name) return;
-          const res = await window.electronAPI.addEffectGroup(name);
-          if (res.success) {
-            input.value = '';
-            this.toast('分组已新增');
-            await this.refreshAll();
-            this.activeGroup = name;
-            this.renderTabs();
-            this.renderGroup();
-          } else {
-            this.toast('新增失败: ' + (res.error || '未知错误'));
-          }
-        });
-
-        document.getElementById('btnDeleteGroup').addEventListener('click', async () => {
-          if (!this.activeGroup) return;
-          const res = await window.electronAPI.deleteEffectGroup(this.activeGroup);
-          if (res.success) {
-            this.toast('分组已删除');
-            await this.refreshAll();
-          } else {
-            this.toast(res.error || '删除失败');
-          }
-        });
-
-        document.getElementById('groupTabs').addEventListener('click', (e) => {
-          const tab = e.target.closest('.group-tab');
-          if (!tab) return;
-          this.activeGroup = tab.dataset.group;
-          this.renderTabs();
-          this.renderImportGroupSelect();
-          this.renderGroup();
-        });
-
-        document.getElementById('groupWrap').addEventListener('change', async (e) => {
-          const select = e.target.closest('.group-select-inline.small');
-          if (!select) return;
-          const item = select.closest('.effect-item');
-          if (!item) return;
-
-          const key = item.dataset.key;
-          const group = select.value;
-          const res = await window.electronAPI.setSoundGroup(key, group);
-          if (res.success) {
-            this.toast('分组已更新');
-            await this.refreshAll();
-          } else {
-            this.toast(res.error || '分组更新失败');
-          }
-        });
-
-        document.getElementById('groupWrap').addEventListener('click', async (e) => {
-          const item = e.target.closest('.effect-item');
-          if (!item) return;
-
-          if (e.target.closest('.btn-play')) {
-            const key = item.dataset.key;
-            const btn = item.querySelector('.btn-play');
-            if (this.currentAudio && this.currentAudioKey === key) {
-              this.stopPreview();
-              return;
-            }
-            this.stopPreview();
-            this.playPreview(key, btn);
-            return;
-          }
-
-          if (e.target.closest('.btn-delete')) {
-            const key = item.dataset.key;
-            const deletable = item.dataset.deletable === 'true';
-            if (!deletable) {
-              this.toast('默认自带音效不支持删除');
-              return;
-            }
-            if (!confirm('确认删除该音效？')) return;
-            const res = await window.electronAPI.deleteSound(key);
-            if (res.success) {
-              this.toast('删除成功');
-              await this.refreshAll();
-            } else {
-              this.toast('删除失败: ' + (res.error || '未知错误'));
-            }
-            return;
-          }
-
-          if (e.target.closest('.btn-edit')) {
-            item.classList.add('editing');
-            const input = item.querySelector('.effect-id-input');
-            input.focus();
-
-            const save = async () => {
-              const newId = input.value.trim();
-              const oldId = item.querySelector('.effect-id').textContent;
-              if (newId && newId !== oldId) {
-                const result = await window.electronAPI.setEffectId(item.dataset.key, newId);
-                if (result.success) {
-                  item.querySelector('.effect-id').textContent = newId;
-                  await window.electronAPI.loadEffects();
-                  this.toast('ID 已更新');
-                } else {
-                  this.toast(result.error || '更新失败');
-                  input.value = oldId;
-                }
-              }
-              item.classList.remove('editing');
-            };
-
-            input.onblur = save;
-            input.onkeydown = (ev) => { if (ev.key === 'Enter') input.blur(); };
-          }
-        });
+        document.getElementById('btnImportLocal').addEventListener('click', () => this.importLocal());
+        document.getElementById('tabProject').addEventListener('click', () => { this.view = 'project'; this.updateTabs(); this.render(); });
+        document.getElementById('tabMarket').addEventListener('click', () => { this.view = 'market'; this.updateTabs(); this.render(); });
       }
 
-      renderTabs() {
-        const tabs = document.getElementById('groupTabs');
-        tabs.innerHTML = this.groups.map(g => `<button class="group-tab ${g === this.activeGroup ? 'active' : ''}" data-group="${g}">${g}</button>`).join('');
+      updateTabs() {
+        document.getElementById('tabProject').classList.toggle('active', this.view === 'project');
+        document.getElementById('tabMarket').classList.toggle('active', this.view === 'market');
       }
 
-      renderGroup() {
-        const wrap = document.getElementById('groupWrap');
-        if (!this.activeGroup) {
-          wrap.innerHTML = '<div class="empty">暂无分组</div>';
+      async importLocal() {
+        if (!window.electronAPI?.selectAudioFile) return;
+        const filePath = await window.electronAPI.selectAudioFile();
+        if (!filePath) return;
+        const parts = filePath.replace(/\\/g, '/').split('/');
+        const filename = parts[parts.length - 1];
+        const name = filename.replace(/\.[^.]+$/, '');
+        if (this.projectEffects.some(e => e.id === name)) { this.toast('音效ID已存在'); return; }
+        this.projectEffects.push({ id: name, source: 'local', filename, group: '用户音效', path: filePath });
+        await this.saveEffects();
+        this.toast('已导入本地音效');
+        this.render();
+      }
+
+      render() {
+        const el = document.getElementById('content');
+        if (this.view === 'project') {
+          this.renderList(el, this.projectEffects, false);
+        } else {
+          this.renderList(el, this.builtinSounds, true);
+        }
+      }
+
+      renderList(el, effects, isMarket) {
+        if (!effects.length) {
+          el.innerHTML = `<div class="empty">${isMarket ? '暂无内置音效' : '项目中暂无音效，点击"音效市场"或"导入本地音效"'}</div>`;
           return;
         }
 
-        const list = this.sounds.filter(s => s.group === this.activeGroup);
-        const isDefault = DEFAULT_GROUPS.includes(this.activeGroup);
+        const groups = {};
+        for (const e of effects) {
+          const g = e.group || '未分组';
+          if (!groups[g]) groups[g] = [];
+          groups[g].push(e);
+        }
 
-        wrap.innerHTML = `
-          <div class="group-card">
-            <div class="group-header">
-              <div class="group-title">${this.activeGroup}${isDefault ? '<span class="default-badge">默认分组</span>' : ''}</div>
-              <div style="font-size:12px; color:#757575;">${list.length} 个音效</div>
-            </div>
-            ${list.length ? list.map(sound => `
-              <div class="effect-item" data-key="${sound.key}" data-deletable="${sound.deletable}">
+        let html = '';
+        for (const [group, items] of Object.entries(groups)) {
+          html += `<div class="group-card"><div class="group-header">${group} (${items.length})</div>`;
+          for (const item of items) {
+            if (isMarket) {
+              const added = this.projectEffects.some(e => e.filename === item.filename && e.source === 'builtin');
+              html += `<div class="item">
                 <span class="material-icons">music_note</span>
-                <div class="effect-info">
-                  <div class="effect-id-row">
-                    <span class="effect-id">${sound.displayId || sound.name}</span>
-                    <input class="effect-id-input" value="${sound.displayId || sound.name}" />
-                  </div>
-                  <div class="meta">${sound.filename} · ${sound.source === 'builtin' ? '默认自带（只读）' : '用户导入'}</div>
-                </div>
-                <select class="group-select-inline small" ${sound.source === 'builtin' ? 'disabled' : ''}>
-                  ${this.groups.map(g => `<option value="${g}" ${g === sound.group ? 'selected' : ''}>${g}</option>`).join('')}
-                </select>
-                <button class="icon-btn btn-edit" title="编辑ID" ${sound.source === 'builtin' ? 'disabled' : ''}><span class="material-icons">edit</span></button>
-                <button class="icon-btn btn-play" title="试听"><span class="material-icons">play_arrow</span></button>
-                <button class="icon-btn btn-delete delete" title="删除"><span class="material-icons">delete</span></button>
-              </div>
-            `).join('') : '<div class="empty">该分组暂无音效</div>'}
-          </div>
-        `;
-      }
-
-      playPreview(key, btn) {
-        const sourceObj = this.sounds.find(s => s.key === key);
-        if (!sourceObj?.path) return;
-        this.stopPreview();
-
-        const audio = new Audio(this.toFileUrl(sourceObj.path));
-        audio.preload = 'auto';
-        audio.onended = () => this.stopPreview();
-        audio.onerror = () => { this.toast('播放失败'); this.stopPreview(); };
-
-        this.currentAudio = audio;
-        this.currentAudioKey = key;
-        this.currentPlayBtn = btn;
-
-        audio.play().catch(() => this.stopPreview());
-        btn.querySelector('.material-icons').textContent = 'stop';
-      }
-
-      stopPreview() {
-        if (this.currentAudio) {
-          this.currentAudio.pause();
-          this.currentAudio.currentTime = 0;
-          this.currentAudio = null;
+                <div class="item-info"><div class="item-name">${item.name}</div><div class="item-meta">${item.filename}</div></div>
+                ${added ? '<span class="added-badge">已添加</span>' : `<button class="btn-import" data-filename="${item.filename}" data-group="${item.group}" data-path="${item.path}">添加到项目</button>`}
+              </div>`;
+            } else {
+              html += `<div class="item">
+                <span class="material-icons">music_note</span>
+                <div class="item-info"><div class="item-name">${item.id}</div><div class="item-meta">${item.filename} · ${item.source === 'builtin' ? '内置' : item.source === 'local' ? '本地' : '导入'}</div></div>
+                <button class="icon-btn" title="移除" data-remove="${item.id}"><span class="material-icons">remove_circle</span></button>
+              </div>`;
+            }
+          }
+          html += '</div>';
         }
-        this.currentAudioKey = null;
-        if (this.currentPlayBtn) {
-          this.currentPlayBtn.querySelector('.material-icons').textContent = 'play_arrow';
-          this.currentPlayBtn = null;
-        }
-      }
+        el.innerHTML = html;
 
-      toFileUrl(filePath) { return `file:///${encodeURI(filePath.replace(/\\/g, '/'))}`; }
+        el.querySelectorAll('[data-remove]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            this.projectEffects = this.projectEffects.filter(e => e.id !== btn.dataset.remove);
+            await this.saveEffects();
+            this.toast('已移除');
+            this.render();
+          });
+        });
+
+        el.querySelectorAll('.btn-import').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const name = btn.dataset.filename.replace(/\.[^.]+$/, '');
+            if (this.projectEffects.some(e => e.id === name)) { this.toast('音效ID已存在'); return; }
+            this.projectEffects.push({ id: name, source: 'builtin', filename: btn.dataset.filename, group: btn.dataset.group, path: btn.dataset.path });
+            await this.saveEffects();
+            this.toast('已添加到项目');
+            this.render();
+          });
+        });
+      }
 
       toast(msg) {
         const t = document.getElementById('toast');
@@ -325,9 +186,7 @@
       }
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      window.effectsManager = new EffectsManager();
-    });
+    window.addEventListener('DOMContentLoaded', () => { window.effectsManager = new EffectsManager(); });
   </script>
 </body>
 </html>

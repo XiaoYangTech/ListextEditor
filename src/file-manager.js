@@ -1,4 +1,4 @@
-﻿class FileManager {
+class FileManager {
   constructor(app) {
     this.app = app;
     this.api = window.electronAPI;
@@ -7,6 +7,10 @@
   newFile() {
     if (this.app.tabManager) {
       this.app.tabManager.createNewTab('untitled.lstx', '', null, true);
+      if (this.api) {
+        this.api.setProjectEffects([]);
+        this.api.setProjectRoles([]);
+      }
     }
   }
 
@@ -24,7 +28,6 @@
     const normalized = list.map(role => {
       const copy = { ...role };
 
-      // Linux/macOS 默认禁用 local -> edge
       if ((platform === 'linux' || platform === 'darwin') && copy.type === 'local') {
         copy.type = 'edge';
         notes.push(`角色 ${copy.id || copy.name || 'unknown'} 已从系统TTS切换为EdgeTTS`);
@@ -54,15 +57,21 @@
     }
 
     const normalized = await this.normalizeImportedRoles(result.roles || []);
-    localStorage.setItem('listext_roles', JSON.stringify(normalized.roles));
-
-    if (normalized.notes.length) {
-      alert('导入提示：\n' + normalized.notes.join('\n'));
-    }
+    const effects = result.effects || [];
 
     const title = result.title || filePath.split(/[/\\]/).pop();
     if (this.app.tabManager) {
-      this.app.tabManager.createNewTab(title, result.content || '', filePath, true);
+      this.app.tabManager.createNewTab(title, result.content || '', filePath, true, {
+        roles: normalized.roles,
+        effects: effects
+      });
+    }
+
+    await this.api.setProjectEffects(effects);
+    await this.api.setProjectRoles(normalized.roles);
+
+    if (normalized.notes.length) {
+      alert('导入提示：\n' + normalized.notes.join('\n'));
     }
 
     this.app.uiManager?.refreshSectionJump?.();
@@ -88,8 +97,13 @@
     if (!tab) return false;
 
     const content = this.app.getContent();
-    const roles = JSON.parse(localStorage.getItem('listext_roles') || '[]');
-    const result = await this.api?.saveFile(filePath, content, { title: tab.title, roles });
+    const roles = tab.roles || [];
+    const effects = tab.effects || [];
+    const result = await this.api?.saveFile(filePath, content, {
+      title: tab.title,
+      roles,
+      effects
+    });
 
     if (result?.success) {
       const finalPath = result.filePath || filePath;
@@ -123,6 +137,12 @@
     const dirty = tab.isDirty ? ' *' : '';
     if (this.app.uiManager?.currentFileEl) this.app.uiManager.currentFileEl.textContent = `${name}${dirty}`;
     this.app.updateStatus(tab.isDirty ? '有未保存更改' : '就绪');
+    if (window.electronAPI && typeof require !== 'undefined') {
+      try {
+        const { getCurrentWindow } = require('@electron/remote') || {};
+        if (getCurrentWindow) getCurrentWindow().setTitle(`${name}${dirty} - 亿方听力大师`);
+      } catch {}
+    }
   }
 
   async saveSpecificTab(tabId) {
