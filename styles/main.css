@@ -182,6 +182,10 @@ body {
   flex-wrap: wrap;
 }
 
+#blockOnlyItems {
+  display: contents;
+}
+
 .add-block-btn {
   display: flex;
   align-items: center;

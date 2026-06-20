@@ -12,7 +12,7 @@ function getDefaultSettings() {
   return {
     proxyMode: 'system',
     proxyUrl: '',
-    noticeDismissDate: '',
+
     shortcuts: getDefaultShortcuts(),
     storagePaths: getDefaultStoragePaths()
   };

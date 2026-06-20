@@ -20,7 +20,6 @@ class ListextEditor {
     this.exportHandler = new ExportHandler(window.electronAPI, (text) => this.updateStatus(text));
     this.ttsRenderer = new TTSRenderer(this, this.playQueue, this.parser);
     this.initElectronEvents();
-    this.uiManager.checkNotice();
   }
 
   initBlockRenderer() {
@@ -88,6 +87,21 @@ class ListextEditor {
       }
       if (this.codeEditor) {
         this.codeEditor.projectRoles = roles || [];
+        if (this.currentMode === 'code') {
+          const code = this.codeEditor.getValue();
+          const codeRoles = this.parser.parseRoleDefsFromCode(code);
+          const codeRoleIds = new Set(codeRoles.map(r => r.id));
+          const missingRoles = (roles || []).filter(r => !codeRoleIds.has(r.id));
+          if (missingRoles.length) {
+            const roleTags = missingRoles.map(r => {
+              const attrs = [`id="${r.id || ''}"`, `name="${r.name || r.id || ''}"`];
+              if (r.type) attrs.push(`type="${r.type}"`);
+              if (r.voice) attrs.push(`voice="${r.voice}"`);
+              return `<role ${attrs.join(' ')}>`;
+            }).join('\n');
+            this.codeEditor.setValue(roleTags + '\n' + code);
+          }
+        }
       }
     });
 
@@ -96,6 +110,35 @@ class ListextEditor {
         window.app.playQueue.stop();
       }
     });
+
+    window.electronAPI?.onRequestCloseCheck?.(() => this.handleCloseCheck());
+  }
+
+  async handleCloseCheck() {
+    if (this.playQueue?.isPlaying) this.playQueue.stop();
+
+    const unsavedTabs = this.tabManager?.tabs.filter(t => t.isDirty) || [];
+    if (!unsavedTabs.length) {
+      window.electronAPI?.sendCloseCheckResult?.(true);
+      return;
+    }
+
+    for (const tab of unsavedTabs) {
+      const action = await this.showUnsavedDialog(tab.title);
+      if (action === 'cancel') {
+        window.electronAPI?.sendCloseCheckResult?.(false);
+        return;
+      }
+      if (action === 'save') {
+        const saved = await this.fileManager.saveSpecificTab(tab.id);
+        if (!saved) {
+          window.electronAPI?.sendCloseCheckResult?.(false);
+          return;
+        }
+      }
+    }
+
+    window.electronAPI?.sendCloseCheckResult?.(true);
   }
 
   loadDefaultContent() {

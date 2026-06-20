@@ -252,18 +252,14 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle('open-role-manager-window', async () => { openRoleManager(); return { success: true }; });
+  ipcMain.handle('close-role-manager-window', async (event) => {
+    const { BrowserWindow } = require('electron');
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) win.close();
+    return { success: true };
+  });
   ipcMain.handle('open-settings-window', async () => { openSettingsWindow(); return { success: true }; });
   ipcMain.handle('open-effect-manager-window', async () => { openEffectManager(); return { success: true }; });
-
-  ipcMain.handle('get-notice', async () => {
-    try {
-      const notice = (await fetchText('https://yifang.yxxblog.top/api/listext-notice/notice.txt')).trim();
-      const url = (await fetchText('https://yifang.yxxblog.top/api/listext-notice/url.txt')).trim();
-      return { success: true, notice, url };
-    } catch (error) {
-      return { success: false, notice: '', url: '', error: error?.message || '获取公告失败' };
-    }
-  });
 
   ipcMain.handle('save-binary', async (event, filePath, base64) => {
     if (!filePath || !base64) return { success: false, error: '参数不完整' };

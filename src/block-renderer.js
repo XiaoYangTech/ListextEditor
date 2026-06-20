@@ -30,7 +30,16 @@ class BlockRenderer {
 
   async loadEffectLibrary() {
     if (window.electronAPI) {
-      this.effectLibrary = await window.electronAPI.loadEffects();
+      try {
+        const data = await window.electronAPI.getProjectData();
+        const effects = data?.effects || [];
+        this.effectLibrary = {};
+        for (const e of effects) {
+          if (e.id) this.effectLibrary[e.id] = e;
+        }
+      } catch {
+        this.effectLibrary = {};
+      }
     }
   }
 
@@ -565,8 +574,8 @@ class BlockRenderer {
     dialog.classList.add('active');
   }
 
-  showSayEditor(block) {
-    const roles = this.getRoles();
+  async showSayEditor(block) {
+    const roles = await this.getRoles();
     const dialog = this.editDialog;
     dialog.querySelector('#editDialogTitle').textContent = '设置朗读属性';
     dialog.querySelector('#editDialogBody').innerHTML = `
@@ -950,12 +959,14 @@ class BlockRenderer {
     this.placeholderEl = null;
   }
 
-  getRoles() {
-    try {
-      return JSON.parse(localStorage.getItem('listext_roles') || '[]');
-    } catch {
-      return [];
+  async getRoles() {
+    if (window.electronAPI) {
+      try {
+        const data = await window.electronAPI.getProjectData();
+        return data?.roles || [];
+      } catch {}
     }
+    return [];
   }
 
   getSections() {

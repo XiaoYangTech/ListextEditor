@@ -1,22 +1,24 @@
 {
-  "name": "listext-editor",
+  "name": "ListextEditor",
   "version": "1.1.0",
-  "description": "Listext Editor是由亿方运维开发组开发的跨平台听力材料编辑与合成工具，具有一起作业听力材料制作工具的100%功能，并且更现代化、可视化、智能化、自主可控。 支持小语种听力制作，满足新高考需求。支持Win/Mac/Linux（信创）三端系统。全面开源免费。",
+  "description": "亿方听力大师是由亿方运维开发组开发的跨平台听力材料编辑与合成工具，可以用搭积木的方式创作听力材料，具有一起作业听力材料制作工具的100%功能，并且更现代化、可视化、智能化、自主可控。 采用微软高精度仿真语音引擎，发音准确自然无机械感，支持小语种听力制作，满足新高考需求。支持Win/Mac/Linux（信创）三端系统。全面开源免费。",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
     "build:win:x64": "electron-builder --win nsis --x64",
-    "build:win:ia32": "electron-builder --win nsis --ia32",
     "build:linux:x64": "electron-builder --linux AppImage deb rpm --x64",
     "build:linux:arm64": "electron-builder --linux AppImage deb rpm --arm64",
     "build:linux:loong64": "electron-builder --linux AppImage --loong64",
-    "build:xinchuang": "npm run build:linux:arm64 && npm run build:linux:loong64",
-    "build:all": "npm run build:win:x64 && npm run build:win:ia32 && npm run build:linux:x64 && npm run build:linux:arm64 && npm run build:linux:loong64"
+    "build:xinchuang": "npm run build:linux:x64 && npm run build:linux:arm64 && npm run build:linux:loong64",
+    "build:all": "npm run build:win:x64 && npm run build:xinchuang"
   },
   "keywords": [
     "electron",
     "tts",
+    "EdgeTTS",
+    "Blockly",
+    "AI",
     "listening",
     "education"
   ],
@@ -56,8 +58,7 @@
         {
           "target": "nsis",
           "arch": [
-            "x64",
-            "ia32"
+            "x64"
           ]
         }
       ],

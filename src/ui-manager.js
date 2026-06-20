@@ -12,8 +12,6 @@ class UIManager {
   async loadShortcuts() {
     const defaults = {
       save: 'Ctrl+S',
-      open: 'Ctrl+O',
-      export: 'Ctrl+E',
       toggleMode: 'Ctrl+M',
       addBlock: 'Ctrl+N',
       deleteBlock: 'Delete',
@@ -78,13 +76,6 @@ class UIManager {
     this.unsavedDiscardBtn = document.getElementById('unsavedDiscard');
     this.unsavedCancelBtn = document.getElementById('unsavedCancel');
 
-    this.noticeDialog = document.getElementById('noticeDialog');
-    this.noticeContent = document.getElementById('noticeContent');
-    this.noticeDismissToday = document.getElementById('noticeDismissToday');
-    this.noticeCloseBtn = document.getElementById('noticeClose');
-    this.noticeCloseTopBtn = document.getElementById('noticeCloseTop');
-    this.noticeOpenUrlBtn = document.getElementById('noticeOpenUrl');
-
     this.settingsDialog = document.getElementById('settingsDialog');
     this.proxyModeSelect = document.getElementById('proxyModeSelect');
     this.proxyUrlInput = document.getElementById('proxyUrlInput');
@@ -103,6 +94,8 @@ class UIManager {
     document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
     this.blockMode?.classList.toggle('active', mode === 'block');
     this.codeMode?.classList.toggle('active', mode === 'code');
+    const blockOnly = document.getElementById('blockOnlyItems');
+    if (blockOnly) blockOnly.style.display = mode === 'block' ? '' : 'none';
   }
 
   initToolbar() {
@@ -112,7 +105,6 @@ class UIManager {
 
     document.getElementById('btnRoleManager')?.addEventListener('click', () => this.openRoleManager());
     document.getElementById('btnBlockSearch')?.addEventListener('click', () => this.searchInBlocks());
-    document.getElementById('btnSectionRefresh')?.addEventListener('click', () => this.refreshSectionJump());
 
     this.sectionJumpSelect?.addEventListener('change', () => {
       const blockId = this.sectionJumpSelect.value;
@@ -146,7 +138,10 @@ class UIManager {
   }
 
   handleAddBlock(type) {
-    if (this.app.currentMode !== 'block') this.app.switchMode('block');
+    if (this.app.currentMode === 'code') {
+      this.handleAddToCode(type);
+      return;
+    }
     if (!this.app.renderer) return;
 
     if (type === 'pause') {
@@ -173,13 +168,40 @@ class UIManager {
     this.refreshSectionJump();
   }
 
+  handleAddToCode(type) {
+    const editor = this.app.codeEditor;
+    if (!editor) return;
+
+    if (type === 'pause') {
+      this.showSilenceDialog((duration) => {
+        editor.insertCodeAtCursor(`<pause dur="${duration}">`);
+      });
+    } else if (type === 'fx') {
+      this.showEffectDialog((effectId, duration) => {
+        if (!effectId) {
+          this.app.updateStatus('请先选择音效');
+          return;
+        }
+        const durAttr = duration ? ` dur="${duration}"` : '';
+        editor.insertCodeAtCursor(`<fx id="${effectId}"${durAttr}>`);
+      });
+    } else if (type === 'say') {
+      editor.insertCodeAtCursor('<say role=""></say>', -6);
+    } else if (type === 'repeat') {
+      editor.insertCodeAtCursor('<repeat count="2">\n  \n</repeat>', -4);
+    } else if (type === 'section') {
+      editor.insertCodeAtCursor('<section title="分节标题">\n  \n</section>', -4);
+    } else if (type === 'divider') {
+      editor.insertCodeAtCursor('<divider>');
+    }
+  }
+
   initDialogs() {
     this.initSilenceDialog();
     this.initEffectDialog();
     this.initUnsavedDialog();
     this.initRoleManagerDialog();
     this.initSyntaxHelpDialog();
-    this.initNoticeDialog();
     this.initSettingsDialog();
   }
 
@@ -343,45 +365,6 @@ class UIManager {
 
   showSyntaxHelp() { document.getElementById('syntaxHelpDialog')?.classList.add('active'); }
 
-  initNoticeDialog() {
-    this.noticeCloseTopBtn?.addEventListener('click', () => this.closeNoticeDialog());
-    this.noticeCloseBtn?.addEventListener('click', () => this.closeNoticeDialog());
-    this.noticeOpenUrlBtn?.addEventListener('click', async () => {
-      if (this.noticeUrl && window.electronAPI) await window.electronAPI.openExternal(this.noticeUrl);
-    });
-  }
-
-  async checkNotice() {
-    if (!window.electronAPI || !this.noticeDialog) return;
-    const settings = await window.electronAPI.getSettings();
-    const today = this.getTodayKey();
-    if (settings?.noticeDismissDate === today) return;
-
-    const res = await window.electronAPI.getNotice();
-    if (!res?.success || !res.notice) return;
-
-    this.noticeUrl = res.url || '';
-    if (this.noticeContent) this.noticeContent.textContent = res.notice;
-    if (this.noticeDismissToday) this.noticeDismissToday.checked = false;
-    if (this.noticeOpenUrlBtn) this.noticeOpenUrlBtn.style.display = this.noticeUrl ? 'inline-flex' : 'none';
-    this.noticeDialog.classList.add('active');
-  }
-
-  getTodayKey() {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  }
-
-  async closeNoticeDialog() {
-    if (!this.noticeDialog) return;
-    this.noticeDialog.classList.remove('active');
-    if (!window.electronAPI) return;
-    if (this.noticeDismissToday?.checked) {
-      const settings = await window.electronAPI.getSettings();
-      await window.electronAPI.saveSettings({ ...settings, noticeDismissDate: this.getTodayKey() });
-    }
-  }
-
   initSettingsDialog() {
     this.settingsCloseTopBtn?.addEventListener('click', () => this.settingsDialog.classList.remove('active'));
     this.settingsCancelBtn?.addEventListener('click', () => this.settingsDialog.classList.remove('active'));
@@ -421,17 +404,37 @@ class UIManager {
       const textActive = this.app.isTextInputActive();
       const codeEditorActive = document.activeElement === this.app.codeEditor?.editor;
 
+      if (this.matchShortcut(e, this.shortcuts.save)) {
+        e.preventDefault();
+        this.app.fileManager.saveFile();
+        return;
+      }
+
+      if (this.matchShortcut(e, this.shortcuts.toggleMode)) {
+        e.preventDefault();
+        this.app.switchMode(this.app.currentMode === 'block' ? 'code' : 'block');
+        return;
+      }
+
+      if (this.matchShortcut(e, this.shortcuts.openEffects)) {
+        e.preventDefault();
+        this.openEffectManager();
+        return;
+      }
+
+      if (e.key === 'F5') {
+        e.preventDefault();
+        this.app.ttsRenderer.previewPlay();
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        this.app.ttsRenderer.stopPlay();
+        document.querySelectorAll('.dialog.active').forEach(d => d.classList.remove('active'));
+        return;
+      }
+
       if (codeEditorActive) {
-        if (this.matchShortcut(e, this.shortcuts.save)) {
-          e.preventDefault();
-          this.app.fileManager.saveFile();
-          return;
-        }
-        if (this.matchShortcut(e, this.shortcuts.toggleMode)) {
-          e.preventDefault();
-          this.app.switchMode('block');
-          return;
-        }
         if (this.matchShortcut(e, this.shortcuts.insertSay)) {
           e.preventDefault();
           this.app.codeEditor.insertTagTemplate('say');
@@ -465,79 +468,53 @@ class UIManager {
         return;
       }
 
-      if (this.matchShortcut(e, this.shortcuts.save)) {
-        e.preventDefault();
-        this.app.fileManager.saveFile();
-        return;
-      }
-
-      if (this.matchShortcut(e, this.shortcuts.toggleMode)) {
-        e.preventDefault();
-        this.app.switchMode(this.app.currentMode === 'block' ? 'code' : 'block');
-        return;
-      }
-
-      if (this.matchShortcut(e, this.shortcuts.openEffects)) {
-        e.preventDefault();
-        this.openEffectManager();
-        return;
-      }
-
-      if (inBlockMode) {
-        if (this.matchShortcut(e, this.shortcuts.undo)) {
-          e.preventDefault();
-          this.app.renderer.undo();
-          this.app.fileManager.markUnsaved();
-          return;
-        }
-
-        if (this.matchShortcut(e, this.shortcuts.redo)) {
-          e.preventDefault();
-          this.app.renderer.redo();
-          this.app.fileManager.markUnsaved();
-          return;
-        }
-
-        if (this.matchShortcut(e, this.shortcuts.cut)) {
-          e.preventDefault();
-          this.app.renderer.cutSelectedBlocks();
-          this.app.fileManager.markUnsaved();
-          return;
-        }
-
-        if (this.matchShortcut(e, this.shortcuts.copy)) {
-          e.preventDefault();
-          this.app.renderer.copySelectedBlocks();
-          return;
-        }
-
-        if (this.matchShortcut(e, this.shortcuts.paste)) {
-          e.preventDefault();
-          this.app.renderer.pasteClipboard();
-          this.app.fileManager.markUnsaved();
-          return;
-        }
-
-        if (this.matchShortcut(e, this.shortcuts.selectAll)) {
-          e.preventDefault();
-          this.app.renderer.selectAllBlocks();
-          return;
-        }
-      }
-
-      if (e.key === 'F5') {
-        e.preventDefault();
-        this.app.ttsRenderer.previewPlay();
-        return;
-      }
-
-      if (e.key === 'Escape') {
-        this.app.ttsRenderer.stopPlay();
-        document.querySelectorAll('.dialog.active').forEach(d => d.classList.remove('active'));
-        return;
-      }
-
       if (!inBlockMode) return;
+
+      if (this.matchShortcut(e, this.shortcuts.undo)) {
+        e.preventDefault();
+        this.app.renderer.undo();
+        this.app.fileManager.markUnsaved();
+        return;
+      }
+
+      if (this.matchShortcut(e, this.shortcuts.redo)) {
+        e.preventDefault();
+        this.app.renderer.redo();
+        this.app.fileManager.markUnsaved();
+        return;
+      }
+
+      if (this.matchShortcut(e, this.shortcuts.cut)) {
+        e.preventDefault();
+        this.app.renderer.cutSelectedBlocks();
+        this.app.fileManager.markUnsaved();
+        return;
+      }
+
+      if (this.matchShortcut(e, this.shortcuts.copy)) {
+        e.preventDefault();
+        this.app.renderer.copySelectedBlocks();
+        return;
+      }
+
+      if (this.matchShortcut(e, this.shortcuts.paste)) {
+        e.preventDefault();
+        this.app.renderer.pasteClipboard();
+        this.app.fileManager.markUnsaved();
+        return;
+      }
+
+      if (this.matchShortcut(e, this.shortcuts.selectAll)) {
+        e.preventDefault();
+        this.app.renderer.selectAllBlocks();
+        return;
+      }
+
+      if (this.matchShortcut(e, this.shortcuts.addBlock)) {
+        e.preventDefault();
+        this.app.tabManager?.createNewTab();
+        return;
+      }
 
       const addMap = { '1': 'say', '2': 'pause', '3': 'repeat', '4': 'section', '5': 'fx', '6': 'divider' };
       if (e.altKey && addMap[key]) {

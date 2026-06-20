@@ -11,7 +11,7 @@
 <body>
   <div id="app">
     <header class="app-bar">
-      <div class="app-bar-left"><span class="app-title">Listext Editor</span></div>
+      <div class="app-bar-left"><span class="app-title">亿方听力大师</span></div>
       <div class="app-bar-center">
         <div class="tab-bar-container">
           <div class="tab-bar" id="fileTabBar"></div>
@@ -21,7 +21,6 @@
       <div class="app-bar-right">
         <button id="btnPreview" class="icon-btn" title="预览播放 (F5)"><span class="material-icons">play_circle</span></button>
         <button id="btnStop" class="icon-btn" title="停止播放 (Esc)"><span class="material-icons">stop</span></button>
-        <button id="btnRoleManager" class="icon-btn" title="角色管理器"><span class="material-icons">group</span></button>
         <button id="btnExport" class="icon-btn" title="导出音频"><span class="material-icons">file_download</span></button>
       </div>
     </header>
@@ -32,23 +31,25 @@
         <button class="mode-tab" data-mode="code"><span class="material-icons">code</span>代码模式</button>
       </div>
 
-      <div id="blockMode" class="editor-mode active">
-        <div class="toolbar">
-          <button class="add-block-btn" data-type="say"><span class="material-icons">record_voice_over</span>朗读</button>
-          <button class="add-block-btn" data-type="pause"><span class="material-icons">timer</span>停顿</button>
-          <button class="add-block-btn" data-type="repeat"><span class="material-icons">repeat</span>重复</button>
-          <button class="add-block-btn" data-type="section"><span class="material-icons">bookmark</span>分节</button>
-          <div class="divider"></div>
-          <button class="add-block-btn" data-type="fx"><span class="material-icons">music_note</span>音效</button>
-          <button class="add-block-btn" data-type="divider"><span class="material-icons">horizontal_rule</span>分割线</button>
-
+      <div class="toolbar" id="sharedToolbar">
+        <button class="add-block-btn" data-type="say"><span class="material-icons">record_voice_over</span>朗读</button>
+        <button class="add-block-btn" data-type="pause"><span class="material-icons">timer</span>停顿</button>
+        <button class="add-block-btn" data-type="repeat"><span class="material-icons">repeat</span>重复</button>
+        <button class="add-block-btn" data-type="section"><span class="material-icons">bookmark</span>分节</button>
+        <div class="divider"></div>
+        <button class="add-block-btn" data-type="fx"><span class="material-icons">music_note</span>音效</button>
+        <button class="add-block-btn" data-type="divider"><span class="material-icons">horizontal_rule</span>分割线</button>
+        <div class="divider"></div>
+        <button class="add-block-btn" id="btnRoleManager"><span class="material-icons">group</span>角色管理器</button>
+        <div id="blockOnlyItems" style="display:none;">
           <div class="divider"></div>
           <input id="blockSearchInput" class="toolbar-input" type="text" placeholder="搜索内容..." />
           <button class="add-block-btn" id="btnBlockSearch"><span class="material-icons">search</span>查找</button>
           <select id="sectionJumpSelect" class="toolbar-select"><option value="">跳转到分节...</option></select>
-          <button class="add-block-btn" id="btnSectionRefresh"><span class="material-icons">refresh</span>刷新分节</button>
         </div>
+      </div>
 
+      <div id="blockMode" class="editor-mode active">
         <div id="blockContainer" class="block-container">
           <div class="empty-state">
             <span class="material-icons">add_circle_outline</span>
@@ -58,17 +59,6 @@
       </div>
 
       <div id="codeMode" class="editor-mode">
-        <!-- 代码模式快捷工具栏 -->
-        <div class="code-toolbar">
-          <button class="code-quick-btn" data-tag="say"><span class="material-icons">record_voice_over</span>朗读</button>
-          <button class="code-quick-btn" data-tag="pause"><span class="material-icons">timer</span>停顿</button>
-          <button class="code-quick-btn" data-tag="repeat"><span class="material-icons">repeat</span>重复</button>
-          <button class="code-quick-btn" data-tag="section"><span class="material-icons">bookmark</span>分节</button>
-          <div class="divider"></div>
-          <button class="code-quick-btn" data-tag="fx"><span class="material-icons">music_note</span>音效</button>
-          <button class="code-quick-btn" data-tag="role"><span class="material-icons">person_add</span>角色</button>
-          <button class="code-quick-btn" data-tag="divider"><span class="material-icons">horizontal_rule</span>分割线</button>
-        </div>
         <div class="code-editor-wrapper">
           <div class="line-numbers" id="lineNumbers"></div>
           <pre id="codeHighlight" class="code-highlight"></pre>
@@ -81,7 +71,10 @@
 
     <div id="statusBar" class="status-bar">
       <div class="status-left"><span id="statusText">就绪</span></div>
-      <div class="status-right"><span id="currentFile">未保存</span></div>
+      <div class="status-right">
+        <span id="estimatedDuration"></span>
+        <span id="currentFile">未保存</span>
+      </div>
     </div>
     <div id="tabContextMenu" class="tab-context-menu" style="display:none;"></div>
   </div>
@@ -169,14 +162,6 @@
     </div>
   </div>
 
-  <div id="noticeDialog" class="dialog">
-    <div class="dialog-content dialog-small notice-dialog">
-      <div class="dialog-header"><h2>系统公告</h2><button class="dialog-close" id="noticeCloseTop">&times;</button></div>
-      <div class="dialog-body"><div id="noticeContent" class="notice-content"></div><label class="notice-checkbox"><input type="checkbox" id="noticeDismissToday">今日不再提示</label></div>
-      <div class="dialog-footer"><button class="btn" id="noticeOpenUrl">打开网址</button><button class="btn btn-primary" id="noticeClose">关闭</button></div>
-    </div>
-  </div>
-
   <div id="settingsDialog" class="dialog">
     <div class="dialog-content dialog-small">
       <div class="dialog-header"><h2>设置</h2><button class="dialog-close" id="settingsCloseTop">&times;</button></div>
@@ -185,6 +170,30 @@
         <div class="form-group"><label>代理地址</label><input type="text" id="proxyUrlInput" placeholder="http://127.0.0.1:7890"></div>
       </div>
       <div class="dialog-footer"><button class="btn btn-cancel" id="settingsCancel">取消</button><button class="btn btn-primary" id="settingsSave">保存</button></div>
+    </div>
+  </div>
+
+  <div id="exportDialog" class="dialog">
+    <div class="dialog-content dialog-small">
+      <div class="dialog-header"><h2>导出音频</h2><button class="dialog-close">&times;</button></div>
+      <div class="dialog-body">
+        <div class="form-group">
+          <label>文件名</label>
+          <input type="text" id="exportFileName" placeholder="listening.mp3" value="listening.mp3">
+        </div>
+        <div class="form-group">
+          <label>保存目录</label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="exportDir" readonly placeholder="点击选择目录" style="flex:1;">
+            <button class="btn" id="btnBrowseExportDir">浏览</button>
+          </div>
+        </div>
+        <div id="exportInfo" style="font-size:12px;color:#757575;margin-top:4px;"></div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-cancel" id="exportCancel">取消</button>
+        <button class="btn btn-primary" id="exportConfirm">导出</button>
+      </div>
     </div>
   </div>
 

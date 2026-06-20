@@ -71,9 +71,6 @@ class CodeEditor {
     this.editor.addEventListener('blur', () => setTimeout(() => this.hideSuggestions(), 200));
     this.editor.addEventListener('scroll', () => this.syncScroll());
     this.editor.addEventListener('keydown', e => { if (this.handleKeydown(e)) return; });
-    document.querySelectorAll('.code-quick-btn').forEach(btn => {
-      btn.addEventListener('click', () => this.insertTagTemplate(btn.dataset.tag));
-    });
   }
 
   insertTagTemplate(tag) {
@@ -98,6 +95,25 @@ class CodeEditor {
   getValue() { return this.editor.value; }
   setValue(v) { this.editor.value = v; this.updateScheduled = false; this.updateLineNumbers(); this.updateCodeHighlight(); this.validateCode(); this.syncScroll(); }
   focus() { this.editor.focus(); }
+
+  insertCodeAtCursor(code, cursorOffset) {
+    const s = this.editor.selectionStart;
+    const e = this.editor.selectionEnd;
+    const before = this.editor.value.substring(0, s);
+    const after = this.editor.value.substring(e);
+    const needNewline = before.length > 0 && !before.endsWith('\n');
+    const insert = (needNewline ? '\n' : '') + code;
+    this.editor.value = before + insert + after;
+    const pos = s + insert.length + (cursorOffset || 0);
+    this.editor.setSelectionRange(pos, pos);
+    this.editor.focus();
+    this.updateScheduled = false;
+    this.updateLineNumbers();
+    this.updateCodeHighlight();
+    this.validateCode();
+    this.syncScroll();
+    if (this.callbacks.onInput) this.callbacks.onInput();
+  }
 
   refreshView() {
     if (this.updateScheduled) return;

@@ -314,6 +314,11 @@
 
         await this.setRoles(roles);
         await this.renderRoles();
+        if (window.electronAPI?.closeRoleManagerWindow) {
+          window.electronAPI.closeRoleManagerWindow();
+        } else {
+          window.close();
+        }
       }
     }
 

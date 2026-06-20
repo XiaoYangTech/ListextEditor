@@ -1,4 +1,4 @@
-﻿class TTSRenderer {
+class TTSRenderer {
   constructor(app, playQueue, parser) {
     this.app = app;
     this.playQueue = playQueue;
@@ -15,13 +15,13 @@
     if (btnStop) btnStop.addEventListener('click', () => this.stopPlay());
     if (btnExport) {
       btnExport.addEventListener('click', () => {
-        const content = this.app.getContent();
-        this.app.exportHandler.exportAudio(content, this.parser, this.playQueue);
+        this.app.exportHandler.showExportDialog();
       });
     }
 
     this.playQueue.onProgress = (info) => {
-      this.app.updateStatus(`播放中 ${info.current + 1}/${info.total}`);
+      const est = this.playQueue.formatDuration(this.playQueue.getTotalEstimatedDuration());
+      this.app.updateStatus(`播放中 ${info.current + 1}/${info.total}  预估剩余 ${est}`);
     };
 
     this.playQueue.onComplete = () => {
@@ -51,7 +51,8 @@
     }
 
     this.playQueue.play(ast);
-    this.app.updateStatus('开始播放...');
+    const est = this.playQueue.formatDuration(this.playQueue.getTotalEstimatedDuration());
+    this.app.updateStatus(`开始播放...  预估时长 ${est}`);
   }
 
   stopPlay() {
@@ -59,6 +60,24 @@
     this.app.updateStatus('播放停止');
 
     document.querySelectorAll('.block.playing').forEach(el => el.classList.remove('playing'));
+  }
+
+  updateEstimatedDuration() {
+    const el = document.getElementById('estimatedDuration');
+    if (!el) return;
+    try {
+      const content = this.app.getContent();
+      const ast = this.parser.parse(content);
+      if (!ast.length) { el.textContent = ''; return; }
+      const queue = this.playQueue.buildQueue(ast);
+      const total = queue.reduce((sum, t) => sum + (t.estimatedDuration || 0), 0);
+      if (total <= 0) { el.textContent = ''; return; }
+      const mins = Math.floor(total / 60);
+      const secs = Math.floor(total % 60);
+      el.textContent = `预估时长 ${mins}:${secs.toString().padStart(2, '0')}`;
+    } catch {
+      el.textContent = '';
+    }
   }
 
   highlightCurrentBlock(node, highlight) {

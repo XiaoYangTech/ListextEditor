@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -58,6 +58,8 @@ function getAppTitle() {
 }
 
 function createMainWindow() {
+  let isClosing = false;
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -78,10 +80,29 @@ function createMainWindow() {
     mainWindow.setTitle(getAppTitle());
   });
 
+  mainWindow.on('close', (e) => {
+    if (isClosing) return;
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+
+    e.preventDefault();
+    isClosing = true;
+
+    mainWindow.webContents.send('request-close-check');
+
+    ipcMain.once('close-check-result', (event, shouldClose) => {
+      if (shouldClose) {
+        mainWindow.destroy();
+      } else {
+        isClosing = false;
+      }
+    });
+  });
+
   mainWindow.on('closed', () => {
     if (effectManagerWindow && !effectManagerWindow.isDestroyed()) effectManagerWindow.close();
     if (roleManagerWindow && !roleManagerWindow.isDestroyed()) roleManagerWindow.close();
     if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.close();
+    mainWindow = null;
   });
 
   createMenu();

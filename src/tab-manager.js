@@ -14,7 +14,7 @@ class TabManager {
   init() {
     if (this.newTabBtn) {
       this.newTabBtn.addEventListener('click', () => {
-        this.createNewTab('未命名', '', null, true);
+        this.createNewTab('', '', null, true);
       });
     }
 
@@ -42,16 +42,21 @@ class TabManager {
     return `tab_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   }
 
+  generateUntitledName() {
+    const existing = this.tabs.filter(t => !t.filePath && t.title.match(/^untitled\d*\.lstx$/));
+    return `untitled${existing.length + 1}.lstx`;
+  }
+
   getActiveTab() {
     return this.tabs.find(t => t.id === this.activeTabId);
   }
 
-  createNewTab(title = '未命名', content = '', filePath = null, forceNew = false, projectData = null) {
+  createNewTab(title = '', content = '', filePath = null, forceNew = false, projectData = null) {
     if (!forceNew && this.tabs.length === 1) {
       const current = this.tabs[0];
       if (!current.filePath && !current.isDirty && !current.content) {
         this.updateTab(current.id, {
-          title: title || '未命名',
+          title: title || this.generateUntitledName(),
           content,
           filePath,
           isDirty: false,
@@ -62,11 +67,7 @@ class TabManager {
       }
     }
 
-    let tabTitle = title || '未命名';
-    if (!filePath && !title) {
-      const existing = this.tabs.filter(t => !t.filePath && t.title.match(/^untitled\d*\.lstx$/));
-      tabTitle = `untitled${existing.length + 1}.lstx`;
-    }
+    let tabTitle = title || this.generateUntitledName();
 
     const tab = {
       id: this.generateId(),

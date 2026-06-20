@@ -87,9 +87,6 @@
       <div class="nav-item active" data-page="shortcuts">
         <span>快捷键</span>
       </div>
-      <div class="nav-item" data-page="storage">
-        <span>存储位置</span>
-      </div>
       <div class="nav-item" data-page="proxy">
         <span>网络代理</span>
       </div>
@@ -108,14 +105,6 @@
           <div class="shortcut-row">
             <span class="shortcut-label">保存项目</span>
             <input class="shortcut-input" data-action="save" readonly placeholder="按下快捷键">
-          </div>
-          <div class="shortcut-row">
-            <span class="shortcut-label">打开项目</span>
-            <input class="shortcut-input" data-action="open" readonly placeholder="按下快捷键">
-          </div>
-          <div class="shortcut-row">
-            <span class="shortcut-label">导出音频</span>
-            <input class="shortcut-input" data-action="export" readonly placeholder="按下快捷键">
           </div>
           <div class="shortcut-row">
             <span class="shortcut-label">切换积木/代码模式</span>
@@ -192,45 +181,6 @@
         <div class="footer">
           <button id="btnResetShortcuts" class="btn btn-outline">恢复默认</button>
           <button id="btnSaveShortcuts" class="btn btn-primary">保存快捷键</button>
-        </div>
-      </div>
-      
-      <!-- 存储位置设置页 -->
-      <div id="storage-page" class="settings-page">
-        <div class="card">
-          <div class="card-title">文件存储位置</div>
-          <div class="form-group">
-            <label>项目文件默认保存位置</label>
-            <div class="path-row">
-              <input id="projectsPath" type="text" readonly placeholder="选择目录">
-              <button class="btn btn-outline" id="btnBrowseProjects">浏览</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>用户音效存储位置</label>
-            <div class="path-row">
-              <input id="soundsPath" type="text" readonly placeholder="选择目录">
-              <button class="btn btn-outline" id="btnBrowseSounds">浏览</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>临时文件缓存位置</label>
-            <div class="path-row">
-              <input id="cachePath" type="text" readonly placeholder="选择目录">
-              <button class="btn btn-outline" id="btnBrowseCache">浏览</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>角色配置存储位置</label>
-            <div class="path-row">
-              <input id="rolesPath" type="text" readonly placeholder="选择目录">
-              <button class="btn btn-outline" id="btnBrowseRoles">浏览</button>
-            </div>
-          </div>
-        </div>
-        <div class="footer">
-          <button id="btnResetPaths" class="btn btn-outline">恢复默认</button>
-          <button id="btnSavePaths" class="btn btn-primary">保存设置</button>
         </div>
       </div>
       

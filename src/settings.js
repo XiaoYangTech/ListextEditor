@@ -4,8 +4,6 @@ class SettingsManager {
     this.shortcuts = {};
     this.defaultShortcuts = {
       save: 'Ctrl+S',
-      open: 'Ctrl+O',
-      export: 'Ctrl+E',
       toggleMode: 'Ctrl+M',
       addBlock: 'Ctrl+N',
       deleteBlock: 'Delete',
@@ -23,7 +21,6 @@ class SettingsManager {
       insertFx: 'Ctrl+5',
       insertDivider: 'Ctrl+6'
     };
-    this.paths = {};
     this.init();
   }
 
@@ -45,20 +42,16 @@ class SettingsManager {
   switchPage(page) {
     this.currentPage = page;
     
-    // 更新导航高亮
     document.querySelectorAll('.nav-item').forEach(item => {
       item.classList.toggle('active', item.dataset.page === page);
     });
     
-    // 更新页面显示
     document.querySelectorAll('.settings-page').forEach(p => {
       p.classList.toggle('active', p.id === `${page}-page`);
     });
     
-    // 更新标题
     const titles = {
       shortcuts: '快捷键',
-      storage: '存储位置',
       proxy: '网络代理'
     };
     document.getElementById('page-title').textContent = titles[page] || '';
@@ -67,7 +60,6 @@ class SettingsManager {
   async loadAll() {
     await Promise.all([
       this.loadShortcuts(),
-      this.loadPaths(),
       this.loadProxy()
     ]);
   }
@@ -207,58 +199,6 @@ class SettingsManager {
     this.setStatus('已恢复默认快捷键');
   }
 
-  async loadPaths() {
-    if (!window.electronAPI?.getStoragePaths) return;
-    
-    const paths = await window.electronAPI.getStoragePaths();
-    this.paths = paths || {};
-    
-    const projectsPath = document.getElementById('projectsPath');
-    const soundsPath = document.getElementById('soundsPath');
-    const cachePath = document.getElementById('cachePath');
-    const rolesPath = document.getElementById('rolesPath');
-    
-    if (projectsPath) projectsPath.value = this.paths.projects || '';
-    if (soundsPath) soundsPath.value = this.paths.sounds || '';
-    if (cachePath) cachePath.value = this.paths.cache || '';
-    if (rolesPath) rolesPath.value = this.paths.roles || '';
-  }
-
-  async browsePath(type) {
-    if (!window.electronAPI?.selectDirectory) return;
-    
-    const currentPath = this.paths[type] || '';
-    const newPath = await window.electronAPI.selectDirectory(currentPath);
-    
-    if (newPath) {
-      this.paths[type] = newPath;
-      const input = document.getElementById(`${type}Path`);
-      if (input) input.value = newPath;
-    }
-  }
-
-  async savePaths() {
-    if (!window.electronAPI?.saveStoragePaths) {
-      this.setStatus('保存成功（本地）');
-      return;
-    }
-
-    const result = await window.electronAPI.saveStoragePaths(this.paths);
-    this.setStatus(result?.success ? '存储位置已保存' : '保存失败');
-  }
-
-  resetPaths() {
-    if (!window.electronAPI?.resetStoragePaths) {
-      this.paths = {};
-      this.loadPaths();
-      this.setStatus('已恢复默认存储位置');
-      return;
-    }
-    window.electronAPI.resetStoragePaths();
-    this.loadPaths();
-    this.setStatus('已恢复默认存储位置');
-  }
-
   async loadProxy() {
     if (!window.electronAPI?.getSettings) return;
     
@@ -288,19 +228,9 @@ class SettingsManager {
   }
 
   bindEvents() {
-    // 快捷键页面
     document.getElementById('btnSaveShortcuts')?.addEventListener('click', () => this.saveShortcuts());
     document.getElementById('btnResetShortcuts')?.addEventListener('click', () => this.resetShortcuts());
 
-    // 存储位置页面
-    document.getElementById('btnBrowseProjects')?.addEventListener('click', () => this.browsePath('projects'));
-    document.getElementById('btnBrowseSounds')?.addEventListener('click', () => this.browsePath('sounds'));
-    document.getElementById('btnBrowseCache')?.addEventListener('click', () => this.browsePath('cache'));
-    document.getElementById('btnBrowseRoles')?.addEventListener('click', () => this.browsePath('roles'));
-    document.getElementById('btnSavePaths')?.addEventListener('click', () => this.savePaths());
-    document.getElementById('btnResetPaths')?.addEventListener('click', () => this.resetPaths());
-
-    // 代理页面
     document.getElementById('btnSaveProxy')?.addEventListener('click', () => this.saveProxy());
     document.getElementById('btnReloadProxy')?.addEventListener('click', () => this.loadProxy());
   }
