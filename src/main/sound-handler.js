@@ -3,7 +3,7 @@ const path = require('path');
 const { app } = require('electron');
 const { ensureDir } = require('./utils');
 
-const builtInSoundsDir = path.join(process.resourcesPath, 'default-sounds');
+const builtInSoundsDir = path.join(app.getAppPath(), 'assets', 'default-sounds');
 const devBuiltInSoundsDir = path.join(process.cwd(), 'assets', 'default-sounds');
 
 function getBuiltInRoots() {

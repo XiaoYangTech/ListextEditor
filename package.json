@@ -33,8 +33,8 @@
     "uuid": "^9.0.0"
   },
   "build": {
-    "appId": "top.InspireWorks,ListextEditor",
-    "productName": "ListextEditor",
+    "appId": "top.yifang.listext-editor",
+    "productName": "亿方听力大师",
     "asar": true,
     "directories": {
       "output": "dist"
@@ -48,17 +48,8 @@
       "settings.html",
       "src/**/*",
       "styles/**/*",
-      "assets/**/*",
+      "assets/default-sounds/**/*",
       "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "assets/default-sounds",
-        "to": "default-sounds",
-        "filter": [
-          "**/*"
-        ]
-      }
     ],
     "win": {
       "target": [
@@ -78,7 +69,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "ListextEditor",
+      "shortcutName": "亿方听力大师",
       "installerIcon": null,
       "uninstallerIcon": null,
       "installerHeaderIcon": null,

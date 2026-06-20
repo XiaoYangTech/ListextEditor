@@ -1,13 +1,11 @@
-const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { ensureDir } = require('./utils');
 
 let mainWindow;
 let effectManagerWindow = null;
 let roleManagerWindow = null;
 let settingsWindow = null;
-const soundsDir = path.join(path.dirname(process.execPath), 'sounds');
 
 function readPackageMeta() {
   const candidates = [
@@ -121,13 +119,8 @@ function createMenu() {
         },
         { type: 'separator' },
         {
-          label: '导出音频', accelerator: 'CmdOrCtrl+E', click: async () => {
-            const owner = getMainTargetWindow() || mainWindow;
-            const result = await dialog.showSaveDialog(owner, {
-              filters: [{ name: 'MP3 Audio', extensions: ['mp3'] }],
-              defaultPath: 'listening.mp3'
-            });
-            if (!result.canceled) sendToMain('export-audio', result.filePath);
+          label: '导出音频', accelerator: 'CmdOrCtrl+E', click: () => {
+            sendToMain('export-audio');
           }
         },
         { type: 'separator' },
@@ -152,10 +145,6 @@ function createMenu() {
         { label: '音效管理器', click: () => openEffectManager() },
         { label: '角色管理器', click: () => openRoleManager() },
         { label: '设置', click: () => openSettingsWindow() },
-        {
-          label: '打开 sounds 文件夹',
-          click: () => { ensureDir(soundsDir); shell.openPath(soundsDir); }
-        },
         { type: 'separator' },
         { label: '预览播放', accelerator: 'F5', click: () => sendToMain('preview-play') },
         { label: '停止播放', accelerator: 'Escape', click: () => sendToMain('stop-play') }
