@@ -28,6 +28,7 @@ class ListextEditor {
     this.renderer.onChange(() => {
       this.fileManager.markUnsaved();
       this.uiManager.refreshSectionJump();
+      this.ttsRenderer?.updateEstimatedDuration();
     });
   }
 
@@ -39,7 +40,10 @@ class ListextEditor {
       codeSuggestions: document.getElementById('codeSuggestions'),
       errorContainer: document.getElementById('errorContainer')
     }, this.parser, {
-      onInput: () => this.fileManager.markUnsaved()
+      onInput: () => {
+        this.fileManager.markUnsaved();
+        this.ttsRenderer?.updateEstimatedDuration();
+      }
     });
   }
 
@@ -55,9 +59,8 @@ class ListextEditor {
 
     window.electronAPI.onPreviewPlay(() => this.ttsRenderer.previewPlay());
     window.electronAPI.onStopPlay(() => this.ttsRenderer.stopPlay());
-    window.electronAPI.onExportAudio((filePath) => {
-      const content = this.getContent();
-      this.exportHandler.exportAudio(content, this.parser, this.playQueue, filePath);
+    window.electronAPI.onExportAudio(() => {
+      this.exportHandler.showExportDialog();
     });
 
     window.electronAPI.onShowSyntaxHelp(() => this.uiManager.showSyntaxHelp());
@@ -162,8 +165,25 @@ class ListextEditor {
       this.originalCode = '';
     } else {
       const ast = this.renderer.collectAST();
-      const code = this.parser.stringify(ast);
-      this.codeEditor.setValue(code.trim());
+      let code = this.parser.stringify(ast).trim();
+
+      const tab = this.tabManager?.getActiveTab();
+      const projectRoles = tab?.roles || [];
+      const codeRoles = this.parser.parseRoleDefsFromCode(code);
+      const codeRoleIds = new Set(codeRoles.map(r => r.id));
+
+      const missingRoles = projectRoles.filter(r => !codeRoleIds.has(r.id));
+      if (missingRoles.length) {
+        const roleTags = missingRoles.map(r => {
+          const attrs = [`id="${r.id || ''}"`, `name="${r.name || r.id || ''}"`];
+          if (r.type) attrs.push(`type="${r.type}"`);
+          if (r.voice) attrs.push(`voice="${r.voice}"`);
+          return `<role ${attrs.join(' ')}>`;
+        }).join('\n');
+        code = roleTags + '\n' + code;
+      }
+
+      this.codeEditor.setValue(code);
     }
   }
 
@@ -173,11 +193,55 @@ class ListextEditor {
     const ast = this.parser.parse(code);
     this.renderer.render(ast);
     this.uiManager.refreshSectionJump();
+
+    this.syncCodeRolesToProject(code);
+  }
+
+  syncCodeRolesToProject(code) {
+    if (!code) return;
+    const codeRoles = this.parser.parseRoleDefsFromCode(code);
+    if (!codeRoles.length) return;
+
+    const tab = this.tabManager?.getActiveTab();
+    if (!tab) return;
+
+    const existingRoles = tab.roles || [];
+    const existingMap = new Map(existingRoles.map(r => [r.id, r]));
+
+    for (const cr of codeRoles) {
+      if (!cr.id) continue;
+      if (!existingMap.has(cr.id)) {
+        existingRoles.push({ ...cr, source: 'code' });
+      }
+    }
+
+    tab.roles = existingRoles;
+    if (window.electronAPI) {
+      window.electronAPI.setProjectRoles(existingRoles);
+    }
   }
 
   getContent() {
     if (this.currentMode === 'block') {
-      return this.parser.stringify(this.renderer.collectAST()).trim();
+      let code = this.parser.stringify(this.renderer.collectAST()).trim();
+
+      const tab = this.tabManager?.getActiveTab();
+      const projectRoles = tab?.roles || [];
+      const codeRoles = this.parser.parseRoleDefsFromCode(code);
+      const codeRoleIds = new Set(codeRoles.map(r => r.id));
+
+      const missingRoles = projectRoles.filter(r => !codeRoleIds.has(r.id));
+      if (missingRoles.length) {
+        const roleTags = missingRoles.map(r => {
+          const attrs = [`id="${r.id || ''}"`, `name="${r.name || r.id || ''}"`];
+          if (r.type) attrs.push(`type="${r.type}"`);
+          if (r.voice) attrs.push(`voice="${r.voice}"`);
+          return `<role ${attrs.join(' ')}>`;
+        }).join('\n');
+        code = roleTags + '\n' + code;
+      }
+
+      return code;
     }
     return this.codeEditor.getValue();
   }
@@ -205,6 +269,8 @@ class ListextEditor {
       this.codeEditor.setProjectContext(projectData.roles, projectData.effects);
       this.codeEditor.refreshView();
     }
+
+    setTimeout(() => this.ttsRenderer?.updateEstimatedDuration(), 100);
   }
 
   clearEditor() {

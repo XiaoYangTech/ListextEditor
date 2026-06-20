@@ -107,6 +107,10 @@
         });
         this.btnSave.addEventListener('click', () => this.saveRole());
         this.btnClear.addEventListener('click', () => this.clearForm());
+
+        if (window.electronAPI?.onProjectRolesChanged) {
+          window.electronAPI.onProjectRolesChanged(() => this.renderRoles());
+        }
       }
 
       async init() {

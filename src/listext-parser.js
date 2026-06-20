@@ -156,6 +156,30 @@ class ListextParser {
     return parts.join(' ');
   }
 
+  parseRoleDefsFromCode(text) {
+    const roles = [];
+    const regex = /<role\s+([^>]+)\/?>/gi;
+    let m;
+    while ((m = regex.exec(text || '')) !== null) {
+      const attrs = {};
+      const attrRegex = /(\w+)=["']([^"']*)["']/g;
+      let am;
+      while ((am = attrRegex.exec(m[1])) !== null) {
+        attrs[am[1]] = am[2];
+      }
+      if (attrs.id) {
+        roles.push({
+          id: attrs.id,
+          name: attrs.name || attrs.id,
+          type: attrs.type || 'edge',
+          voice: attrs.voice || '',
+          source: 'code'
+        });
+      }
+    }
+    return roles;
+  }
+
   validate(text) {
     const errors = [];
     const stack = [];
