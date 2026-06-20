@@ -11,6 +11,7 @@ class CodeEditor {
     this.projectRoles = [];
     this.projectEffects = [];
     this.edgeVoices = [];
+    this.localVoices = [];
     this._lastKeyDown = null;
     this.init();
   }
@@ -27,6 +28,20 @@ class CodeEditor {
     }
   }
 
+  async loadLocalVoices() {
+    if (this.localVoices.length) return;
+    if (window.electronAPI?.platform !== 'win32') return;
+    if (!('speechSynthesis' in window)) return;
+    try { speechSynthesis.getVoices(); } catch {}
+    const finish = (voices) => {
+      this.localVoices = Array.from(voices || []).filter(v => v.localService).map(v => v.name);
+    };
+    const immediate = speechSynthesis.getVoices();
+    if (immediate.length) { finish(immediate); return; }
+    speechSynthesis.onvoiceschanged = () => finish(speechSynthesis.getVoices());
+    setTimeout(() => finish(speechSynthesis.getVoices()), 3000);
+  }
+
   async syncFromIPC() {
     if (!window.electronAPI) return;
     try {
@@ -39,6 +54,7 @@ class CodeEditor {
   init() {
     this.refreshView();
     this.loadEdgeVoices();
+    this.loadLocalVoices();
     this.syncFromIPC();
     this.editor.addEventListener('input', () => {
       this.refreshView();
@@ -64,7 +80,7 @@ class CodeEditor {
     const t = {
       say: '<say role="">|</say>', pause: '<pause dur="1">',
       repeat: '<repeat count="2">\n  |\n</repeat>', section: '<section title="分节标题">\n  |\n</section>',
-      fx: '<fx id="">', divider: '<divider>', role: '<role id="" name="" voice=""/>'
+      fx: '<fx id="">', divider: '<divider>', role: '<role id="" name="" type="edge" voice=""/>'
     }[tag] || '';
     const p = t.indexOf('|');
     const ins = t.replace('|', '');
@@ -148,7 +164,7 @@ class CodeEditor {
       const lq = before.lastIndexOf(qc);
       const ctx = before.slice(0, lq);
       const ls = ctx.lastIndexOf(' ');
-      const attr = ls === -1 ? ctx : ctx.slice(ls + 1);
+      const attr = (ls === -1 ? ctx : ctx.slice(ls + 1)).replace(/=$/, '');
       const input = before.slice(lq + 1);
 
       if (attr === 'role') {
@@ -160,8 +176,17 @@ class CodeEditor {
         if (items.length) { this.suggestions.dataset.mode='value'; this.showSuggestionsAtCursor(items,input,caret-input.length,'音效'); return; }
       }
       if (attr === 'voice' && this.isInsideTag(before,'role')) {
-        const items = this.edgeVoices.filter(v=>v.toLowerCase().includes(input.toLowerCase()));
-        if (items.length) { this.suggestions.dataset.mode='value'; this.showSuggestionsAtCursor(items.slice(0,30),input,caret-input.length,'发音人'); return; }
+        const tagStart = before.lastIndexOf('<role');
+        const tagContent = before.slice(tagStart);
+        const typeMatch = tagContent.match(/\btype\s*=\s*"([^"]*)"/);
+        const roleType = typeMatch ? typeMatch[1] : 'edge';
+        if (roleType === 'local') {
+          const localItems = this.localVoices.filter(v=>v.toLowerCase().includes(input.toLowerCase()));
+          if (localItems.length) { this.suggestions.dataset.mode='value'; this.showSuggestionsAtCursor(localItems.slice(0,30),input,caret-input.length,'本地发音人'); return; }
+        } else {
+          const items = this.edgeVoices.filter(v=>v.toLowerCase().includes(input.toLowerCase()));
+          if (items.length) { this.suggestions.dataset.mode='value'; this.showSuggestionsAtCursor(items.slice(0,30),input,caret-input.length,'发音人'); return; }
+        }
       }
       this.hideSuggestions();
       return;

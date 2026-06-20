@@ -227,7 +227,7 @@
             <div class="list-item" data-id="${role.id}">
               <div>
                 <div><strong>${role.name}</strong> (${role.id})<span class="source-tag source-code">代码定义</span></div>
-                <div class="meta">EdgeTTS · ${role.voice || '未设置'}</div>
+                <div class="meta">${role.type === 'local' ? '系统TTS' : 'EdgeTTS'} · ${role.voice || '未设置'}</div>
               </div>
             </div>
           `).join('');
