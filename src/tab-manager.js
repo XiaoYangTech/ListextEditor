@@ -3,15 +3,23 @@ class TabManager {
     this.editor = editor;
     this.tabs = [];
     this.activeTabId = null;
+    this.homeTabId = null;
 
     this.container = document.getElementById('fileTabBar');
     this.newTabBtn = document.getElementById('btnNewTab');
     this.contextMenu = document.getElementById('tabContextMenu');
+    this.homePage = document.getElementById('homePage');
+    this.editorPanel = document.getElementById('editorPanel');
+    this.blockMode = document.getElementById('blockMode');
+    this.codeMode = document.getElementById('codeMode');
+    this.toolbar = document.getElementById('sharedToolbar');
 
     this.init();
   }
 
   init() {
+    this.createHomeTab();
+
     if (this.newTabBtn) {
       this.newTabBtn.addEventListener('click', () => {
         this.createNewTab('', '', null, true);
@@ -36,6 +44,35 @@ class TabManager {
         }
       });
     }
+
+    this.initHomePage();
+  }
+
+  createHomeTab() {
+    const tab = { id: '__home__', title: '首页', isHome: true };
+    this.tabs.push(tab);
+    this.homeTabId = tab.id;
+    this.activateTab(tab.id);
+  }
+
+  initHomePage() {
+    const newBtn = document.getElementById('homeNewProject');
+    if (newBtn) {
+      newBtn.addEventListener('click', () => {
+        this.createNewTab('', '', null, true);
+      });
+    }
+
+    document.querySelectorAll('.home-nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.home-nav-item').forEach(n => n.classList.remove('active'));
+        item.classList.add('active');
+        const section = item.dataset.section;
+        document.getElementById('homeDashboard').style.display = section === 'dashboard' ? '' : 'none';
+        document.getElementById('homeAnnouncements').style.display = section === 'announcements' ? '' : 'none';
+        document.getElementById('homeTemplates').style.display = section === 'templates' ? '' : 'none';
+      });
+    });
   }
 
   generateId() {
@@ -52,9 +89,9 @@ class TabManager {
   }
 
   createNewTab(title = '', content = '', filePath = null, forceNew = false, projectData = null) {
-    if (!forceNew && this.tabs.length === 1) {
-      const current = this.tabs[0];
-      if (!current.filePath && !current.isDirty && !current.content) {
+    if (!forceNew && this.tabs.length === 2) {
+      const current = this.tabs.find(t => !t.isHome);
+      if (current && !current.filePath && !current.isDirty && !current.content) {
         this.updateTab(current.id, {
           title: title || this.generateUntitledName(),
           content,
@@ -63,6 +100,7 @@ class TabManager {
           roles: projectData?.roles || [],
           effects: projectData?.effects || []
         });
+        this.activateTab(current.id);
         return current.id;
       }
     }
@@ -109,25 +147,38 @@ class TabManager {
 
     if (this.activeTabId) {
       const currentTab = this.tabs.find(t => t.id === this.activeTabId);
-      if (currentTab) {
+      if (currentTab && !currentTab.isHome) {
         this.saveEditorStateToTab(currentTab);
       }
     }
 
     this.activeTabId = id;
-
     const newTab = this.tabs.find(t => t.id === id);
-    if (newTab) {
-      this.restoreEditorStateFromTab(newTab);
+
+    if (newTab?.isHome) {
+      this.showHomePage(true);
+    } else {
+      this.showHomePage(false);
+      if (newTab) this.restoreEditorStateFromTab(newTab);
+      window.getSelection()?.removeAllRanges();
     }
 
     this.renderTabs();
     this.scrollToActiveTab();
   }
 
+  showHomePage(show) {
+    if (this.homePage) this.homePage.style.display = show ? 'flex' : 'none';
+    if (this.editorPanel) this.editorPanel.style.display = show ? 'none' : 'flex';
+    if (show) {
+      this.editor.currentMode = 'block';
+    }
+  }
+
   async closeTab(id) {
     const tab = this.tabs.find(t => t.id === id);
     if (!tab) return false;
+    if (tab.isHome) return false;
 
     if (tab.isDirty) {
       const action = await this.editor.showUnsavedDialog(tab.title);
@@ -142,13 +193,11 @@ class TabManager {
     this.tabs.splice(index, 1);
 
     if (this.activeTabId === id) {
-      if (this.tabs.length > 0) {
-        const newIndex = Math.max(0, index - 1);
+      if (this.tabs.length > 1) {
+        const newIndex = Math.max(1, Math.min(index, this.tabs.length - 1));
         this.activateTab(this.tabs[newIndex].id);
       } else {
-        this.activeTabId = null;
-        this.editor.clearEditor();
-        this.createNewTab();
+        this.activateTab(this.homeTabId);
       }
     } else {
       this.renderTabs();
@@ -167,17 +216,19 @@ class TabManager {
   async closeTabsRight(id) {
     const index = this.tabs.findIndex(t => t.id === id);
     if (index === -1) return;
-    const ids = this.tabs.slice(index + 1).map(t => t.id);
+    const ids = this.tabs.slice(index + 1).filter(t => !t.isHome).map(t => t.id);
     await this.closeTabsSequential(ids);
   }
 
   async closeTabsOthers(id) {
-    const ids = this.tabs.filter(t => t.id !== id).map(t => t.id);
+    const ids = this.tabs.filter(t => t.id !== id && !t.isHome).map(t => t.id);
     await this.closeTabsSequential(ids);
   }
 
   showContextMenu(tabId, x, y) {
     if (!this.contextMenu) return;
+    const tab = this.tabs.find(t => t.id === tabId);
+    if (tab?.isHome) return;
 
     const items = [
       { label: '保存', action: 'save' },
@@ -239,37 +290,39 @@ class TabManager {
     this.tabs.forEach(tab => {
       const tabEl = document.createElement('div');
       tabEl.className = `tab-item ${tab.id === this.activeTabId ? 'active' : ''}`;
-      tabEl.title = tab.filePath || tab.title;
+      tabEl.title = tab.isHome ? '首页' : (tab.filePath || tab.title);
 
       const titleSpan = document.createElement('span');
       titleSpan.className = 'tab-title';
-      titleSpan.textContent = tab.title + (tab.isDirty ? ' *' : '');
-
-      const closeBtn = document.createElement('div');
-      closeBtn.className = 'tab-close';
-      closeBtn.innerHTML = '<span class="material-icons" style="font-size: 14px;">close</span>';
-      closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.closeTab(tab.id);
-      });
+      titleSpan.textContent = tab.isHome ? '首页' : (tab.title + (tab.isDirty ? ' *' : ''));
 
       tabEl.appendChild(titleSpan);
-      tabEl.appendChild(closeBtn);
+
+      if (!tab.isHome) {
+        const closeBtn = document.createElement('div');
+        closeBtn.className = 'tab-close';
+        closeBtn.innerHTML = '<span class="material-icons" style="font-size: 14px;">close</span>';
+        closeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.closeTab(tab.id);
+        });
+        tabEl.appendChild(closeBtn);
+      }
 
       tabEl.addEventListener('click', () => {
         this.activateTab(tab.id);
       });
 
-      tabEl.addEventListener('mouseup', (e) => {
-        if (e.button === 1) {
-          this.closeTab(tab.id);
-        }
-      });
+      if (!tab.isHome) {
+        tabEl.addEventListener('mouseup', (e) => {
+          if (e.button === 1) this.closeTab(tab.id);
+        });
 
-      tabEl.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        this.showContextMenu(tab.id, e.clientX, e.clientY);
-      });
+        tabEl.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          this.showContextMenu(tab.id, e.clientX, e.clientY);
+        });
+      }
 
       this.container.appendChild(tabEl);
     });

@@ -11,7 +11,7 @@
 <body>
   <div id="app">
     <header class="app-bar">
-      <div class="app-bar-left"><span class="app-title">亿方听力大师</span></div>
+      <div class="app-bar-left"></div>
       <div class="app-bar-center">
         <div class="tab-bar-container">
           <div class="tab-bar" id="fileTabBar"></div>
@@ -26,46 +26,101 @@
     </header>
 
     <main class="main-content">
-      <div class="view-mode-switch">
-        <button class="mode-tab active" data-mode="block"><span class="material-icons">view_module</span>积木模式</button>
-        <button class="mode-tab" data-mode="code"><span class="material-icons">code</span>代码模式</button>
-      </div>
-
-      <div class="toolbar" id="sharedToolbar">
-        <button class="add-block-btn" data-type="say"><span class="material-icons">record_voice_over</span>朗读</button>
-        <button class="add-block-btn" data-type="pause"><span class="material-icons">timer</span>停顿</button>
-        <button class="add-block-btn" data-type="repeat"><span class="material-icons">repeat</span>重复</button>
-        <button class="add-block-btn" data-type="section"><span class="material-icons">bookmark</span>分节</button>
-        <div class="divider"></div>
-        <button class="add-block-btn" data-type="fx"><span class="material-icons">music_note</span>音效</button>
-        <button class="add-block-btn" data-type="divider"><span class="material-icons">horizontal_rule</span>分割线</button>
-        <div class="divider"></div>
-        <button class="add-block-btn" id="btnRoleManager"><span class="material-icons">group</span>角色管理器</button>
-        <div id="blockOnlyItems" style="display:none;">
-          <div class="divider"></div>
-          <input id="blockSearchInput" class="toolbar-input" type="text" placeholder="搜索内容..." />
-          <button class="add-block-btn" id="btnBlockSearch"><span class="material-icons">search</span>查找</button>
-          <select id="sectionJumpSelect" class="toolbar-select"><option value="">跳转到分节...</option></select>
+      <div id="homePage" class="home-page">
+        <div class="home-sidebar">
+          <div class="home-brand">
+            <div class="home-brand-title">亿方听力大师</div>
+            <div class="home-brand-sub">v1.1.0 · Windows x64</div>
+          </div>
+          <div class="home-nav">
+            <div class="home-nav-item active" data-section="dashboard">
+              <span class="material-icons">dashboard</span>工作台
+            </div>
+            <div class="home-nav-item" data-section="announcements">
+              <span class="material-icons">notifications</span>系统公告
+            </div>
+            <div class="home-nav-item" data-section="templates">
+              <span class="material-icons">inventory_2</span>例程模板库
+            </div>
+          </div>
         </div>
-      </div>
-
-      <div id="blockMode" class="editor-mode active">
-        <div id="blockContainer" class="block-container">
-          <div class="empty-state">
-            <span class="material-icons">add_circle_outline</span>
-            <p>点击上方按钮添加积木块，或切换到代码模式输入 Listext 语法</p>
+        <div class="home-main">
+          <div class="home-topbar">
+            <div class="home-actions">
+              <button class="home-action-btn primary" id="homeNewProject">
+                <span class="material-icons">add</span>新建工程
+              </button>
+            </div>
+            <div class="home-account" id="homeAccount">
+              <span class="material-icons">account_circle</span>
+              <span>未登录</span>
+            </div>
+          </div>
+          <div class="home-content">
+            <div class="home-section" id="homeDashboard">
+              <h3 class="home-section-title">最近工程</h3>
+              <div class="home-recent-list" id="homeRecentList">
+                <div class="home-empty-hint">暂无最近工程，点击「新建工程」开始创作</div>
+              </div>
+            </div>
+            <div class="home-section" id="homeAnnouncements" style="display:none;">
+              <h3 class="home-section-title">系统公告</h3>
+              <div class="home-announce-list" id="homeAnnounceList">
+                <div class="home-empty-hint">暂无公告</div>
+              </div>
+            </div>
+            <div class="home-section" id="homeTemplates" style="display:none;">
+              <h3 class="home-section-title">例程模板库</h3>
+              <div class="home-template-list" id="homeTemplateList">
+                <div class="home-empty-hint">模板库即将上线</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div id="codeMode" class="editor-mode">
-        <div class="code-editor-wrapper">
-          <div class="line-numbers" id="lineNumbers"></div>
-          <pre id="codeHighlight" class="code-highlight"></pre>
-          <textarea id="codeEditor" spellcheck="false" placeholder="在此输入 Listext 代码..."></textarea>
-          <div id="codeSuggestions" class="code-suggestions" style="display:none;"></div>
+      <div id="editorPanel" class="editor-panel" style="display:none;">
+        <div class="view-mode-switch">
+          <button class="mode-tab active" data-mode="block"><span class="material-icons">view_module</span>积木模式</button>
+          <button class="mode-tab" data-mode="code"><span class="material-icons">code</span>代码模式</button>
         </div>
-        <div id="errorContainer" class="error-container" style="display:none; padding:8px; background:#FFEBEE; color:#B00020; border-top:1px solid #FFCDD2; font-size:12px; max-height:100px; overflow-y:auto;"></div>
+
+        <div class="toolbar" id="sharedToolbar">
+          <button class="add-block-btn" data-type="say"><span class="material-icons">record_voice_over</span>朗读</button>
+          <button class="add-block-btn" data-type="pause"><span class="material-icons">timer</span>停顿</button>
+          <button class="add-block-btn" data-type="repeat"><span class="material-icons">repeat</span>重复</button>
+          <button class="add-block-btn" data-type="section"><span class="material-icons">bookmark</span>分节</button>
+          <div class="divider"></div>
+          <button class="add-block-btn" data-type="fx"><span class="material-icons">music_note</span>音效</button>
+          <button class="add-block-btn" data-type="divider"><span class="material-icons">horizontal_rule</span>分割线</button>
+          <div class="divider"></div>
+          <button class="add-block-btn" id="btnRoleManager"><span class="material-icons">group</span>角色管理器</button>
+          <div id="blockOnlyItems" style="display:none;">
+            <div class="divider"></div>
+            <input id="blockSearchInput" class="toolbar-input" type="text" placeholder="搜索内容..." />
+            <button class="add-block-btn" id="btnBlockSearch"><span class="material-icons">search</span>查找</button>
+            <select id="sectionJumpSelect" class="toolbar-select"><option value="">跳转到分节...</option></select>
+          </div>
+        </div>
+
+        <div id="blockMode" class="editor-mode active">
+          <div id="blockContainer" class="block-container">
+            <div class="empty-state">
+              <span class="material-icons">add_circle_outline</span>
+              <p>点击上方按钮添加积木块，或切换到代码模式输入 Listext 语法</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="codeMode" class="editor-mode">
+          <div class="code-editor-wrapper">
+            <div class="line-numbers" id="lineNumbers"></div>
+            <pre id="codeHighlight" class="code-highlight"></pre>
+            <textarea id="codeEditor" spellcheck="false" placeholder="在此输入 Listext 代码..."></textarea>
+            <div id="codeSuggestions" class="code-suggestions" style="display:none;"></div>
+          </div>
+          <div id="errorContainer" class="error-container" style="display:none; padding:8px; background:#FFEBEE; color:#B00020; border-top:1px solid #FFCDD2; font-size:12px; max-height:100px; overflow-y:auto;"></div>
+        </div>
       </div>
     </main>
 

@@ -11,6 +11,8 @@ class BlockRenderer {
     this.isRestoring = false;
     this.lastSnapshot = '';
     this.draggingBlock = null;
+    this.draggingMultiBlocks = null;
+    this.multiGroupEl = null;
     this.placeholderEl = null;
     this.init();
   }
@@ -18,6 +20,7 @@ class BlockRenderer {
   init() {
     this.loadEffectLibrary();
     this.createEditDialog();
+    this.createContextMenu();
 
     if (this.container) {
       this.container.addEventListener('click', (e) => {
@@ -25,7 +28,20 @@ class BlockRenderer {
           this.clearSelection();
         }
       });
-      this.enableDropZone(this.container);    }
+      this.container.addEventListener('contextmenu', (e) => {
+        if (!e.target.closest('.block')) {
+          e.preventDefault();
+          this.hideContextMenu();
+        }
+      });
+      this.enableDropZone(this.container);
+
+      document.addEventListener('dragover', (e) => {
+        if (!this.draggingBlock && !this.draggingMultiBlocks) return;
+        e.preventDefault();
+        this.handleDragAutoScroll(this.container, e.clientY);
+      });
+    }
   }
 
   async loadEffectLibrary() {
@@ -66,6 +82,133 @@ class BlockRenderer {
     dialog.querySelector('.dialog-close').addEventListener('click', () => dialog.classList.remove('active'));
     dialog.querySelector('.btn-cancel').addEventListener('click', () => dialog.classList.remove('active'));
     dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.classList.remove('active'); });
+  }
+
+  createContextMenu() {
+    const menu = document.createElement('div');
+    menu.id = 'blockContextMenu';
+    menu.className = 'context-menu';
+    menu.innerHTML = `
+      <div class="context-menu-item" data-action="edit"><span class="material-icons">edit</span>编辑</div>
+      <div class="context-menu-item" data-action="duplicate"><span class="material-icons">content_copy</span>复制积木</div>
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item" data-action="copy"><span class="material-icons">file_copy</span>复制</div>
+      <div class="context-menu-item" data-action="cut"><span class="material-icons">content_cut</span>剪切</div>
+      <div class="context-menu-item" data-action="paste"><span class="material-icons">content_paste</span>粘贴</div>
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item" data-action="moveUp"><span class="material-icons">arrow_upward</span>上移</div>
+      <div class="context-menu-item" data-action="moveDown"><span class="material-icons">arrow_downward</span>下移</div>
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item context-menu-danger" data-action="delete"><span class="material-icons">delete</span>删除</div>
+    `;
+    document.body.appendChild(menu);
+    this.contextMenu = menu;
+
+    menu.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+    });
+
+    menu.addEventListener('click', (e) => {
+      const item = e.target.closest('.context-menu-item');
+      if (!item) return;
+      e.stopPropagation();
+      const action = item.dataset.action;
+      const target = this._contextTarget;
+      this.hideContextMenu();
+      if (target && action) {
+        this.handleContextAction(action, target);
+      }
+    });
+
+    document.addEventListener('mousedown', (e) => {
+      if (!menu.contains(e.target)) {
+        this.hideContextMenu();
+      }
+    });
+    document.addEventListener('scroll', () => this.hideContextMenu(), true);
+  }
+
+  showContextMenu(e, block) {
+    e.preventDefault();
+    e.stopPropagation();
+    this._contextTarget = block;
+    this.selectSingleBlock(block);
+
+    const menu = this.contextMenu;
+    const tag = block.dataset.tagName;
+    const isRepeat = tag === 'repeat';
+
+    menu.querySelector('[data-action="edit"]').style.display = block.querySelector('.btn-edit') ? '' : 'none';
+
+    const parent = block.parentElement;
+    const siblings = parent ? Array.from(parent.querySelectorAll(':scope > .block')) : [];
+    const idx = siblings.indexOf(block);
+    menu.querySelector('[data-action="moveUp"]').style.display = idx > 0 ? '' : 'none';
+    menu.querySelector('[data-action="moveDown"]').style.display = idx < siblings.length - 1 ? '' : 'none';
+    menu.querySelector('[data-action="paste"]').style.display = this.clipboard ? '' : 'none';
+
+    const children = Array.from(menu.children);
+    children.forEach((child, i) => {
+      if (!child.classList.contains('context-menu-divider')) return;
+      const hasVisibleBefore = children.slice(0, i).some(c =>
+        c.classList.contains('context-menu-item') && c.style.display !== 'none'
+      );
+      const hasVisibleAfter = children.slice(i + 1).some(c =>
+        c.classList.contains('context-menu-item') && c.style.display !== 'none'
+      );
+      child.style.display = (hasVisibleBefore && hasVisibleAfter) ? '' : 'none';
+    });
+
+    menu.style.left = e.clientX + 'px';
+    menu.style.top = e.clientY + 'px';
+    menu.classList.add('active');
+
+    requestAnimationFrame(() => {
+      const rect = menu.getBoundingClientRect();
+      if (rect.right > window.innerWidth) menu.style.left = (e.clientX - rect.width) + 'px';
+      if (rect.bottom > window.innerHeight) menu.style.top = (e.clientY - rect.height) + 'px';
+    });
+  }
+
+  hideContextMenu() {
+    if (this.contextMenu) this.contextMenu.classList.remove('active');
+    this._contextTarget = null;
+  }
+
+  handleContextAction(action, block) {
+    switch (action) {
+      case 'edit': {
+        const tag = block.dataset.tagName;
+        if (tag === 'say') this.showSayEditor(block);
+        else if (tag === 'pause') this.showPauseEditor(block);
+        else if (tag === 'fx') this.showFxEditor(block);
+        else if (tag === 'repeat') this.showRepeatEditor(block);
+        else if (tag === 'section') this.showSectionEditor(block);
+        else this.focusSelectedBlockEditor();
+        break;
+      }
+      case 'duplicate': this.duplicateBlock(block); break;
+      case 'copy': this.copySelectedBlocks(); break;
+      case 'cut': this.cutSelectedBlocks(); break;
+      case 'paste': this.pasteClipboard(); break;
+      case 'moveUp': this.moveSelectedBlock(-1); break;
+      case 'moveDown': this.moveSelectedBlock(1); break;
+      case 'delete': this.deleteSelectedBlocks(); break;
+    }
+  }
+
+  duplicateBlock(block) {
+    const node = this.blockToNode(block);
+    if (!node) return;
+    const clone = JSON.parse(JSON.stringify(node));
+    const newBlock = this.renderNode(clone);
+    if (!newBlock) return;
+    block.after(newBlock);
+    this.blocks.push(newBlock);
+    this.syncNestedRepeatControl(newBlock);
+    this.selectSingleBlock(newBlock);
+    this.onBlockChange();
+    window.app?.uiManager?.refreshSectionJump?.();
   }
 
   render(ast) {
@@ -372,6 +515,11 @@ class BlockRenderer {
       else this.selectSingleBlock(block);
     });
 
+    block.addEventListener('contextmenu', (e) => {
+      if (e.target.closest('textarea, input, select')) return;
+      this.showContextMenu(e, block);
+    });
+
     dragSource.addEventListener('dragstart', (e) => {
       if (e.target.closest('.block-action-btn')) {
         e.preventDefault();
@@ -381,17 +529,28 @@ class BlockRenderer {
         e.preventDefault();
         return;
       }
-      this.draggingBlock = block;
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', block.dataset.id);
-      block.classList.add('dragging');
-      if (!this.placeholderEl) this.placeholderEl = this.createPlaceholder();
+      if (this.selectedBlocks.size > 1 && this.selectedBlocks.has(block)) {
+        this.draggingMultiBlocks = this.getSelectedBlocksOrdered();
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', 'multi');
+        this.draggingMultiBlocks.forEach(b => b.classList.add('dragging'));
+        if (!this.placeholderEl) this.placeholderEl = this.createPlaceholder();
+      } else {
+        this.draggingBlock = block;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', block.dataset.id);
+        block.classList.add('dragging');
+        if (!this.placeholderEl) this.placeholderEl = this.createPlaceholder();
+      }
     });
 
     dragSource.addEventListener('dragend', () => {
       block.classList.remove('dragging');
+      this.draggingMultiBlocks?.forEach(b => b.classList.remove('dragging'));
       this.clearPlaceholder();
+      this.stopDragAutoScroll();
       this.draggingBlock = null;
+      this.draggingMultiBlocks = null;
       this.restoreAllRepeatEmptyStates();
     });
 
@@ -404,37 +563,51 @@ class BlockRenderer {
       const insertBefore = placement.before ? placement.referenceBlock : placement.referenceBlock.nextSibling;
       if (insertBefore) placement.container.insertBefore(this.placeholderEl, insertBefore);
       else placement.container.appendChild(this.placeholderEl);
+      this.handleDragAutoScroll(this.container, e.clientY);
     });
 
     block.addEventListener('drop', (e) => {
       const placement = this.getDropPlacementForBlock(block, e.clientY);
-      if (!placement || !this.draggingBlock) return;
+      if (!placement) return;
+      const dragBlocks = this.draggingMultiBlocks || (this.draggingBlock ? [this.draggingBlock] : []);
+      if (!dragBlocks.length) return;
       e.preventDefault();
       e.stopPropagation();
-      const oldParent = this.draggingBlock.parentElement;
+      this.stopDragAutoScroll();
+      const oldParents = new Set();
+      dragBlocks.forEach(b => oldParents.add(b.parentElement));
       const insertBefore = placement.before ? placement.referenceBlock : placement.referenceBlock.nextSibling;
-      placement.container.insertBefore(this.draggingBlock, insertBefore || null);
+      dragBlocks.forEach(b => {
+        b.style.display = '';
+        placement.container.insertBefore(b, insertBefore || null);
+      });
       this.clearPlaceholder();
-      this.ensureRepeatEmptyState(oldParent);
+      oldParents.forEach(p => this.ensureRepeatEmptyState(p));
       this.ensureRepeatEmptyState(placement.container);
-      this.syncNestedRepeatControl(this.draggingBlock);
-      this.draggingBlock.classList.remove('dragging');
+      dragBlocks.forEach(b => this.syncNestedRepeatControl(b));
+      dragBlocks.forEach(b => b.classList.remove('dragging'));
+      if (this.multiGroupEl) {
+        this.multiGroupEl.remove();
+        this.multiGroupEl = null;
+      }
       this.draggingBlock = null;
+      this.draggingMultiBlocks = null;
       this.onBlockChange();
       window.app?.uiManager?.refreshSectionJump?.();
     });
   }
 
   getDropPlacementForBlock(targetBlock, clientY) {
-    if (!this.draggingBlock || !targetBlock) return null;
-    if (targetBlock === this.draggingBlock) return null;
-    if (this.draggingBlock.contains(targetBlock)) return null;
+    const dragBlocks = this.draggingMultiBlocks || (this.draggingBlock ? [this.draggingBlock] : []);
+    if (!dragBlocks.length || !targetBlock) return null;
+    if (dragBlocks.includes(targetBlock)) return null;
+    if (dragBlocks.some(b => b.contains(targetBlock))) return null;
 
     let container = targetBlock.parentElement;
     let referenceBlock = targetBlock;
     if (!container) return null;
 
-    if (targetBlock.contains(this.draggingBlock)) {
+    if (targetBlock.contains(dragBlocks[0])) {
       if (targetBlock.dataset.tagName !== 'repeat') return null;
       container = targetBlock.parentElement;
       referenceBlock = targetBlock;
@@ -645,6 +818,7 @@ class BlockRenderer {
       block.classList.add('selected');
       this.selectedBlocks.add(block);
     }
+    this.updateMultiGroupDisplay();
   }
 
   toggleBlockSelection(block) {
@@ -656,11 +830,17 @@ class BlockRenderer {
       block.classList.add('selected');
       this.selectedBlocks.add(block);
     }
+    this.updateMultiGroupDisplay();
   }
 
   clearSelection() {
     this.selectedBlocks.forEach(b => b.classList.remove('selected'));
     this.selectedBlocks.clear();
+    if (this.multiGroupEl) {
+      this.multiGroupEl._hiddenBlocks?.forEach(b => { b.style.display = ''; });
+      this.multiGroupEl.remove();
+      this.multiGroupEl = null;
+    }
   }
 
   selectAllBlocks() {
@@ -669,6 +849,69 @@ class BlockRenderer {
       block.classList.add('selected');
       this.selectedBlocks.add(block);
     });
+    this.updateMultiGroupDisplay();
+  }
+
+  updateMultiGroupDisplay() {
+    const selected = this.getSelectedBlocksOrdered();
+
+    if (selected.length < 2) {
+      if (this.multiGroupEl) {
+        this.multiGroupEl._hiddenBlocks?.forEach(b => { b.style.display = ''; });
+        this.multiGroupEl.remove();
+        this.multiGroupEl = null;
+      }
+      return;
+    }
+
+    const firstParent = selected[0].parentElement;
+    if (!selected.every(b => b.parentElement === firstParent)) return;
+
+    if (!this.multiGroupEl) {
+      this.multiGroupEl = document.createElement('div');
+      this.multiGroupEl.className = 'block-multi-group';
+      this.multiGroupEl.setAttribute('draggable', 'true');
+
+      this.multiGroupEl.addEventListener('dragstart', (e) => {
+        e.stopPropagation();
+        this.draggingMultiBlocks = this.getSelectedBlocksOrdered();
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', 'multi');
+        this.multiGroupEl.classList.add('dragging');
+        this.draggingMultiBlocks.forEach(b => b.classList.add('dragging'));
+        if (!this.placeholderEl) this.placeholderEl = this.createPlaceholder();
+      });
+
+      this.multiGroupEl.addEventListener('dragend', () => {
+        this.multiGroupEl.classList.remove('dragging');
+        this.draggingMultiBlocks?.forEach(b => b.classList.remove('dragging'));
+        this.clearPlaceholder();
+        this.stopDragAutoScroll();
+        this.draggingMultiBlocks = null;
+        this.restoreAllRepeatEmptyStates();
+      });
+
+      this.multiGroupEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (e.ctrlKey || e.metaKey) {
+          this.clearSelection();
+          this.updateMultiGroupDisplay();
+        }
+      });
+    }
+
+    firstParent.insertBefore(this.multiGroupEl, selected[0]);
+
+    if (this.multiGroupEl._hiddenBlocks) {
+      this.multiGroupEl._hiddenBlocks.forEach(b => { b.style.display = ''; });
+    }
+    selected.forEach(b => { b.style.display = 'none'; });
+    this.multiGroupEl._hiddenBlocks = selected;
+
+    this.multiGroupEl.innerHTML = `
+      <span class="material-icons">widgets</span>
+      <span class="block-multi-group-text">已选择 <span class="block-multi-group-count">${selected.length}</span> 个积木，拖动以移动</span>
+    `;
   }
 
   getSelectedBlocksOrdered() {
@@ -866,17 +1109,31 @@ class BlockRenderer {
     if (block) {
       const emptyState = this.container.querySelector('.empty-state');
       if (emptyState) emptyState.remove();
-      this.container.appendChild(block);
+
+      const ref = this.getInsertTarget(options.insertBefore);
+      if (ref) {
+        ref.parentNode.insertBefore(block, options.insertBefore ? ref : ref.nextSibling);
+      } else {
+        this.container.appendChild(block);
+      }
       this.blocks.push(block);
 
       const textarea = block.querySelector('textarea');
       if (textarea) textarea.focus();
 
+      this.selectSingleBlock(block);
       this.onBlockChange();
       window.app?.uiManager?.refreshSectionJump?.();
     }
 
     return block;
+  }
+
+  getInsertTarget(insertBefore) {
+    const selected = this.getPrimarySelectedBlock();
+    if (!selected) return null;
+    if (selected.parentElement !== this.container) return null;
+    return selected;
   }
 
   onChange(callback) {
@@ -885,8 +1142,10 @@ class BlockRenderer {
 
   enableDropZone(container) {
     container.addEventListener('dragover', (e) => {
-      if (!this.draggingBlock) return;
-      if (container === this.draggingBlock || this.draggingBlock.contains(container)) return;
+      const hasDrag = this.draggingBlock || this.draggingMultiBlocks;
+      if (!hasDrag) return;
+      const dragBlocks = this.draggingMultiBlocks || [this.draggingBlock];
+      if (dragBlocks.some(b => container === b || b.contains(container))) return;
       e.preventDefault();
       e.stopPropagation();
       const children = Array.from(container.querySelectorAll(':scope > .block'));
@@ -906,28 +1165,70 @@ class BlockRenderer {
       } else if (this.placeholderEl.parentElement !== container || this.placeholderEl.nextSibling !== null) {
         container.appendChild(this.placeholderEl);
       }
+      this.handleDragAutoScroll(container, e.clientY);
     });
 
     container.addEventListener('drop', (e) => {
-      if (!this.draggingBlock || !this.placeholderEl) return;
-      if (container === this.draggingBlock || this.draggingBlock.contains(container)) return;
+      const dragBlocks = this.draggingMultiBlocks || (this.draggingBlock ? [this.draggingBlock] : []);
+      if (!dragBlocks.length || !this.placeholderEl) return;
+      if (dragBlocks.some(b => container === b || b.contains(container))) return;
       e.preventDefault();
       e.stopPropagation();
+      this.stopDragAutoScroll();
 
       const emptyState = container.querySelector(':scope > .empty-state');
       if (emptyState) emptyState.remove();
 
-      const oldParent = this.draggingBlock.parentElement;
-      container.insertBefore(this.draggingBlock, this.placeholderEl);
+      const oldParents = new Set();
+      dragBlocks.forEach(b => oldParents.add(b.parentElement));
+      dragBlocks.forEach(b => {
+        b.style.display = '';
+        container.insertBefore(b, this.placeholderEl);
+      });
       this.clearPlaceholder();
-      this.ensureRepeatEmptyState(oldParent);
+      oldParents.forEach(p => this.ensureRepeatEmptyState(p));
       this.ensureRepeatEmptyState(container);
-      this.syncNestedRepeatControl(this.draggingBlock);
-      this.draggingBlock.classList.remove('dragging');
+      dragBlocks.forEach(b => this.syncNestedRepeatControl(b));
+      dragBlocks.forEach(b => b.classList.remove('dragging'));
+      if (this.multiGroupEl) {
+        this.multiGroupEl.remove();
+        this.multiGroupEl = null;
+      }
       this.draggingBlock = null;
+      this.draggingMultiBlocks = null;
       this.onBlockChange();
       window.app?.uiManager?.refreshSectionJump?.();
     });
+  }
+
+  handleDragAutoScroll(container, clientY) {
+    this.stopDragAutoScroll();
+    const rect = container.getBoundingClientRect();
+    const scrollZone = 120;
+    let speed = 0;
+
+    if (clientY > rect.bottom - scrollZone) {
+      const ratio = Math.min(1, (clientY - (rect.bottom - scrollZone)) / scrollZone);
+      speed = 3 + 22 * Math.pow(ratio, 1.8);
+    } else if (clientY < rect.top + scrollZone) {
+      const ratio = Math.min(1, ((rect.top + scrollZone) - clientY) / scrollZone);
+      speed = -(3 + 22 * Math.pow(ratio, 1.8));
+    }
+
+    if (speed === 0) return;
+
+    const step = () => {
+      container.scrollTop += speed;
+      this._dragScrollTimer = requestAnimationFrame(step);
+    };
+    this._dragScrollTimer = requestAnimationFrame(step);
+  }
+
+  stopDragAutoScroll() {
+    if (this._dragScrollTimer) {
+      cancelAnimationFrame(this._dragScrollTimer);
+      this._dragScrollTimer = null;
+    }
   }
 
   ensureRepeatEmptyState(container) {

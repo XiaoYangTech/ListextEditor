@@ -66,6 +66,7 @@ class UIManager {
     this.blockContainer = document.getElementById('blockContainer');
     this.statusText = document.getElementById('statusText');
     this.currentFileEl = document.getElementById('currentFile');
+    this.viewModeSwitch = document.querySelector('.view-mode-switch');
 
     this.sectionJumpSelect = document.getElementById('sectionJumpSelect');
     this.blockSearchInput = document.getElementById('blockSearchInput');
@@ -91,6 +92,8 @@ class UIManager {
   }
 
   updateModeUI(mode) {
+    const isHome = this.app.tabManager?.getActiveTab()?.isHome;
+    if (isHome) return;
     document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
     this.blockMode?.classList.toggle('active', mode === 'block');
     this.codeMode?.classList.toggle('active', mode === 'code');
@@ -100,7 +103,7 @@ class UIManager {
 
   initToolbar() {
     document.querySelectorAll('.add-block-btn[data-type]').forEach(btn => {
-      btn.addEventListener('click', () => this.handleAddBlock(btn.dataset.type));
+      btn.addEventListener('click', (e) => this.handleAddBlock(btn.dataset.type, e.shiftKey));
     });
 
     document.getElementById('btnRoleManager')?.addEventListener('click', () => this.openRoleManager());
@@ -137,30 +140,31 @@ class UIManager {
       sections.map((s, i) => `<option value="${s.id}">${i + 1}. ${s.title}</option>`).join('');
   }
 
-  handleAddBlock(type) {
+  handleAddBlock(type, insertBefore = false) {
     if (this.app.currentMode === 'code') {
       this.handleAddToCode(type);
       return;
     }
     if (!this.app.renderer) return;
 
+    const opts = { insertBefore };
     if (type === 'pause') {
-      this.showSilenceDialog((duration) => this.app.renderer.addBlock('pause', { duration }));
+      this.showSilenceDialog((duration) => this.app.renderer.addBlock('pause', { ...opts, duration }));
     } else if (type === 'fx') {
       this.showEffectDialog((effectId, duration) => {
         if (!effectId) {
           this.app.updateStatus('请先选择音效');
           return;
         }
-        this.app.renderer.addBlock('fx', { effectId, duration });
+        this.app.renderer.addBlock('fx', { ...opts, effectId, duration });
       });
     } else if (type === 'repeat') {
-      this.app.renderer.addBlock('repeat');
+      this.app.renderer.addBlock('repeat', opts);
     } else if (type === 'section') {
-      this.app.renderer.addBlock('section', { title: `分节 ${Date.now().toString().slice(-4)}` });
+      this.app.renderer.addBlock('section', { ...opts, title: `分节 ${Date.now().toString().slice(-4)}` });
       this.refreshSectionJump();
     } else {
-      const block = this.app.renderer.addBlock(type);
+      const block = this.app.renderer.addBlock(type, opts);
       block?.querySelector?.('textarea')?.focus();
     }
 
@@ -519,7 +523,7 @@ class UIManager {
       const addMap = { '1': 'say', '2': 'pause', '3': 'repeat', '4': 'section', '5': 'fx', '6': 'divider' };
       if (e.altKey && addMap[key]) {
         e.preventDefault();
-        this.handleAddBlock(addMap[key]);
+        this.handleAddBlock(addMap[key], e.shiftKey);
         return;
       }
 

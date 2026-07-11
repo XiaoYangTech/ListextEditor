@@ -117,7 +117,7 @@ class ListextEditor {
   async handleCloseCheck() {
     if (this.playQueue?.isPlaying) this.playQueue.stop();
 
-    const unsavedTabs = this.tabManager?.tabs.filter(t => t.isDirty) || [];
+    const unsavedTabs = this.tabManager?.tabs.filter(t => t.isDirty && !t.isHome) || [];
     if (!unsavedTabs.length) {
       window.electronAPI?.sendCloseCheckResult?.(true);
       return;
@@ -142,7 +142,7 @@ class ListextEditor {
   }
 
   loadDefaultContent() {
-    if (this.tabManager) this.fileManager.newFile();
+    // Home tab is already created by TabManager, no need to create a new tab
   }
 
   getActiveProjectData() {
