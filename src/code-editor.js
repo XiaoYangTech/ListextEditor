@@ -155,6 +155,7 @@ class CodeEditor {
       const items = Array.from(this.suggestions.querySelectorAll('.code-suggestion-item'));
       if (['ArrowDown','ArrowUp','Enter','Tab','Escape'].includes(e.key)) {
         e.preventDefault();
+        e.stopPropagation();
         if (e.key === 'Escape') { this.hideSuggestions(); return true; }
         let idx = items.findIndex(i => i.classList.contains('active'));
         if (e.key === 'ArrowDown') idx = (idx + 1) % items.length;
@@ -164,7 +165,15 @@ class CodeEditor {
         return true;
       }
     }
-    if (e.key === 'Tab') { e.preventDefault(); e.shiftKey ? this.outdentSelection() : this.indentSelection(); return true; }
+    if (e.key === 'Tab') {
+      const hasSelection = this.editor.selectionStart !== this.editor.selectionEnd;
+      if (hasSelection || e.shiftKey) {
+        e.preventDefault();
+        e.shiftKey ? this.outdentSelection() : this.indentSelection();
+        return true;
+      }
+      return false;
+    }
     return false;
   }
 

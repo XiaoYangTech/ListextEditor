@@ -1,13 +1,6 @@
-﻿node_modules/
+node_modules/
+dist/
 
-# user generated data (do not commit)
-.local-data/
-user-data/
-assets/default-sounds-user/
-
-# runtime sound/config caches
-sounds-user/
-user-sounds/
-effects-config.local.json
-settings.local.json
+# AI agents internal
 .claude/
+.mimocode/

@@ -80,15 +80,12 @@ function saveProjectPackage(filePath, payload) {
   const zip = new AdmZip();
   const builtInSounds = scanBuiltInSounds();
   const usedFxIds = parseFxIds(content);
-  const bundledSounds = [];
 
   zip.addFile('project.json', Buffer.from(JSON.stringify({
-    version: 2,
     title: tabTitle,
     content,
     roles: mergedRoles,
-    effects: projectEffects,
-    savedAt: new Date().toISOString()
+    effects: projectEffects
   }, null, 2), 'utf-8'));
 
   for (const fxId of usedFxIds) {
@@ -107,14 +104,12 @@ function saveProjectPackage(filePath, payload) {
       const filename = path.basename(absPath);
       const buf = fs.readFileSync(absPath);
       zip.addFile('sounds/' + filename, buf);
-      bundledSounds.push({ fxId, filename });
     }
   }
 
-  zip.addFile('assets-map.json', Buffer.from(JSON.stringify({ bundledSounds }, null, 2), 'utf-8'));
   ensureDir(path.dirname(safePath));
   zip.writeZip(safePath);
-  return { success: true, filePath: safePath, bundled: bundledSounds.length };
+  return { success: true, filePath: safePath };
 }
 
 function openProjectPackage(filePath) {

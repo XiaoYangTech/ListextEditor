@@ -10,24 +10,12 @@ class UIManager {
   }
 
   async loadShortcuts() {
-    const defaults = {
-      save: 'Ctrl+S',
-      toggleMode: 'Ctrl+M',
-      addBlock: 'Ctrl+N',
-      deleteBlock: 'Delete',
-      openEffects: 'Ctrl+Shift+E',
-      undo: 'Ctrl+Z',
-      redo: 'Ctrl+Shift+Z',
-      cut: 'Ctrl+X',
-      copy: 'Ctrl+C',
-      paste: 'Ctrl+V',
-      selectAll: 'Ctrl+A',
-      insertSay: 'Ctrl+1',
-      insertPause: 'Ctrl+2',
-      insertRepeat: 'Ctrl+3',
-      insertSection: 'Ctrl+4',
-      insertFx: 'Ctrl+5',
-      insertDivider: 'Ctrl+6'
+    const defaults = window.SHORTCUT_DEFAULTS || {
+      save: 'Ctrl+S', toggleMode: 'Ctrl+M', addBlock: 'Ctrl+N', deleteBlock: 'Delete',
+      openEffects: 'Ctrl+Shift+E', previewPlay: 'F5', undo: 'Ctrl+Z', redo: 'Ctrl+Shift+Z',
+      cut: 'Ctrl+X', copy: 'Ctrl+C', paste: 'Ctrl+V', selectAll: 'Ctrl+A',
+      insertSay: 'Ctrl+1', insertPause: 'Ctrl+2', insertRepeat: 'Ctrl+3',
+      insertSection: 'Ctrl+4', insertFx: 'Ctrl+5', insertDivider: 'Ctrl+6'
     };
     try {
       if (window.electronAPI?.getShortcuts) {
@@ -426,12 +414,6 @@ class UIManager {
         return;
       }
 
-      if (e.key === 'F5') {
-        e.preventDefault();
-        this.app.ttsRenderer.previewPlay();
-        return;
-      }
-
       if (e.key === 'Escape') {
         this.app.ttsRenderer.stopPlay();
         document.querySelectorAll('.dialog.active').forEach(d => d.classList.remove('active'));
@@ -472,7 +454,20 @@ class UIManager {
         return;
       }
 
+      // 新建标签页（全局：代码模式 + 积木模式均可用）
+      if (this.matchShortcut(e, this.shortcuts.addBlock)) {
+        e.preventDefault();
+        this.app.tabManager?.createNewTab();
+        return;
+      }
+
       if (!inBlockMode) return;
+
+      if (this.matchShortcut(e, this.shortcuts.previewPlay)) {
+        e.preventDefault();
+        this.app.ttsRenderer.previewPlay();
+        return;
+      }
 
       if (this.matchShortcut(e, this.shortcuts.undo)) {
         e.preventDefault();
@@ -514,16 +509,34 @@ class UIManager {
         return;
       }
 
-      if (this.matchShortcut(e, this.shortcuts.addBlock)) {
+      if (this.matchShortcut(e, this.shortcuts.insertSay)) {
         e.preventDefault();
-        this.app.tabManager?.createNewTab();
+        this.handleAddBlock('say', e.shiftKey);
         return;
       }
-
-      const addMap = { '1': 'say', '2': 'pause', '3': 'repeat', '4': 'section', '5': 'fx', '6': 'divider' };
-      if (e.altKey && addMap[key]) {
+      if (this.matchShortcut(e, this.shortcuts.insertPause)) {
         e.preventDefault();
-        this.handleAddBlock(addMap[key], e.shiftKey);
+        this.handleAddBlock('pause', e.shiftKey);
+        return;
+      }
+      if (this.matchShortcut(e, this.shortcuts.insertRepeat)) {
+        e.preventDefault();
+        this.handleAddBlock('repeat', e.shiftKey);
+        return;
+      }
+      if (this.matchShortcut(e, this.shortcuts.insertSection)) {
+        e.preventDefault();
+        this.handleAddBlock('section', e.shiftKey);
+        return;
+      }
+      if (this.matchShortcut(e, this.shortcuts.insertFx)) {
+        e.preventDefault();
+        this.handleAddBlock('fx', e.shiftKey);
+        return;
+      }
+      if (this.matchShortcut(e, this.shortcuts.insertDivider)) {
+        e.preventDefault();
+        this.handleAddBlock('divider', e.shiftKey);
         return;
       }
 
@@ -537,6 +550,13 @@ class UIManager {
 
       if (e.key === 'Enter') { e.preventDefault(); this.app.renderer.focusSelectedBlockEditor(); return; }
       if (e.key === ' ') { e.preventDefault(); this.app.ttsRenderer.previewPlay(); return; }
+
+      if (e.key === 'Backspace' && this.app.renderer.selectedBlocks?.size > 0) {
+        e.preventDefault();
+        this.app.renderer.deleteSelectedBlocks();
+        this.app.fileManager.markUnsaved();
+        return;
+      }
 
       if (this.matchShortcut(e, this.shortcuts.deleteBlock) && this.app.renderer.selectedBlocks?.size > 0) {
         e.preventDefault();

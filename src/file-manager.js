@@ -221,7 +221,7 @@ class FileManager {
       });
 
       this.updateStatusForTab(this.app.tabManager.getActiveTab());
-      this.app.updateStatus(`已保存项目（打包 ${result.bundled || 0} 个音效）`);
+      this.app.updateStatus('已保存项目');
       return true;
     }
 

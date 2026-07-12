@@ -58,6 +58,8 @@
     .shortcut-input { width: 140px; padding: 8px 12px; border: 1px solid var(--md-divider); border-radius: 6px; font-size: 13px; text-align: center; cursor: pointer; transition: border-color 0.2s; }
     .shortcut-input:focus { outline: none; border-color: var(--md-primary); }
     .shortcut-input.conflict { border-color: var(--md-warning); background: rgba(245, 124, 0, 0.1); }
+    .shortcut-info { padding: 12px 16px; background: #F5F5F5; border-radius: 6px; font-size: 12px; color: var(--md-on-surface-variant); line-height: 2; }
+    .shortcut-info code { background: var(--md-surface); padding: 1px 6px; border-radius: 4px; font-size: 11px; border: 1px solid var(--md-divider); }
     
     .conflict-warning { display: flex; align-items: center; gap: 8px; padding: 12px; background: rgba(245, 124, 0, 0.1); border-radius: 6px; margin-top: 16px; }
     .conflict-warning .material-icons { color: var(--md-warning); }
@@ -123,6 +125,10 @@
             <input class="shortcut-input" data-action="openEffects" readonly placeholder="按下快捷键">
           </div>
           <div class="shortcut-row">
+            <span class="shortcut-label">预览播放</span>
+            <input class="shortcut-input" data-action="previewPlay" readonly placeholder="按下快捷键">
+          </div>
+          <div class="shortcut-row">
             <span class="shortcut-label">撤销</span>
             <input class="shortcut-input" data-action="undo" readonly placeholder="按下快捷键">
           </div>
@@ -178,6 +184,17 @@
             <span id="conflict-msg">检测到快捷键冲突</span>
           </div>
         </div>
+        <div class="card">
+          <div class="card-title">不可配置的系统快捷键</div>
+          <div class="shortcut-info">
+            <code>F5 / Space</code> — 预览播放（Space仅积木模式）
+            &nbsp; <code>Escape</code> — 停止播放 / 关闭弹窗<br>
+            <code>↑ ↓</code> — 选择积木 &nbsp; <code>Ctrl+↑ ↓</code> — 移动积木<br>
+            <code>Enter</code> — 聚焦积木编辑器
+            &nbsp; <code>Delete / Backspace</code> — 删除选中块<br>
+            <code>Tab</code> — 缩进（代码编辑器中）
+          </div>
+        </div>
         <div class="footer">
           <button id="btnResetShortcuts" class="btn btn-outline">恢复默认</button>
           <button id="btnSaveShortcuts" class="btn btn-primary">保存快捷键</button>
@@ -212,6 +229,7 @@
     </div>
   </main>
 
+  <script src="src/shortcut-defaults.js"></script>
   <script src="src/settings.js"></script>
 </body>
 </html>

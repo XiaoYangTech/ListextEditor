@@ -515,6 +515,15 @@ class BlockRenderer {
       else this.selectSingleBlock(block);
     });
 
+    block.addEventListener('mousedown', (e) => {
+      if (e.target.closest('textarea, input, select, .block-action-btn')) return;
+      if (e.button !== 0) return;
+      if (e.ctrlKey || e.metaKey) return;
+      if (this.selectedBlocks.size > 1 && this.selectedBlocks.has(block)) {
+        this.updateMultiGroupDisplay();
+      }
+    });
+
     block.addEventListener('contextmenu', (e) => {
       if (e.target.closest('textarea, input, select')) return;
       this.showContextMenu(e, block);
@@ -533,6 +542,9 @@ class BlockRenderer {
         this.draggingMultiBlocks = this.getSelectedBlocksOrdered();
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', 'multi');
+        if (this.multiGroupEl) {
+          e.dataTransfer.setDragImage(this.multiGroupEl, 50, 25);
+        }
         this.draggingMultiBlocks.forEach(b => b.classList.add('dragging'));
         if (!this.placeholderEl) this.placeholderEl = this.createPlaceholder();
       } else {
@@ -549,6 +561,11 @@ class BlockRenderer {
       this.draggingMultiBlocks?.forEach(b => b.classList.remove('dragging'));
       this.clearPlaceholder();
       this.stopDragAutoScroll();
+      if (this.multiGroupEl) {
+        this.multiGroupEl._hiddenBlocks?.forEach(b => { b.style.display = ''; });
+        this.multiGroupEl.remove();
+        this.multiGroupEl = null;
+      }
       this.draggingBlock = null;
       this.draggingMultiBlocks = null;
       this.restoreAllRepeatEmptyStates();
@@ -818,7 +835,6 @@ class BlockRenderer {
       block.classList.add('selected');
       this.selectedBlocks.add(block);
     }
-    this.updateMultiGroupDisplay();
   }
 
   toggleBlockSelection(block) {
@@ -830,7 +846,6 @@ class BlockRenderer {
       block.classList.add('selected');
       this.selectedBlocks.add(block);
     }
-    this.updateMultiGroupDisplay();
   }
 
   clearSelection() {
@@ -849,7 +864,6 @@ class BlockRenderer {
       block.classList.add('selected');
       this.selectedBlocks.add(block);
     });
-    this.updateMultiGroupDisplay();
   }
 
   updateMultiGroupDisplay() {
@@ -895,7 +909,8 @@ class BlockRenderer {
         e.stopPropagation();
         if (e.ctrlKey || e.metaKey) {
           this.clearSelection();
-          this.updateMultiGroupDisplay();
+        } else {
+          this.clearSelection();
         }
       });
     }

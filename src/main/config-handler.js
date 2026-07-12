@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { app, session } = require('electron');
 const { ensureDir } = require('./utils');
+const SHORTCUT_DEFAULTS = require('../shortcut-defaults');
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
 const effectsConfigPath = path.join(app.getPath('userData'), 'effects-config.json');
@@ -19,15 +20,7 @@ function getDefaultSettings() {
 }
 
 function getDefaultShortcuts() {
-  return {
-    save: 'Ctrl+S',
-    open: 'Ctrl+O',
-    export: 'Ctrl+E',
-    toggleMode: 'Ctrl+M',
-    addBlock: 'Ctrl+N',
-    deleteBlock: 'Delete',
-    openEffects: 'Ctrl+Shift+E'
-  };
+  return { ...SHORTCUT_DEFAULTS };
 }
 
 function getDefaultStoragePaths() {

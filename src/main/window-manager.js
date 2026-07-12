@@ -116,7 +116,7 @@ function createMenu() {
     {
       label: '文件',
       submenu: [
-        { label: '新建', accelerator: 'CmdOrCtrl+N', click: () => sendToMain('menu-new') },
+        { label: '新建', accelerator: 'CmdOrCtrl+Shift+N', click: () => sendToMain('menu-new') },
         {
           label: '打开项目', accelerator: 'CmdOrCtrl+O', click: async () => {
             const owner = getMainTargetWindow() || mainWindow;
