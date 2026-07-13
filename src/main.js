@@ -6,6 +6,8 @@ class ListextEditor {
     this.playQueue = new PlayQueue(this.ttsEngine, this.parser);
     this.currentMode = 'block';
     this.originalCode = '';
+    this._isSyncing = false;
+    this._syncTimer = null;
 
     this.init();
     this.tabManager = new TabManager(this);
@@ -24,11 +26,12 @@ class ListextEditor {
 
   initBlockRenderer() {
     this.renderer = new BlockRenderer(this.uiManager.blockContainer, this.parser);
-    this.renderer.onChange(() => {
+    this._baseBlockChangeHandler = () => {
       this.fileManager.markUnsaved();
       this.uiManager.refreshSectionJump();
       this.ttsRenderer?.updateEstimatedDuration();
-    });
+    };
+    this.renderer.onChange(this._baseBlockChangeHandler);
   }
 
   initCodeEditor() {
@@ -163,13 +166,19 @@ class ListextEditor {
   }
 
   switchMode(mode, sync = true) {
-    if (mode !== 'block' && mode !== 'code') return;
+    if (mode !== 'block' && mode !== 'code' && mode !== 'split') return;
     if (mode === this.currentMode && sync) return;
 
-    if (sync) {
+    this.stopSplitSync();
+
+    if (sync && this.currentMode !== mode) {
       try {
         if (this.currentMode === 'block') this.syncBlocksToCode();
-        else this.syncCodeToBlocks();
+        else if (this.currentMode === 'code') this.syncCodeToBlocks();
+        else if (this.currentMode === 'split') {
+          if (mode === 'code') { /* code already up to date */ }
+          else if (mode === 'block') this.syncCodeToBlocks();
+        }
       } catch (e) {
         console.warn('模式切换同步失败:', e);
         this.updateStatus('模式切换失败，请先修正语法后再切换');
@@ -183,23 +192,74 @@ class ListextEditor {
     if (mode === 'block') {
       this.codeEditor.hideSuggestions();
       this.uiManager.refreshSectionJump();
+    } else if (mode === 'split') {
+      this.codeEditor.hideSuggestions();
+      this.uiManager.refreshSectionJump();
+      this.refreshCodeContext();
+      this.startSplitSync();
     } else {
-      const projectData = this.getActiveProjectData();
-      this.codeEditor.projectRoles = projectData.roles || [];
-      this.codeEditor.projectEffects = projectData.effects || [];
-      if (window.electronAPI) {
-        window.electronAPI.getProjectData().then(data => {
-          if (data?.effects) this.codeEditor.projectEffects = data.effects;
-          if (data?.roles) this.codeEditor.projectRoles = data.roles;
-        }).catch(() => {});
-      }
-      this.codeEditor.refreshView();
+      this.refreshCodeContext();
     }
 
     if (this.tabManager) {
       const activeTab = this.tabManager.getActiveTab();
       if (activeTab) activeTab.mode = mode;
     }
+  }
+
+  refreshCodeContext() {
+    const projectData = this.getActiveProjectData();
+    this.codeEditor.projectRoles = projectData.roles || [];
+    this.codeEditor.projectEffects = projectData.effects || [];
+    if (window.electronAPI) {
+      window.electronAPI.getProjectData().then(data => {
+        if (data?.effects) this.codeEditor.projectEffects = data.effects;
+        if (data?.roles) this.codeEditor.projectRoles = data.roles;
+      }).catch(() => {});
+    }
+    this.codeEditor.refreshView();
+  }
+
+  startSplitSync() {
+    this.originalCode = '';
+    const baseHandler = this._baseBlockChangeHandler;
+    this._splitBlockHandler = () => {
+      if (this._isSyncing) return;
+      clearTimeout(this._syncTimer);
+      this._syncTimer = setTimeout(() => {
+        this._isSyncing = true;
+        try { this.syncBlocksToCode(); } catch {}
+        this._isSyncing = false;
+      }, 200);
+    };
+    this.renderer.onChangeCallback = () => {
+      if (baseHandler) baseHandler();
+      this._splitBlockHandler();
+    };
+
+    this._splitCodeHandler = () => {
+      if (this._isSyncing) return;
+      clearTimeout(this._syncTimer);
+      this._syncTimer = setTimeout(() => {
+        this._isSyncing = true;
+        try { this.syncCodeToBlocks(); } catch {}
+        this._isSyncing = false;
+      }, 200);
+    };
+    this.codeEditor.editor.addEventListener('input', this._splitCodeHandler);
+  }
+
+  stopSplitSync() {
+    clearTimeout(this._syncTimer);
+    this._syncTimer = null;
+    if (this._baseBlockChangeHandler) {
+      this.renderer.onChangeCallback = this._baseBlockChangeHandler;
+    }
+    if (this._splitCodeHandler) {
+      this.codeEditor.editor.removeEventListener('input', this._splitCodeHandler);
+    }
+    this._splitBlockHandler = null;
+    this._splitCodeHandler = null;
   }
 
   syncBlocksToCode() {
@@ -265,28 +325,28 @@ class ListextEditor {
   }
 
   getContent() {
-    if (this.currentMode === 'block') {
-      let code = this.parser.stringify(this.renderer.collectAST()).trim();
-
-      const tab = this.tabManager?.getActiveTab();
-      const projectRoles = tab?.roles || [];
-      const codeRoles = this.parser.parseRoleDefsFromCode(code);
-      const codeRoleIds = new Set(codeRoles.map(r => r.id));
-
-      const missingRoles = projectRoles.filter(r => !codeRoleIds.has(r.id));
-      if (missingRoles.length) {
-        const roleTags = missingRoles.map(r => {
-          const attrs = [`id="${r.id || ''}"`, `name="${r.name || r.id || ''}"`];
-          if (r.type) attrs.push(`type="${r.type}"`);
-          if (r.voice) attrs.push(`voice="${r.voice}"`);
-          return `<role ${attrs.join(' ')}>`;
-        }).join('\n');
-        code = roleTags + '\n' + code;
-      }
-
-      return code;
+    if (this.currentMode === 'split' || this.currentMode === 'code') {
+      return this.codeEditor.getValue();
     }
-    return this.codeEditor.getValue();
+    let code = this.parser.stringify(this.renderer.collectAST()).trim();
+
+    const tab = this.tabManager?.getActiveTab();
+    const projectRoles = tab?.roles || [];
+    const codeRoles = this.parser.parseRoleDefsFromCode(code);
+    const codeRoleIds = new Set(codeRoles.map(r => r.id));
+
+    const missingRoles = projectRoles.filter(r => !codeRoleIds.has(r.id));
+    if (missingRoles.length) {
+      const roleTags = missingRoles.map(r => {
+        const attrs = [`id="${r.id || ''}"`, `name="${r.name || r.id || ''}"`];
+        if (r.type) attrs.push(`type="${r.type}"`);
+        if (r.voice) attrs.push(`voice="${r.voice}"`);
+        return `<role ${attrs.join(' ')}>`;
+      }).join('\n');
+      code = roleTags + '\n' + code;
+    }
+
+    return code;
   }
 
   setContent(content, mode = 'block') {
@@ -336,7 +396,7 @@ class ListextEditor {
   }
 
   handleEditAction(action) {
-    if (this.currentMode === 'block' && this.renderer && !this.isTextInputActive()) {
+    if ((this.currentMode === 'block' || this.currentMode === 'split') && this.renderer && !this.isTextInputActive()) {
       if (action === 'undo') this.renderer.undo();
       if (action === 'redo') this.renderer.redo();
       if (action === 'copy') this.renderer.copySelectedBlocks();

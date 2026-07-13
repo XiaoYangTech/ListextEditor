@@ -83,6 +83,7 @@
         <div class="view-mode-switch">
           <button class="mode-tab active" data-mode="block"><span class="material-icons">view_module</span>积木模式</button>
           <button class="mode-tab" data-mode="code"><span class="material-icons">code</span>代码模式</button>
+          <button class="mode-tab" data-mode="split"><span class="material-icons">view_column</span>分屏</button>
         </div>
 
         <div class="toolbar" id="sharedToolbar">
@@ -101,25 +102,30 @@
             <button class="add-block-btn" id="btnBlockSearch"><span class="material-icons">search</span>查找</button>
             <select id="sectionJumpSelect" class="toolbar-select"><option value="">跳转到分节...</option></select>
           </div>
+          <button class="icon-btn layout-align-btn" id="btnLayoutAlign" title="切换工具栏对齐方式"><span class="material-icons">format_align_center</span></button>
         </div>
 
-        <div id="blockMode" class="editor-mode active">
-          <div id="blockContainer" class="block-container">
-            <div class="empty-state">
-              <span class="material-icons">add_circle_outline</span>
-              <p>点击上方按钮添加积木块，或切换到代码模式输入 Listext 语法</p>
+        <div class="split-container" id="splitContainer">
+          <div id="blockMode" class="editor-mode active">
+            <div id="blockContainer" class="block-container">
+              <div class="empty-state">
+                <span class="material-icons">add_circle_outline</span>
+                <p>点击上方按钮添加积木块，或切换到代码模式输入 Listext 语法</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div id="codeMode" class="editor-mode">
-          <div class="code-editor-wrapper">
-            <div class="line-numbers" id="lineNumbers"></div>
-            <pre id="codeHighlight" class="code-highlight"></pre>
-            <textarea id="codeEditor" spellcheck="false" placeholder="在此输入 Listext 代码..."></textarea>
-            <div id="codeSuggestions" class="code-suggestions" style="display:none;"></div>
+          <div class="split-divider" id="splitDivider"></div>
+
+          <div id="codeMode" class="editor-mode">
+            <div class="code-editor-wrapper">
+              <div class="line-numbers" id="lineNumbers"></div>
+              <pre id="codeHighlight" class="code-highlight"></pre>
+              <textarea id="codeEditor" spellcheck="false" placeholder="在此输入 Listext 代码..."></textarea>
+              <div id="codeSuggestions" class="code-suggestions" style="display:none;"></div>
+            </div>
+            <div id="errorContainer" class="error-container" style="display:none; padding:8px; background:#FFEBEE; color:#B00020; border-top:1px solid #FFCDD2; font-size:12px; max-height:100px; overflow-y:auto;"></div>
           </div>
-          <div id="errorContainer" class="error-container" style="display:none; padding:8px; background:#FFEBEE; color:#B00020; border-top:1px solid #FFCDD2; font-size:12px; max-height:100px; overflow-y:auto;"></div>
         </div>
       </div>
     </main>

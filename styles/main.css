@@ -178,15 +178,75 @@ body {
   display: flex;
 }
 
+/* 分屏模式 */
+.split-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.split-container.split {
+  flex-direction: row;
+}
+
+.split-container.split .editor-mode.split-pane {
+  display: flex;
+  flex: 1;
+  min-width: 280px;
+}
+
+.split-divider {
+  display: none;
+  width: 6px;
+  cursor: col-resize;
+  background: var(--md-divider);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.split-divider:hover,
+.split-divider.dragging {
+  background: var(--md-primary);
+}
+
+/* 分屏模式下 toolbar 中子元素保持可见 */
+.editor-panel.split #blockOnlyItems {
+  display: contents;
+}
+
 
 .toolbar {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 12px 44px 12px 16px;
   background: var(--md-surface);
   border-bottom: 1px solid var(--md-divider);
   flex-wrap: wrap;
+  justify-content: center;
+  position: relative;
+}
+
+.layout-align-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-shrink: 0;
+}
+
+body.toolbar-left .view-mode-switch,
+body.toolbar-left .toolbar {
+  justify-content: flex-start;
+}
+
+body.toolbar-left .layout-align-btn {
+  position: relative;
+  right: auto;
+  top: auto;
+  transform: none;
+  margin-left: 8px;
 }
 
 #blockOnlyItems {
@@ -1173,6 +1233,7 @@ body {
   background: var(--md-surface);
   border-bottom: 1px solid var(--md-divider);
   gap: 8px;
+  justify-content: center;
 }
 
 .view-mode-switch .mode-tab {

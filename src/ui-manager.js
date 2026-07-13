@@ -6,6 +6,8 @@ class UIManager {
     this.initModeSwitcher();
     this.initToolbar();
     this.initDialogs();
+    this.initSplitDivider();
+    this.initLayoutAlign();
     this.loadShortcuts().then(() => this.initKeyboardShortcuts());
   }
 
@@ -83,10 +85,83 @@ class UIManager {
     const isHome = this.app.tabManager?.getActiveTab()?.isHome;
     if (isHome) return;
     document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
-    this.blockMode?.classList.toggle('active', mode === 'block');
-    this.codeMode?.classList.toggle('active', mode === 'code');
+    const splitContainer = document.getElementById('splitContainer');
+    const blockModeEl = this.blockMode;
+    const codeModeEl = this.codeMode;
+
+    splitContainer.classList.toggle('split', mode === 'split');
+
+    blockModeEl.classList.toggle('split-pane', mode === 'split');
+    codeModeEl.classList.toggle('split-pane', mode === 'split');
+
+    blockModeEl.classList.toggle('active', mode === 'block' || mode === 'split');
+    codeModeEl.classList.toggle('active', mode === 'code' || mode === 'split');
+
     const blockOnly = document.getElementById('blockOnlyItems');
-    if (blockOnly) blockOnly.style.display = mode === 'block' ? '' : 'none';
+    if (blockOnly) blockOnly.style.display = (mode === 'block' || mode === 'split') ? '' : 'none';
+
+    const divider = document.getElementById('splitDivider');
+    if (divider) divider.style.display = mode === 'split' ? '' : 'none';
+  }
+
+  initSplitDivider() {
+    const divider = document.getElementById('splitDivider');
+    if (!divider) return;
+    let startX = 0, startLeftW = 0;
+
+    divider.addEventListener('mousedown', (e) => {
+      startX = e.clientX;
+      const codePane = document.getElementById('codeMode');
+      startLeftW = codePane ? codePane.getBoundingClientRect().width : 0;
+      divider.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      const onMove = (ev) => {
+        const dx = startX - ev.clientX;
+        const parent = divider.parentElement;
+        const totalW = parent ? parent.getBoundingClientRect().width : window.innerWidth;
+        const newLeftW = Math.max(280, Math.min(totalW - 280, startLeftW + dx));
+        const pct = (newLeftW / totalW) * 100;
+        const codePane = document.getElementById('codeMode');
+        const blockPane = document.getElementById('blockMode');
+        if (codePane) codePane.style.flex = `0 0 ${pct}%`;
+        if (blockPane) blockPane.style.flex = '1 1 0';
+      };
+
+      const onUp = () => {
+        divider.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  initLayoutAlign() {
+    const btn = document.getElementById('btnLayoutAlign');
+    if (!btn) return;
+    const icon = btn.querySelector('.material-icons');
+
+    const apply = (left) => {
+      document.body.classList.toggle('toolbar-left', left);
+      if (icon) icon.textContent = left ? 'format_align_left' : 'format_align_center';
+      btn.title = left ? '切换到居中布局' : '切换到靠左布局';
+    };
+
+    const saved = localStorage.getItem('toolbarAlign');
+    const isLeft = saved === 'left';
+    apply(isLeft);
+
+    btn.addEventListener('click', () => {
+      const next = !document.body.classList.contains('toolbar-left');
+      apply(next);
+      localStorage.setItem('toolbarAlign', next ? 'left' : 'center');
+    });
   }
 
   initToolbar() {
