@@ -126,6 +126,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
 
   getProjectData: () => ipcRenderer.invoke('get-project-data'),
+  deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
   setProjectEffects: (effects) => ipcRenderer.invoke('set-project-effects', effects),
   setProjectRoles: (roles) => ipcRenderer.invoke('set-project-roles', roles),
   onProjectEffectsChanged: (callback) => ipcRenderer.on('project-effects-changed', (event, effects) => callback(effects)),

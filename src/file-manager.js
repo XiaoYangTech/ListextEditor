@@ -180,6 +180,7 @@ class FileManager {
     }
 
     this.app.uiManager?.refreshSectionJump?.();
+    this.app.tabManager?.recordRecentProject(filePath, title);
     this.app.updateStatus('项目已打开');
     return true;
   }
@@ -221,6 +222,7 @@ class FileManager {
       });
 
       this.updateStatusForTab(this.app.tabManager.getActiveTab());
+      this.app.tabManager?.recordRecentProject(finalPath, fileName);
       this.app.updateStatus('已保存项目');
       return true;
     }

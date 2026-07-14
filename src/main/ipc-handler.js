@@ -256,6 +256,18 @@ function registerIpcHandlers() {
   ipcMain.handle('open-settings-window', async () => { openSettingsWindow(); return { success: true }; });
   ipcMain.handle('open-effect-manager-window', async () => { openEffectManager(); return { success: true }; });
 
+  ipcMain.handle('delete-file', async (event, filePath) => {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        return { success: true };
+      }
+      return { success: false, error: '文件不存在' };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
   ipcMain.handle('save-binary', async (event, filePath, base64) => {
     if (!filePath || !base64) return { success: false, error: '参数不完整' };
     ensureDir(path.dirname(filePath));

@@ -73,7 +73,150 @@ class TabManager {
         document.getElementById('homeTemplates').style.display = section === 'templates' ? '' : 'none';
       });
     });
+
+    this.renderRecentProjects();
+    this.applyBannerImage();
   }
+
+  setBannerImage(url) {
+    localStorage.setItem('bannerImage', url || '');
+    this.applyBannerImage();
+  }
+
+  applyBannerImage() {
+    const banner = document.getElementById('homeBanner');
+    if (!banner) return;
+    const url = localStorage.getItem('bannerImage') || '';
+    if (url) {
+      banner.style.setProperty('--banner-image', `url(${url})`);
+      banner.style.setProperty('--banner-gradient', 'none');
+    } else {
+      banner.style.setProperty('--banner-image', 'none');
+      banner.style.setProperty('--banner-gradient', 'linear-gradient(135deg, #1a237e 0%, #1976D2 40%, #512DA8 100%)');
+    }
+  }
+
+  recordRecentProject(filePath, title) {
+    if (!filePath) return;
+    try {
+      let list = JSON.parse(localStorage.getItem('recentProjects') || '[]');
+      list = list.filter(p => p.path !== filePath);
+      list.unshift({ path: filePath, title: title || filePath.split(/[/\\]/).pop(), time: Date.now() });
+      if (list.length > 20) list = list.slice(0, 20);
+      localStorage.setItem('recentProjects', JSON.stringify(list));
+      this.renderRecentProjects();
+    } catch {}
+  }
+
+  renderRecentProjects() {
+    const el = document.getElementById('homeRecentList');
+    if (!el) return;
+    try {
+      const list = JSON.parse(localStorage.getItem('recentProjects') || '[]');
+      if (!list.length) {
+        el.innerHTML = '<div class="home-empty-hint">暂无最近工程，点击「新建工程」开始创作</div>';
+        return;
+      }
+      el.innerHTML = list.map(p => {
+        const timeAgo = this.timeAgo(p.time);
+        return `<div class="home-card" data-path="${this.escapeHtml(p.path)}">
+          <button class="home-card-delete" data-path="${this.escapeHtml(p.path)}" title="从列表中移除"><span class="material-icons">close</span></button>
+          <div class="home-card-body">
+            <div class="home-card-title">${this.escapeHtml(p.title || '未命名')}</div>
+            <div class="home-card-meta">${this.escapeHtml(p.path)} · ${timeAgo}</div>
+          </div>
+        </div>`;
+      }).join('');
+
+      // Click card body to open project
+      el.querySelectorAll('.home-card-body').forEach(body => {
+        body.addEventListener('click', (e) => {
+          const path = e.target.closest('.home-card')?.dataset?.path;
+          if (!path) return;
+          this.openRecentProject(path);
+        });
+      });
+
+      // Click delete button
+      el.querySelectorAll('.home-card-delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const path = btn.dataset.path;
+          this.removeRecentProject(path);
+        });
+      });
+    } catch {}
+  }
+
+  openRecentProject(filePath) {
+    // If already open, switch to its tab
+    const existing = this.tabs.find(t => t.filePath === filePath);
+    if (existing) {
+      this.activateTab(existing.id);
+      return;
+    }
+    if (window.app?.fileManager) {
+      window.app.fileManager.openProjectByPath(filePath);
+    }
+  }
+
+  removeRecentProject(filePath) {
+    const delCard = document.querySelector(`.home-card[data-path="${CSS.escape(filePath)}"]`);
+    const delBtn = delCard?.querySelector('.home-card-delete');
+    const msg = `要同时删除工程文件吗？\n\n「仅移除记录」：从列表中移除，保留文件\n「移除并删除」：从列表移除并永久删除文件\n\n${filePath}`;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'dialog-overlay confirm-dialog';
+    overlay.innerHTML = `<div class="dialog-card" style="max-width:420px;">
+      <div class="dialog-title">移除最近工程</div>
+      <div class="dialog-body" style="white-space:pre-wrap;font-size:13px;color:#555;">${this.escapeHtml(msg)}</div>
+      <div class="dialog-footer" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-ghost" data-action="cancel">取消</button>
+        <button class="btn btn-outline" data-action="record-only">仅移除记录</button>
+        <button class="btn btn-danger" data-action="delete-file">移除并删除文件</button>
+      </div>
+    </div>`;
+
+    const cleanup = () => { if (overlay.parentNode) overlay.remove(); };
+
+    overlay.addEventListener('click', async (e) => {
+      if (e.target === overlay) cleanup();
+      const action = e.target.closest('[data-action]')?.dataset?.action;
+      if (!action || action === 'cancel') { cleanup(); return; }
+
+      try {
+        let list = JSON.parse(localStorage.getItem('recentProjects') || '[]');
+        list = list.filter(p => p.path !== filePath);
+        localStorage.setItem('recentProjects', JSON.stringify(list));
+      } catch {}
+
+      if (action === 'delete-file') {
+        if (window.electronAPI?.deleteFile) {
+          await window.electronAPI.deleteFile(filePath);
+        }
+        const tab = this.tabs.find(t => t.filePath === filePath);
+        if (tab) {
+          tab.isDirty = false;
+          this.closeTab(tab.id);
+        }
+      }
+
+      cleanup();
+      this.renderRecentProjects();
+    });
+
+    document.body.appendChild(overlay);
+  }
+
+  timeAgo(ts) {
+    const diff = Date.now() - ts;
+    if (diff < 60000) return '刚刚';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
+    return `${Math.floor(diff / 86400000)} 天前`;
+  }
+
+  escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
   generateId() {
     return `tab_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
@@ -172,6 +315,7 @@ class TabManager {
     if (this.editorPanel) this.editorPanel.style.display = show ? 'none' : 'flex';
     if (show) {
       this.editor.currentMode = 'block';
+      this.renderRecentProjects();
     }
   }
 

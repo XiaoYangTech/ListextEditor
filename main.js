@@ -43,19 +43,14 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
-  // Cleanup temporary files
   const { tempDir } = require('./src/main/ipc-handler');
   try {
     const fs = require('fs');
     if (fs.existsSync(tempDir)) {
-      const files = fs.readdirSync(tempDir);
-      for (const file of files) {
-        fs.unlinkSync(path.join(tempDir, file));
-      }
-      fs.rmdirSync(tempDir);
+      fs.rmSync(tempDir, { recursive: true, force: true });
     }
   } catch (e) {
-    console.error('Cleanup failed:', e);
+    console.error('Cleanup failed:', e.message);
   }
 });
 
