@@ -180,10 +180,9 @@ class FileManager {
     this.app.tabManager?.recordRecentProject(filePath, title);
 
     if (allNotes.length) {
-      this.app.updateStatus(`项目已打开（${allNotes.length}项提示）`);
-    } else {
-      this.app.updateStatus('项目已打开');
+      alert('工程导入提示：\n\n' + allNotes.map(n => '• ' + n).join('\n'));
     }
+    this.app.updateStatus('项目已打开');
     return true;
   }
 
