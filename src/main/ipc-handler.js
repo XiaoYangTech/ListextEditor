@@ -115,7 +115,13 @@ function saveProjectPackage(filePath, payload) {
 function openProjectPackage(filePath) {
   if (!fs.existsSync(filePath)) return { success: false, error: '文件不存在' };
 
-  const zip = new AdmZip(filePath);
+  let zip;
+  try {
+    zip = new AdmZip(filePath);
+  } catch (e) {
+    return { success: false, error: '文件已损坏，无法读取：' + (e.message || '未知错误') };
+  }
+
   const projectEntry = zip.getEntry('project.json');
   if (!projectEntry) return { success: false, error: '无效项目文件：缺少 project.json' };
 
@@ -123,7 +129,7 @@ function openProjectPackage(filePath) {
   try {
     project = JSON.parse(projectEntry.getData().toString('utf-8'));
   } catch {
-    return { success: false, error: '无效项目文件：project.json 解析失败' };
+    return { success: false, error: '无效项目文件：project.json 格式错误' };
   }
 
   if (typeof project.content !== 'string') {
@@ -139,6 +145,7 @@ function openProjectPackage(filePath) {
     }
   }
 
+  const warnings = [];
   const projectEffects = Array.isArray(project.effects) ? project.effects : [];
   const soundEntries = zip.getEntries().filter(e => e.entryName.startsWith('sounds/') && !e.isDirectory);
   const tempDir = path.join(app.getPath('temp'), 'listext-editor', 'project_' + Date.now());
@@ -147,11 +154,35 @@ function openProjectPackage(filePath) {
   for (const entry of soundEntries) {
     const filename = path.basename(entry.entryName);
     const out = path.join(tempDir, filename);
-    fs.writeFileSync(out, entry.getData());
+    try {
+      fs.writeFileSync(out, entry.getData());
+    } catch (e) {
+      warnings.push(`音效文件「${filename}」解压失败，已跳过`);
+      continue;
+    }
 
     const existing = projectEffects.find(e => e.filename === filename);
     if (existing && !existing.path) {
       existing.path = out;
+    }
+  }
+
+  // Check for effects with missing sound files
+  for (const fx of projectEffects) {
+    if (!fx.id) continue;
+    if (fx.filename && !fx.path) {
+      warnings.push(`音效「${fx.id}」引用的文件「${fx.filename}」在工程中缺失，将无法播放`);
+    }
+  }
+
+  // Check for built-in sounds not present on this machine
+  const builtInSounds = scanBuiltInSounds();
+  for (const fx of projectEffects) {
+    if (fx.source === 'builtin' && !fx.path) {
+      const builtin = builtInSounds.find(b => b.filename === fx.filename);
+      if (!builtin) {
+        warnings.push(`内置音效「${fx.filename}」在当前系统中不存在，音效「${fx.id}」无法播放`);
+      }
     }
   }
 
@@ -161,7 +192,8 @@ function openProjectPackage(filePath) {
     roles: mergedRoles,
     effects: projectEffects,
     title: project.title || path.basename(filePath),
-    filePath
+    filePath,
+    warnings
   };
 }
 

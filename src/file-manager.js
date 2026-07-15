@@ -175,8 +175,9 @@ class FileManager {
     await this.api.setProjectEffects(effects);
     await this.api.setProjectRoles(normalized.roles);
 
-    if (normalized.notes.length) {
-      alert('导入提示：\n' + normalized.notes.join('\n'));
+    const allNotes = [...normalized.notes, ...(result.warnings || [])];
+    if (allNotes.length) {
+      alert('导入提示：\n' + allNotes.map(n => '• ' + n).join('\n'));
     }
 
     this.app.uiManager?.refreshSectionJump?.();
