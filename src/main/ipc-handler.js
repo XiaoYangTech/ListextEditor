@@ -175,17 +175,6 @@ function openProjectPackage(filePath) {
     }
   }
 
-  // Check for built-in sounds not present on this machine
-  const builtInSounds = scanBuiltInSounds();
-  for (const fx of projectEffects) {
-    if (fx.source === 'builtin' && !fx.path) {
-      const builtin = builtInSounds.find(b => b.filename === fx.filename);
-      if (!builtin) {
-        warnings.push(`内置音效「${fx.filename}」在当前系统中不存在，音效「${fx.id}」无法播放`);
-      }
-    }
-  }
-
   return {
     success: true,
     content: project.content || '',

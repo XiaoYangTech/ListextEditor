@@ -176,13 +176,14 @@ class FileManager {
     await this.api.setProjectRoles(normalized.roles);
 
     const allNotes = [...normalized.notes, ...(result.warnings || [])];
-    if (allNotes.length) {
-      alert('导入提示：\n' + allNotes.map(n => '• ' + n).join('\n'));
-    }
-
     this.app.uiManager?.refreshSectionJump?.();
     this.app.tabManager?.recordRecentProject(filePath, title);
-    this.app.updateStatus('项目已打开');
+
+    if (allNotes.length) {
+      this.app.updateStatus(`项目已打开（${allNotes.length}项提示）`);
+    } else {
+      this.app.updateStatus('项目已打开');
+    }
     return true;
   }
 
