@@ -1,4 +1,4 @@
-const { ipcMain, shell, net, session, app } = require('electron');
+const { ipcMain, shell, app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -10,19 +10,6 @@ const { openRoleManager, openSettingsWindow, openEffectManager } = require('./wi
 const { getBuiltInDir, getBuiltInRoots, scanBuiltInSounds } = require('./sound-handler');
 
 const tempDir = path.join(app.getPath('temp'), 'listext-editor');
-
-function fetchText(url) {
-  return new Promise((resolve, reject) => {
-    const request = net.request({ method: 'GET', url, session: session.defaultSession });
-    request.on('response', (response) => {
-      const chunks = [];
-      response.on('data', (chunk) => chunks.push(chunk));
-      response.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-    });
-    request.on('error', (error) => reject(error));
-    request.end();
-  });
-}
 
 function normalizeExt(filePath) {
   if (!filePath) return filePath;
