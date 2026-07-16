@@ -103,7 +103,8 @@ class ListextEditor {
             }).join('\n');
             this.codeEditor.setValue(roleTags + '\n' + code);
           }
-          // 代码中的同 ID 角色是最终定义，立即同步回项目角色配置。
+          this.syncRolesToCode(roles);
+          // 角色管理器修改后回写代码，再将代码结果同步回项目配置。
           this.syncCodeRolesToProject(this.codeEditor.getValue());
         }
       }
@@ -311,13 +312,40 @@ class ListextEditor {
 
     const codeRoleIds = new Set(codeRoles.map(r => r.id));
     const configuredRoles = (tab.roles || []).filter(r => !codeRoleIds.has(r.id));
-    tab.roles = [
+    const nextRoles = [
       ...codeRoles.map(role => ({ ...role, source: 'code' })),
       ...configuredRoles
     ];
+    if (JSON.stringify(tab.roles || []) === JSON.stringify(nextRoles)) return;
+    tab.roles = nextRoles;
     if (window.electronAPI) {
       window.electronAPI.setProjectRoles(tab.roles);
     }
+  }
+
+  syncRolesToCode(roles) {
+    if (this.currentMode !== 'code' && this.currentMode !== 'split') return;
+    const code = this.codeEditor?.getValue() || '';
+    const roleMap = new Map((roles || []).filter(r => r?.id).map(r => [r.id, r]));
+    const usedIds = new Set();
+    const roleTag = role => {
+      const attrs = [`id="${role.id || ''}"`, `name="${role.name || role.id || ''}"`];
+      if (role.type) attrs.push(`type="${role.type}"`);
+      if (role.voice) attrs.push(`voice="${role.voice}"`);
+      return `<role ${attrs.join(' ')}>`;
+    };
+
+    let nextCode = code.replace(/<role\s+([^>]*)>/gi, (full, attrText) => {
+      const id = attrText.match(/\bid\s*=\s*["']([^"']+)["']/i)?.[1];
+      const role = id ? roleMap.get(id) : null;
+      if (!role) return full;
+      usedIds.add(id);
+      return roleTag(role);
+    });
+
+    const missing = (roles || []).filter(role => role?.id && !usedIds.has(role.id));
+    if (missing.length) nextCode = missing.map(roleTag).join('\n') + (nextCode ? `\n${nextCode}` : '');
+    if (nextCode !== code) this.codeEditor.setValue(nextCode);
   }
 
   getContent() {
