@@ -67,6 +67,10 @@ class UIManager {
     this.unsavedDiscardBtn = document.getElementById('unsavedDiscard');
     this.unsavedCancelBtn = document.getElementById('unsavedCancel');
 
+    this.infoDialog = document.getElementById('infoDialog');
+    this.infoDialogTitle = document.getElementById('infoDialogTitle');
+    this.infoDialogBody = document.getElementById('infoDialogBody');
+
     this.settingsDialog = document.getElementById('settingsDialog');
     this.proxyModeSelect = document.getElementById('proxyModeSelect');
     this.proxyUrlInput = document.getElementById('proxyUrlInput');
@@ -267,6 +271,7 @@ class UIManager {
     this.initSilenceDialog();
     this.initEffectDialog();
     this.initUnsavedDialog();
+    this.initInfoDialog();
     this.initRoleManagerDialog();
     this.initSyntaxHelpDialog();
     this.initSettingsDialog();
@@ -388,6 +393,22 @@ class UIManager {
     this.unsavedCancelBtn?.addEventListener('click', () => this.resolveUnsavedDialog('cancel'));
     this.unsavedDiscardBtn?.addEventListener('click', () => this.resolveUnsavedDialog('discard'));
     this.unsavedSaveBtn?.addEventListener('click', () => this.resolveUnsavedDialog('save'));
+  }
+
+  initInfoDialog() {
+    const close = () => this.infoDialog?.classList.remove('active');
+    this.infoDialog?.querySelector('.dialog-close')?.addEventListener('click', close);
+    this.infoDialog?.querySelector('#infoDialogConfirm')?.addEventListener('click', close);
+    this.infoDialog?.addEventListener('click', e => {
+      if (e.target === this.infoDialog) close();
+    });
+  }
+
+  showInfoDialog(title, message) {
+    if (!this.infoDialog) return;
+    this.infoDialogTitle.textContent = title || '提示';
+    this.infoDialogBody.textContent = message || '';
+    this.infoDialog.classList.add('active');
   }
 
   showUnsavedDialog(title) {

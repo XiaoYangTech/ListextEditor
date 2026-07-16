@@ -862,13 +862,6 @@ body.toolbar-left .layout-align-btn {
   gap: 16px;
 }
 
-#estimatedDuration {
-  font-size: 11px;
-  opacity: 0.8;
-  white-space: nowrap;
-}
-
-
 .dialog {
   display: none;
   position: fixed;
@@ -1084,7 +1077,33 @@ body.toolbar-left .layout-align-btn {
 
 
 .playing {
+  position: relative;
   animation: pulse 1.5s infinite;
+}
+
+.playing::before {
+  content: 'play_arrow';
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--md-primary);
+  background: var(--md-surface);
+  border-radius: 50%;
+  font-family: 'Material Icons';
+  font-size: 22px;
+  transform: translateY(-50%);
+  animation: playing-indicator 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes playing-indicator {
+  from { transform: translate(-2px, -50%); }
+  to { transform: translate(2px, -50%); }
 }
 
 @keyframes pulse {

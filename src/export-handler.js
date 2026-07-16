@@ -51,28 +51,8 @@ class ExportHandler {
       fileName.value = baseName + '.mp3';
     }
     if (dirInput) dirInput.value = this.exportDir || '';
-    if (info) {
-      const est = this.getEstimatedDuration();
-      info.textContent = est ? `预估时长: ${est}` : '';
-    }
+    if (info) info.textContent = '';
     dialog.classList.add('active');
-  }
-
-  getEstimatedDuration() {
-    try {
-      const content = window.app?.getContent?.();
-      const parser = window.app?.parser;
-      if (!content || !parser) return null;
-      const ast = parser.parse(content);
-      if (!ast.length) return null;
-      const queue = window.app?.playQueue?.buildQueue(ast);
-      if (!queue || !queue.length) return null;
-      const total = queue.reduce((sum, t) => sum + (t.estimatedDuration || 0), 0);
-      if (total <= 0) return null;
-      const mins = Math.floor(total / 60);
-      const secs = Math.floor(total % 60);
-      return `${mins}:${secs.toString().padStart(2, '0')}`;
-    } catch { return null; }
   }
 
   updateStatus(text) {

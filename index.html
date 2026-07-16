@@ -134,7 +134,6 @@
     <div id="statusBar" class="status-bar">
       <div class="status-left"><span id="statusText">就绪</span></div>
       <div class="status-right">
-        <span id="estimatedDuration"></span>
         <span id="currentFile">未保存</span>
       </div>
     </div>
@@ -200,6 +199,14 @@
         <button class="btn" id="unsavedDiscard">不保存</button>
         <button class="btn btn-primary" id="unsavedSave">保存</button>
       </div>
+    </div>
+  </div>
+
+  <div id="infoDialog" class="dialog">
+    <div class="dialog-content dialog-small">
+      <div class="dialog-header"><h2 id="infoDialogTitle">提示</h2><button class="dialog-close">&times;</button></div>
+      <div class="dialog-body" id="infoDialogBody"></div>
+      <div class="dialog-footer"><button class="btn btn-primary" id="infoDialogConfirm">确定</button></div>
     </div>
   </div>
 

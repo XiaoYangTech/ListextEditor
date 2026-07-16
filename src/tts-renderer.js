@@ -20,8 +20,7 @@ class TTSRenderer {
     }
 
     this.playQueue.onProgress = (info) => {
-      const est = this.playQueue.formatDuration(this.playQueue.getTotalEstimatedDuration());
-      this.app.updateStatus(`播放中 ${info.current + 1}/${info.total}  预估剩余 ${est}`);
+      this.app.updateStatus(`播放中 ${info.current + 1}/${info.total}`);
     };
 
     this.playQueue.onComplete = () => {
@@ -42,8 +41,10 @@ class TTSRenderer {
   }
 
   previewPlay() {
-    const content = this.app.getContent();
-    const ast = this.parser.parse(content);
+    // 积木模式直接使用带有 uiId 的 AST，避免重新解析代码后丢失块映射。
+    const ast = this.app.currentMode === 'block'
+      ? this.app.renderer.collectAST()
+      : this.parser.parse(this.app.getContent());
 
     if (ast.length === 0) {
       this.app.updateStatus('没有可播放的内容');
@@ -51,8 +52,7 @@ class TTSRenderer {
     }
 
     this.playQueue.play(ast);
-    const est = this.playQueue.formatDuration(this.playQueue.getTotalEstimatedDuration());
-    this.app.updateStatus(`开始播放...  预估时长 ${est}`);
+    this.app.updateStatus('开始播放...');
   }
 
   stopPlay() {
@@ -62,34 +62,22 @@ class TTSRenderer {
     document.querySelectorAll('.block.playing').forEach(el => el.classList.remove('playing'));
   }
 
-  updateEstimatedDuration() {
-    const el = document.getElementById('estimatedDuration');
-    if (!el) return;
-    try {
-      const content = this.app.getContent();
-      const ast = this.parser.parse(content);
-      if (!ast.length) { el.textContent = ''; return; }
-      const queue = this.playQueue.buildQueue(ast);
-      const total = queue.reduce((sum, t) => sum + (t.estimatedDuration || 0), 0);
-      if (total <= 0) { el.textContent = ''; return; }
-      const mins = Math.floor(total / 60);
-      const secs = Math.floor(total % 60);
-      el.textContent = `预估时长 ${mins}:${secs.toString().padStart(2, '0')}`;
-    } catch {
-      el.textContent = '';
-    }
-  }
-
   highlightCurrentBlock(node, highlight) {
     if (this.app.currentMode !== 'block') return;
     if (!node.uiId) return;
 
-    const block = document.getElementById('blockContainer').querySelector(`.block[data-id="${node.uiId}"]`);
+    const container = this.app.renderer?.container || document.getElementById('blockContainer');
+    const block = container?.querySelector(`.block[data-id="${node.uiId}"]`);
     if (!block) return;
 
     if (highlight) {
+      container.querySelectorAll('.block.playing').forEach(el => el.classList.remove('playing'));
       block.classList.add('playing');
-      block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const containerRect = container.getBoundingClientRect();
+      const blockRect = block.getBoundingClientRect();
+      const top = container.scrollTop + blockRect.top - containerRect.top
+        - (container.clientHeight - blockRect.height) / 2;
+      container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     } else {
       block.classList.remove('playing');
     }

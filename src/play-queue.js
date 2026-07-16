@@ -84,12 +84,11 @@ class PlayQueue {
         const rate = node.attrs?.rate ? parseFloat(node.attrs.rate) : this.ttsEngine.getRateForNode(node);
         return {
           type: 'tts', node, text: node.content || '', ttsType, roleId, voice, rate,
-          estimatedDuration: this.ttsEngine.estimateDuration(node.content || '', rate)
         };
       }
       case 'pause': {
         const duration = this.parsePause(node);
-        return { type: 'silence', node, duration, estimatedDuration: duration };
+        return { type: 'silence', node, duration };
       }
       case 'fx': {
         return {
@@ -98,7 +97,6 @@ class PlayQueue {
           effectId: node.attrs?.id || '',
           maxDuration: node.attrs?.dur ? parseInt(node.attrs.dur, 10) : null,
           fadeDuration: node.attrs?.fade ? parseInt(node.attrs.fade, 10) : null,
-          estimatedDuration: node.attrs?.dur ? parseInt(node.attrs.dur, 10) : 3
         };
       }
       case 'divider':
@@ -353,15 +351,6 @@ class PlayQueue {
     });
   }
 
-  getTotalEstimatedDuration() {
-    return this.queue.reduce((sum, task) => sum + (task.estimatedDuration || 0), 0);
-  }
-
-  formatDuration(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  }
 }
 
 if (typeof module !== 'undefined' && module.exports) {

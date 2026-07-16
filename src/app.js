@@ -29,7 +29,6 @@ class ListextEditor {
     this._baseBlockChangeHandler = () => {
       this.fileManager.markUnsaved();
       this.uiManager.refreshSectionJump();
-      this.ttsRenderer?.updateEstimatedDuration();
     };
     this.renderer.onChange(this._baseBlockChangeHandler);
   }
@@ -44,7 +43,7 @@ class ListextEditor {
     }, this.parser, {
       onInput: () => {
         this.fileManager.markUnsaved();
-        this.ttsRenderer?.updateEstimatedDuration();
+        this.syncCodeRolesToProject(this.codeEditor.getValue());
       }
     });
   }
@@ -104,6 +103,8 @@ class ListextEditor {
             }).join('\n');
             this.codeEditor.setValue(roleTags + '\n' + code);
           }
+          // 代码中的同 ID 角色是最终定义，立即同步回项目角色配置。
+          this.syncCodeRolesToProject(this.codeEditor.getValue());
         }
       }
     });
@@ -308,19 +309,14 @@ class ListextEditor {
     const tab = this.tabManager?.getActiveTab();
     if (!tab) return;
 
-    const existingRoles = tab.roles || [];
-    const existingMap = new Map(existingRoles.map(r => [r.id, r]));
-
-    for (const cr of codeRoles) {
-      if (!cr.id) continue;
-      if (!existingMap.has(cr.id)) {
-        existingRoles.push({ ...cr, source: 'code' });
-      }
-    }
-
-    tab.roles = existingRoles;
+    const codeRoleIds = new Set(codeRoles.map(r => r.id));
+    const configuredRoles = (tab.roles || []).filter(r => !codeRoleIds.has(r.id));
+    tab.roles = [
+      ...codeRoles.map(role => ({ ...role, source: 'code' })),
+      ...configuredRoles
+    ];
     if (window.electronAPI) {
-      window.electronAPI.setProjectRoles(existingRoles);
+      window.electronAPI.setProjectRoles(tab.roles);
     }
   }
 
@@ -373,7 +369,6 @@ class ListextEditor {
       this.codeEditor.refreshView();
     }
 
-    setTimeout(() => this.ttsRenderer?.updateEstimatedDuration(), 100);
   }
 
   clearEditor() {

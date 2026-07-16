@@ -462,7 +462,7 @@ class BlockRenderer {
         e.stopPropagation();
         const app = window.app;
         if (app && app.ttsRenderer) {
-          const nodeData = block._nodeData;
+          const nodeData = this.blockToNode(block);
           if (nodeData) {
             const ast = [nodeData];
             app.playQueue.stop();
@@ -482,7 +482,7 @@ class BlockRenderer {
           const allBlocks = this.collectAllBlocks();
           const idx = allBlocks.indexOf(block);
           if (idx >= 0) {
-            const nodes = allBlocks.slice(idx).map(b => b._nodeData).filter(Boolean);
+            const nodes = allBlocks.slice(idx).map(b => this.blockToNode(b)).filter(Boolean);
             if (nodes.length) {
               app.playQueue.stop();
               app.playQueue.play(nodes);
