@@ -1410,20 +1410,20 @@ body.toolbar-left .layout-align-btn {
 
 .home-brand {
   padding: 20px 20px 16px;
-  border-bottom: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid rgba(255,255,255,0.15);
 }
 
 .home-brand-title {
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 1px;
-  color: #1a1a2e;
+  color: #fff;
   margin-bottom: 6px;
 }
 
 .home-brand-sub {
   font-size: 11px;
-  color: rgba(0,0,0,0.45);
+  color: rgba(255,255,255,0.65);
 }
 
 .home-nav {
@@ -1438,18 +1438,18 @@ body.toolbar-left .layout-align-btn {
   padding: 11px 20px;
   cursor: pointer;
   font-size: 13px;
-  color: rgba(0,0,0,0.6);
+  color: rgba(255,255,255,0.8);
   transition: all 0.15s;
 }
 
 .home-nav-item:hover {
-  background: rgba(0,0,0,0.06);
-  color: #1a1a2e;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
 }
 
 .home-nav-item.active {
-  background: rgba(0,0,0,0.1);
-  color: #003d66;
+  background: rgba(255,255,255,0.18);
+  color: #fff;
 }
 
 .home-nav-item .material-icons {
