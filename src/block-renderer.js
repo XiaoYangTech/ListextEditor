@@ -53,9 +53,7 @@ class BlockRenderer {
         for (const e of effects) {
           if (e.id) this.effectLibrary[e.id] = e;
         }
-      } catch {
-        this.effectLibrary = {};
-      }
+      } catch (e) { console.error('加载音效库失败:', e); this.effectLibrary = {}; }
     }
   }
 
@@ -824,9 +822,12 @@ class BlockRenderer {
   restoreFromHistory() {
     const snapshot = this.history[this.historyIndex] || '';
     this.isRestoring = true;
-    const ast = snapshot ? this.parser.parse(snapshot) : [];
-    this.render(ast);
-    this.isRestoring = false;
+    try {
+      const ast = snapshot ? this.parser.parse(snapshot) : [];
+      this.render(ast);
+    } finally {
+      this.isRestoring = false;
+    }
   }
 
   selectSingleBlock(block) {
@@ -1280,7 +1281,7 @@ class BlockRenderer {
       try {
         const data = await window.electronAPI.getProjectData();
         return data?.roles || [];
-      } catch {}
+      } catch (e) { console.error('scrollToBlockId failed:', e); }
     }
     return [];
   }

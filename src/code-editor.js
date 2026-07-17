@@ -32,13 +32,14 @@ class CodeEditor {
     if (this.localVoices.length) return;
     if (window.electronAPI?.platform !== 'win32') return;
     if (!('speechSynthesis' in window)) return;
-    try { speechSynthesis.getVoices(); } catch {}
+    try { speechSynthesis.getVoices(); } catch { /* ignored */ }
     const finish = (voices) => {
       this.localVoices = Array.from(voices || []).filter(v => v.localService).map(v => v.name);
     };
     const immediate = speechSynthesis.getVoices();
     if (immediate.length) { finish(immediate); return; }
-    speechSynthesis.onvoiceschanged = () => finish(speechSynthesis.getVoices());
+    const handler = () => { speechSynthesis.removeEventListener('voiceschanged', handler); finish(speechSynthesis.getVoices()); };
+    speechSynthesis.addEventListener('voiceschanged', handler);
     setTimeout(() => finish(speechSynthesis.getVoices()), 3000);
   }
 
@@ -48,7 +49,7 @@ class CodeEditor {
       const data = await window.electronAPI.getProjectData();
       if (data?.effects) this.projectEffects = data.effects;
       if (data?.roles) this.projectRoles = data.roles;
-    } catch {}
+      } catch (e) { console.error('syncFromIPC failed:', e); }
   }
 
   init() {

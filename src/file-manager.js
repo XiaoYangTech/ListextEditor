@@ -86,11 +86,12 @@ class FileManager {
   getLocalVoices() {
     return new Promise(resolve => {
       if (!('speechSynthesis' in window)) { resolve([]); return; }
-      try { speechSynthesis.getVoices(); } catch {}
+      try { speechSynthesis.getVoices(); } catch { /* ignored */ }
       const finish = (voices) => resolve(Array.from(voices || []).filter(v => v.localService));
       const immediate = speechSynthesis.getVoices();
       if (immediate.length) { finish(immediate); return; }
-      speechSynthesis.onvoiceschanged = () => finish(speechSynthesis.getVoices());
+      const handler = () => { speechSynthesis.removeEventListener('voiceschanged', handler); finish(speechSynthesis.getVoices()); };
+      speechSynthesis.addEventListener('voiceschanged', handler);
       setTimeout(() => finish(speechSynthesis.getVoices()), 3000);
     });
   }

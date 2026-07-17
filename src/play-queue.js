@@ -268,7 +268,7 @@ class PlayQueue {
         }
         setTimeout(() => {
           if (!resolved) {
-            try { audio.pause(); } catch {}
+            try { audio.pause(); } catch (e) { console.error('音频暂停失败:', e); }
             done();
           }
         }, total);

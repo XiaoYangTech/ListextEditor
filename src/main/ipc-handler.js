@@ -299,7 +299,7 @@ function registerIpcHandlers() {
         try {
           if (fs.lstatSync(p).isDirectory()) fs.rmSync(p, { recursive: true, force: true });
           else fs.unlinkSync(p);
-        } catch {}
+        } catch (e) { console.error('清理临时文件失败:', e); }
       });
     }
     return { success: true };

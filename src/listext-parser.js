@@ -12,6 +12,7 @@ class ListextParser {
   }
 
   parse(text) {
+    if (text == null) return [];
     const ast = [];
     let pos = 0;
     while (pos < text.length) {
@@ -27,8 +28,17 @@ class ListextParser {
   }
 
   parseNode(text, pos) {
+    if (text == null) return null;
     while (pos < text.length && /\s/.test(text[pos])) pos++;
     if (pos >= text.length) return null;
+
+    if (text.startsWith('</', pos)) {
+      const closeTag = text.slice(pos).match(/^<\/([a-zA-Z]+)>/);
+      if (closeTag) {
+        pos += closeTag[0].length;
+        return { node: { type: 'text', content: '' }, pos };
+      }
+    }
 
     if (text.startsWith('<!--', pos)) {
       const commentEnd = text.indexOf('-->', pos);
@@ -101,11 +111,11 @@ class ListextParser {
 
   parseAttributes(attrStr) {
     const attrs = {};
-    const attrRegex = /(\w+)(?:=(?:"([^"]*)"|(\S+)))?/g;
+    const attrRegex = /(\w+)(?:=(?:"([^"]*)"|'([^']*)'|(\S+)))?/g;
     let match;
     while ((match = attrRegex.exec(attrStr)) !== null) {
       const name = match[1];
-      const value = match[2] !== undefined ? match[2] : (match[3] !== undefined ? match[3] : true);
+      const value = match[2] !== undefined ? match[2] : (match[3] !== undefined ? match[3] : (match[4] !== undefined ? match[4] : true));
       attrs[name] = value;
     }
     return attrs;
@@ -120,8 +130,9 @@ class ListextParser {
   }
 
   stringify(ast, indent = 0) {
+    if (!ast) return '';
     let result = '';
-    const indentStr = '  '.repeat(indent);
+    const indentStr = '  '.repeat(Math.max(0, indent));
 
     for (const node of ast) {
       if (node.type === 'comment') {
@@ -157,8 +168,9 @@ class ListextParser {
   }
 
   parseRoleDefsFromCode(text) {
+    if (!text) return [];
     const roles = [];
-    const regex = /<role\s+([^>]+)\/?>/gi;
+    const regex = /<role\b([^>]*)\/?>/gi;
     let m;
     while ((m = regex.exec(text || '')) !== null) {
       const attrs = {};
@@ -181,6 +193,7 @@ class ListextParser {
   }
 
   validate(text) {
+    if (text == null) return [];
     const errors = [];
     const stack = [];
     const tagRegex = /<\/?([a-zA-Z]+)([^>]*)>/g;
@@ -210,7 +223,7 @@ class ListextParser {
     }
 
     if (stack.length > 0) {
-      errors.push({ line: text.split('\n').length, message: `未闭合的标签: <${stack.join('>, <')}>` });
+      errors.push({ line: (text || '').split('\n').length, message: `未闭合的标签: <${stack.join('>, <')}>` });
     }
 
     return errors;

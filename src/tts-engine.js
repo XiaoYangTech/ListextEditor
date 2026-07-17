@@ -75,7 +75,10 @@ class TTSEngine {
     return new Promise((resolve) => {
       const voices = speechSynthesis.getVoices();
       if (voices.length > 0) resolve(voices);
-      else speechSynthesis.onvoiceschanged = () => resolve(speechSynthesis.getVoices());
+      else {
+        const handler = () => { speechSynthesis.removeEventListener('voiceschanged', handler); resolve(speechSynthesis.getVoices()); };
+        speechSynthesis.addEventListener('voiceschanged', handler);
+      }
     });
   }
 

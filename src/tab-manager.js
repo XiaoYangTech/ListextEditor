@@ -79,7 +79,7 @@ class TabManager {
   }
 
   setBannerImage(url) {
-    localStorage.setItem('bannerImage', url || '');
+    try { localStorage.setItem('bannerImage', url || ''); } catch (e) { console.error('保存横幅图片失败:', e); }
     this.applyBannerImage();
   }
 
@@ -106,7 +106,7 @@ class TabManager {
       if (list.length > 20) list = list.slice(0, 20);
       localStorage.setItem('recentProjects', JSON.stringify(list));
       this.renderRecentProjects();
-    } catch {}
+    } catch (e) { console.error('记录最近工程失败:', e); }
   }
 
   renderRecentProjects() {
@@ -146,7 +146,7 @@ class TabManager {
           this.removeRecentProject(path);
         });
       });
-    } catch {}
+    } catch (e) { console.error('渲染最近工程失败:', e); }
   }
 
   openRecentProject(filePath) {
@@ -189,7 +189,7 @@ class TabManager {
         let list = JSON.parse(localStorage.getItem('recentProjects') || '[]');
         list = list.filter(p => p.path !== filePath);
         localStorage.setItem('recentProjects', JSON.stringify(list));
-      } catch {}
+      } catch (e) { console.error('读取最近工程失败:', e); }
 
       if (action === 'delete-file') {
         if (window.electronAPI?.deleteFile) {
@@ -419,12 +419,18 @@ class TabManager {
     if (!tab) return;
     tab.content = this.editor.getContent();
     tab.mode = this.editor.currentMode;
+    tab.roles = this.editor.codeEditor?.projectRoles || tab.roles || [];
+    tab.effects = this.editor.codeEditor?.projectEffects || tab.effects || [];
   }
 
   restoreEditorStateFromTab(tab) {
     if (!tab) return;
     this.editor.setContent(tab.content || '', tab.mode || 'block');
     this.editor.updateStatusForTab(tab);
+    if (this.editor.codeEditor) {
+      this.editor.codeEditor.projectRoles = tab.roles || [];
+      this.editor.codeEditor.projectEffects = tab.effects || [];
+    }
   }
 
   renderTabs() {

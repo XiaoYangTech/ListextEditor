@@ -224,7 +224,9 @@ class ListextEditor {
     this.codeEditor.projectRoles = projectData.roles || [];
     this.codeEditor.projectEffects = projectData.effects || [];
     if (window.electronAPI) {
+      const reqTabId = this.tabManager?.activeTabId;
       window.electronAPI.getProjectData().then(data => {
+        if (this.tabManager?.activeTabId !== reqTabId) return;
         if (data?.effects) this.codeEditor.projectEffects = data.effects;
         if (data?.roles) this.codeEditor.projectRoles = data.roles;
       }).catch(() => {});
@@ -239,7 +241,7 @@ class ListextEditor {
       clearTimeout(this._syncTimer);
       this._syncTimer = setTimeout(() => {
         this._isSyncing = true;
-        try { this.syncBlocksToCode(); } catch {}
+        try { this.syncBlocksToCode(); } catch (e) { console.error('split sync blocks→code failed:', e); }
         this._isSyncing = false;
       }, 200);
     };
@@ -253,7 +255,7 @@ class ListextEditor {
       clearTimeout(this._syncTimer);
       this._syncTimer = setTimeout(() => {
         this._isSyncing = true;
-        try { this.syncCodeToBlocks(); } catch {}
+        try { this.syncCodeToBlocks(); } catch (e) { console.error('split sync code→blocks failed:', e); }
         this._isSyncing = false;
       }, 200);
     };

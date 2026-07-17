@@ -26,7 +26,7 @@ function readPackageMeta() {
         description: pkg.description || '',
         author: typeof pkg.author === 'string' ? pkg.author : (pkg.author?.name || '')
       };
-    } catch (_) {}
+    } catch (e) { console.warn('读取package.json失败:', e); }
   }
 
   return {
@@ -89,7 +89,12 @@ function createMainWindow() {
 
     mainWindow.webContents.send('request-close-check');
 
+    const closeTimeout = setTimeout(() => {
+      mainWindow.destroy();
+    }, 5000);
+
     ipcMain.once('close-check-result', (event, shouldClose) => {
+      clearTimeout(closeTimeout);
       if (shouldClose) {
         mainWindow.destroy();
       } else {

@@ -164,7 +164,7 @@ class UIManager {
     btn.addEventListener('click', () => {
       const next = !document.body.classList.contains('toolbar-left');
       apply(next);
-      localStorage.setItem('toolbarAlign', next ? 'left' : 'center');
+      try { localStorage.setItem('toolbarAlign', next ? 'left' : 'center'); } catch (e) { console.error('保存工具栏位置失败:', e); }
     });
   }
 
@@ -332,7 +332,7 @@ class UIManager {
         try {
           const data = await window.electronAPI.getProjectData();
           effects = data?.effects || [];
-        } catch {}
+        } catch (e) { console.error('获取项目音效失败:', e); }
         this._effectDialogEffects = effects;
         const groups = [...new Set(effects.map(e => e.group || '未分组'))].filter(Boolean);
         if (effectGroupSelect) {
@@ -358,7 +358,7 @@ class UIManager {
       try {
         const data = await window.electronAPI.getProjectData();
         effects = data?.effects || [];
-      } catch {}
+      } catch (e) { console.error('获取项目音效失败:', e); }
     }
 
     this._effectDialogEffects = effects;
