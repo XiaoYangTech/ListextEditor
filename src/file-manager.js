@@ -248,12 +248,7 @@ class FileManager {
     const dirty = tab.isDirty ? ' *' : '';
     if (this.app.uiManager?.currentFileEl) this.app.uiManager.currentFileEl.textContent = `${name}${dirty}`;
     this.app.updateStatus(tab.isDirty ? '有未保存更改' : '就绪');
-    if (window.electronAPI && typeof require !== 'undefined') {
-      try {
-        const { getCurrentWindow } = require('@electron/remote') || {};
-        if (getCurrentWindow) getCurrentWindow().setTitle(`${name}${dirty} - 亿方听力大师`);
-      } catch {}
-    }
+    // Window title is managed by main process; no update needed here
   }
 
   async saveSpecificTab(tabId) {

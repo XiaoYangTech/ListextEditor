@@ -1,5 +1,4 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
-app.commandLine.appendSwitch('no-sandbox');
 const path = require('path');
 const { createMainWindow, getMainWindow } = require('./src/main/window-manager');
 const { registerIpcHandlers } = require('./src/main/ipc-handler');

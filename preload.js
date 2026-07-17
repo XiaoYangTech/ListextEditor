@@ -130,5 +130,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setProjectEffects: (effects) => ipcRenderer.invoke('set-project-effects', effects),
   setProjectRoles: (roles) => ipcRenderer.invoke('set-project-roles', roles),
   onProjectEffectsChanged: (callback) => ipcRenderer.on('project-effects-changed', (event, effects) => callback(effects)),
-  onProjectRolesChanged: (callback) => ipcRenderer.on('project-roles-changed', (event, roles) => callback(roles))
+  onProjectRolesChanged: (callback) => ipcRenderer.on('project-roles-changed', (event, roles) => callback(roles)),
 });
