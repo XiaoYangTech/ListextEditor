@@ -5,7 +5,6 @@ class ListextEditor {
     this.ttsEngine = new TTSEngine();
     this.playQueue = new PlayQueue(this.ttsEngine, this.parser);
     this.currentMode = 'block';
-    this.originalCode = '';
     this._isSyncing = false;
     this._syncTimer = null;
 
@@ -22,6 +21,17 @@ class ListextEditor {
     this.exportHandler = new ExportHandler(window.electronAPI, (text) => this.updateStatus(text));
     this.ttsRenderer = new TTSRenderer(this, this.playQueue, this.parser);
     this.initElectronEvents();
+    this.initHomePage();
+  }
+
+  initHomePage() {
+    const el = document.getElementById('homePlatformInfo');
+    if (!el) return;
+    const api = window.electronAPI || {};
+    const platformMap = { win32: 'Windows', darwin: 'macOS' };
+    const os = platformMap[api.platform] || 'Linux';
+    const arch = api.arch || 'x64';
+    el.textContent = `v1.1.0 · ${os} ${arch}`;
   }
 
   initBlockRenderer() {
@@ -223,7 +233,6 @@ class ListextEditor {
   }
 
   startSplitSync() {
-    this.originalCode = '';
     const baseHandler = this._baseBlockChangeHandler;
     this._splitBlockHandler = () => {
       if (this._isSyncing) return;
@@ -265,36 +274,30 @@ class ListextEditor {
   }
 
   syncBlocksToCode() {
-    if (this.originalCode) {
-      this.codeEditor.setValue(this.originalCode);
-      this.originalCode = '';
-    } else {
-      const ast = this.renderer.collectAST();
-      let code = this.parser.stringify(ast).trim();
+    const ast = this.renderer.collectAST();
+    let code = this.parser.stringify(ast).trim();
 
-      const tab = this.tabManager?.getActiveTab();
-      const projectRoles = tab?.roles || [];
-      const codeRoles = this.parser.parseRoleDefsFromCode(code);
-      const codeRoleIds = new Set(codeRoles.map(r => r.id));
+    const tab = this.tabManager?.getActiveTab();
+    const projectRoles = tab?.roles || [];
+    const codeRoles = this.parser.parseRoleDefsFromCode(code);
+    const codeRoleIds = new Set(codeRoles.map(r => r.id));
 
-      const missingRoles = projectRoles.filter(r => !codeRoleIds.has(r.id));
-      if (missingRoles.length) {
-        const roleTags = missingRoles.map(r => {
-          const attrs = [`id="${r.id || ''}"`, `name="${r.name || r.id || ''}"`];
-          if (r.type) attrs.push(`type="${r.type}"`);
-          if (r.voice) attrs.push(`voice="${r.voice}"`);
-          return `<role ${attrs.join(' ')}>`;
-        }).join('\n');
-        code = roleTags + '\n' + code;
-      }
-
-      this.codeEditor.setValue(code);
+    const missingRoles = projectRoles.filter(r => !codeRoleIds.has(r.id));
+    if (missingRoles.length) {
+      const roleTags = missingRoles.map(r => {
+        const attrs = [`id="${r.id || ''}"`, `name="${r.name || r.id || ''}"`];
+        if (r.type) attrs.push(`type="${r.type}"`);
+        if (r.voice) attrs.push(`voice="${r.voice}"`);
+        return `<role ${attrs.join(' ')}>`;
+      }).join('\n');
+      code = roleTags + '\n' + code;
     }
+
+    this.codeEditor.setValue(code);
   }
 
   syncCodeToBlocks() {
     const code = this.codeEditor.getValue();
-    this.originalCode = code;
     const ast = this.parser.parse(code);
     this.renderer.render(ast);
     this.uiManager.refreshSectionJump();

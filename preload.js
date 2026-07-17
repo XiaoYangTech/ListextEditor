@@ -124,6 +124,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectAudioFile: () => ipcRenderer.invoke('select-audio-file'),
   selectExportPath: () => ipcRenderer.invoke('select-export-path'),
   platform: process.platform,
+  arch: process.arch,
 
   getProjectData: () => ipcRenderer.invoke('get-project-data'),
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),

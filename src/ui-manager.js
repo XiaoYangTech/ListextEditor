@@ -261,7 +261,7 @@ class UIManager {
     } else if (type === 'repeat') {
       editor.insertCodeAtCursor('<repeat count="2">\n  \n</repeat>', -4);
     } else if (type === 'section') {
-      editor.insertCodeAtCursor('<section title="分节标题">\n  \n</section>', -4);
+      editor.insertCodeAtCursor('<section title="分节标题">');
     } else if (type === 'divider') {
       editor.insertCodeAtCursor('<divider>');
     }

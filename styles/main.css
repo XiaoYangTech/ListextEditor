@@ -1401,8 +1401,8 @@ body.toolbar-left .layout-align-btn {
 
 .home-sidebar {
   width: 200px;
-  background: #1a1a2e;
-  color: #e0e0e0;
+  background: linear-gradient(180deg, #66ccff 0%, #4db8f0 30%, #3399dd 100%);
+  color: #fff;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -1410,20 +1410,20 @@ body.toolbar-left .layout-align-btn {
 
 .home-brand {
   padding: 20px 20px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
 }
 
 .home-brand-title {
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 1px;
-  color: #fff;
+  color: #1a1a2e;
   margin-bottom: 6px;
 }
 
 .home-brand-sub {
   font-size: 11px;
-  color: rgba(255,255,255,0.4);
+  color: rgba(0,0,0,0.45);
 }
 
 .home-nav {
@@ -1438,18 +1438,18 @@ body.toolbar-left .layout-align-btn {
   padding: 11px 20px;
   cursor: pointer;
   font-size: 13px;
-  color: rgba(255,255,255,0.6);
+  color: rgba(0,0,0,0.6);
   transition: all 0.15s;
 }
 
 .home-nav-item:hover {
-  background: rgba(255,255,255,0.06);
-  color: #fff;
+  background: rgba(0,0,0,0.06);
+  color: #1a1a2e;
 }
 
 .home-nav-item.active {
-  background: rgba(25, 118, 210, 0.25);
-  color: #42A5F5;
+  background: rgba(0,0,0,0.1);
+  color: #003d66;
 }
 
 .home-nav-item .material-icons {
@@ -1534,7 +1534,6 @@ body.toolbar-left .layout-align-btn {
 
 .home-banner {
   --banner-image: none;
-  --banner-gradient: linear-gradient(135deg, #1a237e 0%, #1976D2 40%, #512DA8 100%);
   position: relative;
   border-radius: 12px;
   overflow: hidden;
@@ -1542,7 +1541,7 @@ body.toolbar-left .layout-align-btn {
   margin-bottom: 20px;
   color: #fff;
   min-height: 120px;
-  background: var(--banner-gradient);
+  background: #e0e0e0;
 }
 
 .home-banner-bg {
@@ -1557,6 +1556,25 @@ body.toolbar-left .layout-align-btn {
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.4) 100%);
+}
+
+.home-banner-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  inset: 0;
+  border: 2px dashed rgba(255,255,255,0.3);
+  border-radius: 12px;
+  color: rgba(255,255,255,0.5);
+  font-size: 14px;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.home-banner-placeholder .material-icons {
+  font-size: 36px;
 }
 
 .home-section {

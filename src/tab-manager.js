@@ -85,14 +85,15 @@ class TabManager {
 
   applyBannerImage() {
     const banner = document.getElementById('homeBanner');
+    const placeholder = document.getElementById('homeBannerPlaceholder');
     if (!banner) return;
     const url = localStorage.getItem('bannerImage') || '';
     if (url) {
       banner.style.setProperty('--banner-image', `url(${url})`);
-      banner.style.setProperty('--banner-gradient', 'none');
+      if (placeholder) placeholder.style.display = 'none';
     } else {
       banner.style.setProperty('--banner-image', 'none');
-      banner.style.setProperty('--banner-gradient', 'linear-gradient(135deg, #1a237e 0%, #1976D2 40%, #512DA8 100%)');
+      if (placeholder) placeholder.style.display = 'flex';
     }
   }
 
