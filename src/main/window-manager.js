@@ -182,8 +182,6 @@ function createMenu() {
     {
       label: '工具',
       submenu: [
-        { id: 'tools-effects', label: '音效管理器', click: () => openEffectManager() },
-        { id: 'tools-roles', label: '角色管理器', click: () => openRoleManager() },
         { id: 'tools-settings', label: '设置', click: () => openSettingsWindow() },
         { type: 'separator' },
         { id: 'tools-preview', label: '预览播放', accelerator: 'F5', click: () => sendToMain('preview-play') },
@@ -250,7 +248,7 @@ function buildChildWindow(options) {
 
 function openEffectManager() {
   if (effectManagerWindow && !effectManagerWindow.isDestroyed()) return effectManagerWindow.focus();
-  effectManagerWindow = buildChildWindow({ width: 860, height: 680, title: '音效管理器' });
+  effectManagerWindow = buildChildWindow({ modal: true, parent: mainWindow, width: 860, height: 680, title: '音效管理器' });
   effectManagerWindow.loadFile('pages/effects-manager.html');
   effectManagerWindow.setMenu(null);
   effectManagerWindow.setMenuBarVisibility(false);
@@ -259,7 +257,7 @@ function openEffectManager() {
 
 function openRoleManager() {
   if (roleManagerWindow && !roleManagerWindow.isDestroyed()) return roleManagerWindow.focus();
-  roleManagerWindow = buildChildWindow({ width: 760, height: 680, title: '角色管理器' });
+  roleManagerWindow = buildChildWindow({ modal: true, parent: mainWindow, width: 760, height: 680, title: '角色管理器' });
   roleManagerWindow.loadFile('pages/role-manager.html');
   roleManagerWindow.setMenu(null);
   roleManagerWindow.setMenuBarVisibility(false);
