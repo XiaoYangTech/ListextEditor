@@ -305,6 +305,7 @@ class TabManager {
       this.showHomePage(false);
       if (newTab) this.restoreEditorStateFromTab(newTab);
       window.getSelection()?.removeAllRanges();
+      window.electronAPI?.sendTabContext?.(false);
     }
 
     this.renderTabs();
@@ -315,8 +316,8 @@ class TabManager {
     if (this.homePage) this.homePage.style.display = show ? 'flex' : 'none';
     if (this.editorPanel) this.editorPanel.style.display = show ? 'none' : 'flex';
     if (show) {
-      this.editor.currentMode = 'block';
       this.renderRecentProjects();
+      window.electronAPI?.sendTabContext?.(true);
     }
   }
 
@@ -336,6 +337,10 @@ class TabManager {
 
     const index = this.tabs.indexOf(tab);
     this.tabs.splice(index, 1);
+
+    if (tab.filePath && window.electronAPI?.releaseFileLock) {
+      try { window.electronAPI.releaseFileLock(tab.filePath); } catch (e) { console.error('释放文件锁失败:', e); }
+    }
 
     if (this.activeTabId === id) {
       if (this.tabs.length > 1) {

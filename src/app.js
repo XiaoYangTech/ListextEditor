@@ -62,15 +62,25 @@ class ListextEditor {
     if (!window.electronAPI) return;
 
     window.electronAPI.onMenuNew(() => this.fileManager.newFile());
-    window.electronAPI.onMenuSave(() => this.fileManager.saveFile());
-    window.electronAPI.onSaveAs(async (filePath) => await this.fileManager.saveFileAs(filePath));
+    window.electronAPI.onMenuSave(() => {
+      if (this.isHomeActive()) return;
+      this.fileManager.saveFile();
+    });
+    window.electronAPI.onSaveAs(async (filePath) => {
+      if (this.isHomeActive()) return;
+      await this.fileManager.saveFileAs(filePath);
+    });
     window.electronAPI.onMenuOpenProject(async (filePath) => {
       await this.fileManager.openProjectByPath(filePath);
     });
 
-    window.electronAPI.onPreviewPlay(() => this.ttsRenderer.previewPlay());
+    window.electronAPI.onPreviewPlay(() => {
+      if (this.isHomeActive()) return;
+      this.ttsRenderer.previewPlay();
+    });
     window.electronAPI.onStopPlay(() => this.ttsRenderer.stopPlay());
     window.electronAPI.onExportAudio(() => {
+      if (this.isHomeActive()) return;
       this.exportHandler.showExportDialog();
     });
 
@@ -78,7 +88,10 @@ class ListextEditor {
     window.electronAPI.onShowRoleManager(() => this.uiManager.openRoleManager());
     window.electronAPI.onShowSettings(() => this.uiManager.showSettingsDialog());
 
-    window.electronAPI.onMenuEdit((action) => this.handleEditAction(action));
+    window.electronAPI.onMenuEdit((action) => {
+      if (this.isHomeActive()) return;
+      this.handleEditAction(action);
+    });
 
     window.electronAPI.onProjectEffectsChanged((effects) => {
       const tab = this.tabManager?.getActiveTab();
@@ -421,6 +434,10 @@ class ListextEditor {
     if (!el) return false;
     const tag = el.tagName;
     return tag === 'TEXTAREA' || tag === 'INPUT' || el.isContentEditable;
+  }
+
+  isHomeActive() {
+    return this.tabManager?.getActiveTab()?.isHome === true;
   }
 
   handleEditAction(action) {

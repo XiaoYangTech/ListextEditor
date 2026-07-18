@@ -165,18 +165,11 @@ class SettingsManager {
   }
 
   async saveShortcuts() {
-    if (!this.checkConflicts()) {
-      this.setStatus('存在快捷键冲突，无法保存');
-      return;
-    }
+    if (!this.checkConflicts()) return;
 
-    if (!window.electronAPI?.saveShortcuts) {
-      this.setStatus('保存成功（本地）');
-      return;
-    }
+    if (!window.electronAPI?.saveShortcuts) return;
 
-    const result = await window.electronAPI.saveShortcuts(this.shortcuts);
-    this.setStatus(result?.success ? '快捷键已保存' : '保存失败');
+    await window.electronAPI.saveShortcuts(this.shortcuts);
   }
 
   resetShortcuts() {
@@ -184,7 +177,6 @@ class SettingsManager {
     this.renderShortcuts();
     const warning = document.getElementById('conflict-warning');
     warning.style.display = 'none';
-    this.setStatus('已恢复默认快捷键');
   }
 
   async loadProxy() {
@@ -196,13 +188,11 @@ class SettingsManager {
     
     if (proxyMode) proxyMode.value = settings?.proxyMode || 'system';
     if (proxyUrl) proxyUrl.value = settings?.proxyUrl || '';
+    this.toggleProxyUrl();
   }
 
   async saveProxy() {
-    if (!window.electronAPI?.saveSettings) {
-      this.setStatus('保存成功（本地）');
-      return;
-    }
+    if (!window.electronAPI?.saveSettings) return;
 
     const current = await window.electronAPI.getSettings();
     const payload = {
@@ -211,8 +201,7 @@ class SettingsManager {
       proxyUrl: document.getElementById('proxyUrl')?.value.trim() || ''
     };
     
-    const result = await window.electronAPI.saveSettings(payload);
-    this.setStatus(result?.success ? '代理设置已保存' : '保存失败');
+    await window.electronAPI.saveSettings(payload);
   }
 
   bindEvents() {
@@ -221,12 +210,17 @@ class SettingsManager {
 
     document.getElementById('btnSaveProxy')?.addEventListener('click', () => this.saveProxy());
     document.getElementById('btnReloadProxy')?.addEventListener('click', () => this.loadProxy());
+
+    document.getElementById('proxyMode')?.addEventListener('change', () => this.toggleProxyUrl());
   }
 
-  setStatus(text) {
-    const status = document.getElementById('status');
-    if (status) status.textContent = text;
+  toggleProxyUrl() {
+    const mode = document.getElementById('proxyMode')?.value;
+    const group = document.getElementById('proxyUrlGroup');
+    if (group) group.style.display = mode === 'manual' ? '' : 'none';
   }
+
+  setStatus(text) { /* deprecated — removed */ }
 }
 
 window.addEventListener('DOMContentLoaded', () => {

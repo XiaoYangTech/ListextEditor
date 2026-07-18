@@ -34,6 +34,7 @@
   "dependencies": {
     "adm-zip": "^0.5.18",
     "ffmpeg-static": "^5.3.0",
+    "fs-native-extensions": "^1.5.0",
     "material-icons": "^1.13.14",
     "msedge-tts": "^2.0.7",
     "uuid": "^9.0.1"
@@ -48,10 +49,10 @@
     "files": [
       "main.js",
       "preload.js",
-      "index.html",
-      "effects-manager.html",
-      "role-manager.html",
-      "settings.html",
+      "pages/index.html",
+      "pages/effects-manager.html",
+      "pages/role-manager.html",
+      "pages/settings.html",
       "src/**/*",
       "styles/**/*",
       "assets/default-sounds/**/*",

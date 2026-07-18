@@ -1401,7 +1401,7 @@ body.toolbar-left .layout-align-btn {
 
 .home-sidebar {
   width: 200px;
-  background: linear-gradient(180deg, #66ccff 0%, #4db8f0 30%, #3399dd 100%);
+  background: #1976D2;
   color: #fff;
   display: flex;
   flex-direction: column;

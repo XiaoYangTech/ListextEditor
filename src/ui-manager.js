@@ -491,10 +491,11 @@ class UIManager {
       const inBlockMode = this.app.currentMode === 'block' && this.app.renderer;
       const textActive = this.app.isTextInputActive();
       const codeEditorActive = document.activeElement === this.app.codeEditor?.editor;
+      const isHome = this.app.tabManager?.getActiveTab()?.isHome === true;
 
       if (this.matchShortcut(e, this.shortcuts.save)) {
         e.preventDefault();
-        this.app.fileManager.saveFile();
+        if (!isHome) this.app.fileManager.saveFile();
         return;
       }
 
@@ -503,6 +504,8 @@ class UIManager {
         this.app.switchMode(this.app.currentMode === 'block' ? 'code' : 'block');
         return;
       }
+
+      if (isHome) return;
 
       if (this.matchShortcut(e, this.shortcuts.openEffects)) {
         e.preventDefault();

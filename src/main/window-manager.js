@@ -74,7 +74,7 @@ function createMainWindow() {
     title: getAppTitle()
   });
 
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile('pages/index.html');
 
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.setTitle(getAppTitle());
@@ -114,6 +114,20 @@ function createMainWindow() {
   return mainWindow;
 }
 
+let menuItems = {};
+
+function setMenuContext(isHome) {
+  const editItems = ['edit-undo', 'edit-redo', 'edit-cut', 'edit-copy', 'edit-paste', 'edit-select-all'];
+  const fileItems = ['file-save', 'file-save-as', 'file-export'];
+  const toolItems = ['tools-preview', 'tools-stop'];
+
+  const targets = isHome ? [...editItems, ...fileItems, ...toolItems] : [...editItems, ...fileItems, ...toolItems];
+  for (const id of targets) {
+    const item = menuItems[id];
+    if (item) item.enabled = !isHome;
+  }
+}
+
 function createMenu() {
   const sendEditAction = (action) => sendToMain('menu-edit', action);
 
@@ -121,9 +135,9 @@ function createMenu() {
     {
       label: '文件',
       submenu: [
-        { label: '新建', accelerator: 'CmdOrCtrl+Shift+N', click: () => sendToMain('menu-new') },
+        { id: 'file-new', label: '新建', accelerator: 'CmdOrCtrl+Shift+N', click: () => sendToMain('menu-new') },
         {
-          label: '打开项目', accelerator: 'CmdOrCtrl+O', click: async () => {
+          id: 'file-open', label: '打开项目', accelerator: 'CmdOrCtrl+O', click: async () => {
             const owner = getMainTargetWindow() || mainWindow;
             const result = await dialog.showOpenDialog(owner, {
               filters: [{ name: 'Listext Project', extensions: ['lstx'] }],
@@ -132,9 +146,9 @@ function createMenu() {
             if (!result.canceled && result.filePaths.length > 0) sendToMain('menu-open-project', result.filePaths[0]);
           }
         },
-        { label: '保存项目', accelerator: 'CmdOrCtrl+S', click: () => sendToMain('menu-save') },
+        { id: 'file-save', label: '保存项目', accelerator: 'CmdOrCtrl+S', click: () => sendToMain('menu-save') },
         {
-          label: '项目另存为', accelerator: 'CmdOrCtrl+Shift+S', click: async () => {
+          id: 'file-save-as', label: '项目另存为', accelerator: 'CmdOrCtrl+Shift+S', click: async () => {
             const owner = getMainTargetWindow() || mainWindow;
             const result = await dialog.showSaveDialog(owner, {
               filters: [{ name: 'Listext Project', extensions: ['lstx'] }],
@@ -145,44 +159,44 @@ function createMenu() {
         },
         { type: 'separator' },
         {
-          label: '导出音频', accelerator: 'CmdOrCtrl+E', click: () => {
+          id: 'file-export', label: '导出音频', accelerator: 'CmdOrCtrl+E', click: () => {
             sendToMain('export-audio');
           }
         },
         { type: 'separator' },
-        { role: 'quit', label: '退出' }
+        { id: 'file-quit', role: 'quit', label: '退出' }
       ]
     },
     {
       label: '编辑',
       submenu: [
-        { label: '撤销', accelerator: 'CmdOrCtrl+Z', click: () => sendEditAction('undo') },
-        { label: '重做', accelerator: 'CmdOrCtrl+Shift+Z', click: () => sendEditAction('redo') },
+        { id: 'edit-undo', label: '撤销', accelerator: 'CmdOrCtrl+Z', click: () => sendEditAction('undo') },
+        { id: 'edit-redo', label: '重做', accelerator: 'CmdOrCtrl+Shift+Z', click: () => sendEditAction('redo') },
         { type: 'separator' },
-        { label: '剪切', accelerator: 'CmdOrCtrl+X', click: () => sendEditAction('cut') },
-        { label: '复制', accelerator: 'CmdOrCtrl+C', click: () => sendEditAction('copy') },
-        { label: '粘贴', accelerator: 'CmdOrCtrl+V', click: () => sendEditAction('paste') },
-        { label: '全选', accelerator: 'CmdOrCtrl+A', click: () => sendEditAction('selectAll') }
+        { id: 'edit-cut', label: '剪切', accelerator: 'CmdOrCtrl+X', click: () => sendEditAction('cut') },
+        { id: 'edit-copy', label: '复制', accelerator: 'CmdOrCtrl+C', click: () => sendEditAction('copy') },
+        { id: 'edit-paste', label: '粘贴', accelerator: 'CmdOrCtrl+V', click: () => sendEditAction('paste') },
+        { id: 'edit-select-all', label: '全选', accelerator: 'CmdOrCtrl+A', click: () => sendEditAction('selectAll') }
       ]
     },
     {
       label: '工具',
       submenu: [
-        { label: '音效管理器', click: () => openEffectManager() },
-        { label: '角色管理器', click: () => openRoleManager() },
-        { label: '设置', click: () => openSettingsWindow() },
+        { id: 'tools-effects', label: '音效管理器', click: () => openEffectManager() },
+        { id: 'tools-roles', label: '角色管理器', click: () => openRoleManager() },
+        { id: 'tools-settings', label: '设置', click: () => openSettingsWindow() },
         { type: 'separator' },
-        { label: '预览播放', accelerator: 'F5', click: () => sendToMain('preview-play') },
-        { label: '停止播放', accelerator: 'Escape', click: () => sendToMain('stop-play') }
+        { id: 'tools-preview', label: '预览播放', accelerator: 'F5', click: () => sendToMain('preview-play') },
+        { id: 'tools-stop', label: '停止播放', accelerator: 'Escape', click: () => sendToMain('stop-play') }
       ]
     },
     {
       label: '帮助',
       submenu: [
-        { label: '语法说明', click: () => sendToMain('show-syntax-help') },
+        { id: 'help-syntax', label: '语法说明', click: () => sendToMain('show-syntax-help') },
         { type: 'separator' },
         {
-          label: '关于',
+          id: 'help-about', label: '关于',
           click: () => {
             const owner = getMainTargetWindow() || mainWindow;
             const meta = readPackageMeta();
@@ -201,7 +215,25 @@ function createMenu() {
 
   const menu = Menu.buildFromTemplate(menuTemplate);
   Menu.setApplicationMenu(menu);
+
+  menuItems = {};
+  for (const topLabel of menuTemplate) {
+    const topItem = menu.items.find(m => m.label === topLabel.label);
+    if (topItem && topItem.submenu) {
+      for (const sub of topLabel.submenu) {
+        if (!sub.id) continue;
+        const subItem = topItem.submenu.items.find(s => s.label === sub.label);
+        if (subItem) menuItems[sub.id] = subItem;
+      }
+    }
+  }
+
+  return menu;
 }
+
+ipcMain.on('tab-context-changed', (event, isHome) => {
+  setMenuContext(isHome);
+});
 
 function buildChildWindow(options) {
   return new BrowserWindow({
@@ -219,7 +251,7 @@ function buildChildWindow(options) {
 function openEffectManager() {
   if (effectManagerWindow && !effectManagerWindow.isDestroyed()) return effectManagerWindow.focus();
   effectManagerWindow = buildChildWindow({ width: 860, height: 680, title: '音效管理器' });
-  effectManagerWindow.loadFile('effects-manager.html');
+  effectManagerWindow.loadFile('pages/effects-manager.html');
   effectManagerWindow.setMenu(null);
   effectManagerWindow.setMenuBarVisibility(false);
   effectManagerWindow.on('closed', () => { effectManagerWindow = null; });
@@ -228,7 +260,7 @@ function openEffectManager() {
 function openRoleManager() {
   if (roleManagerWindow && !roleManagerWindow.isDestroyed()) return roleManagerWindow.focus();
   roleManagerWindow = buildChildWindow({ width: 760, height: 680, title: '角色管理器' });
-  roleManagerWindow.loadFile('role-manager.html');
+  roleManagerWindow.loadFile('pages/role-manager.html');
   roleManagerWindow.setMenu(null);
   roleManagerWindow.setMenuBarVisibility(false);
   roleManagerWindow.on('closed', () => { roleManagerWindow = null; });
@@ -237,7 +269,7 @@ function openRoleManager() {
 function openSettingsWindow() {
   if (settingsWindow && !settingsWindow.isDestroyed()) return settingsWindow.focus();
   settingsWindow = buildChildWindow({ width: 800, height: 600, resizable: true, title: '设置' });
-  settingsWindow.loadFile('settings.html');
+  settingsWindow.loadFile('pages/settings.html');
   settingsWindow.setMenu(null);
   settingsWindow.setMenuBarVisibility(false);
   settingsWindow.on('closed', () => { settingsWindow = null; });

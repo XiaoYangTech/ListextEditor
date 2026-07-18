@@ -132,4 +132,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setProjectRoles: (roles) => ipcRenderer.invoke('set-project-roles', roles),
   onProjectEffectsChanged: (callback) => ipcRenderer.on('project-effects-changed', (event, effects) => callback(effects)),
   onProjectRolesChanged: (callback) => ipcRenderer.on('project-roles-changed', (event, roles) => callback(roles)),
+  releaseFileLock: (filePath) => ipcRenderer.invoke('release-file-lock', filePath),
+  sendTabContext: (isHome) => ipcRenderer.send('tab-context-changed', isHome)
 });

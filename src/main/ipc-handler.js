@@ -8,6 +8,7 @@ const AdmZip = require('adm-zip');
 const { ensureDir } = require('./utils');
 const { openRoleManager, openSettingsWindow, openEffectManager } = require('./window-manager');
 const { getBuiltInDir, getBuiltInRoots, scanBuiltInSounds } = require('./sound-handler');
+const fileLocker = require('./file-locker');
 
 const tempDir = path.join(app.getPath('temp'), 'listext-editor');
 
@@ -235,7 +236,16 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle('open-project-file', async (event, filePath) => {
-    try { return openProjectPackage(filePath); }
+    try {
+      if (fileLocker.isLocked(filePath)) {
+        return { success: false, error: '该文件已在其他标签页中打开' };
+      }
+      const lockResult = fileLocker.lock(filePath);
+      if (lockResult === false) {
+        return { success: false, error: '文件正在被其他程序占用，无法打开' };
+      }
+      return openProjectPackage(filePath);
+    }
     catch (error) { return { success: false, error: error.message }; }
   });
 
@@ -263,6 +273,11 @@ function registerIpcHandlers() {
   });
   ipcMain.handle('open-settings-window', async () => { openSettingsWindow(); return { success: true }; });
   ipcMain.handle('open-effect-manager-window', async () => { openEffectManager(); return { success: true }; });
+
+  ipcMain.handle('release-file-lock', async (event, filePath) => {
+    fileLocker.unlock(filePath);
+    return { success: true };
+  });
 
   ipcMain.handle('delete-file', async (event, filePath) => {
     try {
@@ -382,6 +397,8 @@ function registerIpcHandlers() {
     return { success: true };
   });
 }
+
+app.on('will-quit', () => { fileLocker.unlockAll(); });
 
 module.exports = {
   registerIpcHandlers,

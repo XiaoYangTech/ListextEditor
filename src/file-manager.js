@@ -192,7 +192,7 @@ class FileManager {
 
   async saveFile() {
     const tab = this.app.tabManager.getActiveTab();
-    if (!tab) return false;
+    if (!tab || tab.isHome) return false;
 
     if (tab.filePath) {
       return await this.saveFileAs(tab.filePath);
