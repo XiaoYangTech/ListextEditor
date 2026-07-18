@@ -50,8 +50,6 @@
       "main.js",
       "preload.js",
       "pages/index.html",
-      "pages/effects-manager.html",
-      "pages/role-manager.html",
       "pages/settings.html",
       "src/**/*",
       "styles/**/*",

@@ -98,15 +98,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onExportAudio: (callback) => ipcRenderer.on('export-audio', (event, filePath) => callback(filePath)),
 
   onShowSyntaxHelp: (callback) => ipcRenderer.on('show-syntax-help', () => callback()),
-  onShowRoleManager: (callback) => ipcRenderer.on('show-role-manager', () => callback()),
   onShowSettings: (callback) => ipcRenderer.on('show-settings', () => callback()),
   onRequestCloseCheck: (callback) => ipcRenderer.on('request-close-check', () => callback()),
   sendCloseCheckResult: (shouldClose) => ipcRenderer.send('close-check-result', shouldClose),
 
-  openRoleManagerWindow: () => ipcRenderer.invoke('open-role-manager-window'),
-  closeRoleManagerWindow: () => ipcRenderer.invoke('close-role-manager-window'),
   openSettingsWindow: () => ipcRenderer.invoke('open-settings-window'),
-  openEffectManagerWindow: () => ipcRenderer.invoke('open-effect-manager-window'),
   composeMp3: (targetPath, segments) => ipcRenderer.invoke('compose-mp3', targetPath, segments),
 
   getSettings: () => ipcRenderer.invoke('get-settings'),

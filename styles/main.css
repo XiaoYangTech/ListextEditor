@@ -936,6 +936,42 @@ body.toolbar-left .layout-align-btn {
   border-top: 1px solid var(--md-divider);
 }
 
+.effect-dialog-content { min-width: 520px; max-width: 620px; }
+.effect-dialog-body { display: flex; flex-direction: column; gap: 0; padding: 0; }
+.effect-tabs { display: flex; gap: 0; padding: 8px 16px 0; border-bottom: 1px solid var(--md-divider); }
+.effect-tab { border: none; background: transparent; padding: 8px 16px; font-size: 13px; cursor: pointer; color: var(--md-on-surface-variant); border-bottom: 2px solid transparent; transition: all .15s; }
+.effect-tab:hover { color: var(--md-primary); }
+.effect-tab.active { color: var(--md-primary); border-bottom-color: var(--md-primary); font-weight: 500; }
+.effect-list { padding: 8px 16px; max-height: 280px; overflow-y: auto; min-height: 60px; }
+.effect-group-card { border: 1px solid var(--md-divider); border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
+.effect-group-header { padding: 8px 12px; background: var(--md-surface-dim, #fcfcfc); border-bottom: 1px solid var(--md-divider); font-size: 12px; font-weight: 600; color: var(--md-on-surface-variant); }
+.effect-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px dashed #eee; cursor: pointer; transition: background .1s; }
+.effect-item:first-child { border-top: none; }
+.effect-item:hover { background: var(--md-surface-dim, #f5f5f5); }
+.effect-item.selected { background: #e3f2fd; }
+.effect-item .material-icons { font-size: 20px; color: var(--md-primary); }
+.effect-item-info { flex: 1; min-width: 0; }
+.effect-item-name { font-size: 13px; font-weight: 500; }
+.effect-item-meta { font-size: 11px; color: var(--md-on-surface-variant); }
+.effect-item-action { border: none; border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer; background: var(--md-primary); color: #fff; }
+.effect-item-action:hover { background: var(--md-primary-dark); }
+.effect-item-remove { width: 28px; height: 28px; border: none; border-radius: 50%; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; color: var(--md-on-surface-variant); }
+.effect-item-remove:hover { background: #ffebee; color: #b00020; }
+.effect-options { display: flex; gap: 12px; padding: 4px 20px 12px; }
+.effect-empty { color: var(--md-on-surface-variant); font-size: 13px; text-align: center; padding: 24px; }
+
+/* Role Manager Dialog */
+.rm-tip { background: #e3f2fd; border: 1px solid #90caf9; color: #1565c0; padding: 10px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+.rm-tip code { background: #bbdefb; padding: 2px 4px; border-radius: 3px; font-family: Consolas, monospace; }
+.rm-card { border: 1px solid var(--md-divider); border-radius: 8px; background: var(--md-surface); padding: 12px; margin-bottom: 12px; }
+.rm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.rm-list-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--md-divider); border-radius: 6px; margin-bottom: 8px; }
+.rm-source-tag { font-size: 11px; padding: 2px 6px; border-radius: 999px; margin-left: 8px; }
+.rm-source-code { background: #e8f5e9; color: #2e7d32; }
+.rm-source-ui { background: #fff3e0; color: #e65100; }
+.rm-meta { font-size: 12px; color: var(--md-on-surface-variant); margin-top: 4px; }
+.rm-actions { display: flex; gap: 8px; }
+
 .notice-dialog .dialog-footer {
   justify-content: center;
 }

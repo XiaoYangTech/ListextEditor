@@ -223,15 +223,32 @@
   </div>
 
   <div id="effectDialog" class="dialog">
-    <div class="dialog-content dialog-small">
+    <div class="dialog-content effect-dialog-content">
       <div class="dialog-header"><h2>选择音效</h2><button class="dialog-close">&times;</button></div>
-      <div class="dialog-body">
-        <div class="form-group"><label>音效分类</label><select id="effectGroupSelect"></select></div>
-        <div class="form-group"><label>音效ID</label><select id="effectSelect"></select></div>
-        <div class="form-group"><label>持续时间（秒，可选）</label><input type="number" id="effectDuration" min="1" max="300" placeholder="留空表示播放完整音效"></div>
-        <div class="form-group"><button class="btn" id="btnOpenEffectManager">打开音效管理器</button></div>
+      <div class="dialog-body effect-dialog-body">
+        <div class="effect-tabs">
+          <button class="effect-tab active" id="effectTabBuiltin">系统音效</button>
+          <button class="effect-tab" id="effectTabCustom">自定义音效</button>
+        </div>
+        <div class="effect-list" id="effectList"></div>
+        <div id="effectCustomActions" style="display:none; padding:0 0 8px 4px;">
+          <button class="btn btn-ghost" id="btnImportLocalFx">导入本地音效</button>
+        </div>
+        <div class="effect-options">
+          <div class="form-group" style="flex:1">
+            <label>持续秒数（可选）</label>
+            <input type="number" id="effectDialogDuration" min="1" max="300" placeholder="完整播放">
+          </div>
+          <div class="form-group" style="flex:1">
+            <label>淡出秒数（可选）</label>
+            <input type="number" id="effectDialogFade" min="1" max="60" placeholder="无淡出">
+          </div>
+        </div>
       </div>
-      <div class="dialog-footer"><button class="btn btn-cancel">取消</button><button class="btn btn-primary" id="effectConfirm">确定</button></div>
+      <div class="dialog-footer">
+        <button class="btn btn-cancel" id="effectDialogCancel">取消</button>
+        <button class="btn btn-primary" id="effectDialogConfirm">确定</button>
+      </div>
     </div>
   </div>
 
@@ -270,6 +287,28 @@
     </div>
   </div>
 
+  <div id="roleManagerDialog" class="dialog" style="--md-primary:#1976d2; --md-primary-dark:#1565C0; --md-bg:#FAFAFA; --md-surface:#FFF; --md-on-surface:#212121; --md-on-surface-variant:#757575; --md-divider:#E0E0E0; --md-error:#B00020;">
+    <div class="dialog-content" style="min-width:500px; max-width:580px;">
+      <div class="dialog-header"><h2>角色管理器</h2><button class="dialog-close" id="roleManagerClose">&times;</button></div>
+      <div class="dialog-body" style="padding:16px;">
+        <div class="rm-tip">角色跟随项目保存。你也可以在代码中使用 <code>&lt;role id="teacher" name="老师" voice="zh-CN-XiaoxiaoNeural"/&gt;</code> 定义角色。</div>
+        <div class="rm-card"><h3 style="margin-bottom:12px; font-size:15px;">项目角色列表</h3><div id="roleList"></div></div>
+        <div class="rm-card"><h3 style="margin-bottom:12px; font-size:15px;">添加 / 编辑角色</h3>
+          <div class="rm-form-grid">
+            <div class="form-group"><label>角色ID</label><input id="roleId" type="text" placeholder="例如 teacher" /></div>
+            <div class="form-group"><label>角色名称</label><input id="roleName" type="text" placeholder="例如 老师" /></div>
+            <div class="form-group"><label>TTS 类型</label><select id="roleType"><option value="edge">EdgeTTS</option><option value="local">系统TTS</option></select></div>
+            <div class="form-group" style="grid-column:1/-1;"><label>发音人</label><select id="roleVoice"></select></div>
+          </div>
+          <div class="dialog-footer" style="justify-content:flex-end; margin:12px -16px -16px;">
+            <button id="btnClear" class="btn btn-ghost">清空</button>
+            <button id="btnSave" class="btn btn-primary">保存角色</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="../src/listext-parser.js"></script>
   <script src="../src/tts-engine.js"></script>
   <script src="../src/play-queue.js"></script>
@@ -281,6 +320,7 @@
   <script src="../src/export-handler.js"></script>
   <script src="../src/tts-renderer.js"></script>
   <script src="../src/tab-manager.js"></script>
+  <script src="../src/role-manager-page.js"></script>
   <script src="../src/app.js"></script>
 </body>
 </html>

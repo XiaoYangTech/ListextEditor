@@ -6,7 +6,7 @@ const { execFile } = require('child_process');
 const ffmpegStatic = require('ffmpeg-static');
 const AdmZip = require('adm-zip');
 const { ensureDir } = require('./utils');
-const { openRoleManager, openSettingsWindow, openEffectManager } = require('./window-manager');
+const { openSettingsWindow } = require('./window-manager');
 const { getBuiltInDir, getBuiltInRoots, scanBuiltInSounds } = require('./sound-handler');
 const fileLocker = require('./file-locker');
 
@@ -80,14 +80,9 @@ function saveProjectPackage(filePath, payload) {
     const effect = projectEffects.find(e => e.id === fxId);
     if (!effect) continue;
 
-    let absPath = null;
-    if (effect.source === 'builtin') {
-      const builtin = builtInSounds.find(b => b.filename === effect.filename);
-      if (builtin) absPath = builtin.path;
-    } else if (effect.source === 'imported') {
-      absPath = effect.path;
-    }
+    if (effect.source === 'builtin') continue; // built-in sounds are always available, skip embedding
 
+    let absPath = effect.path;
     if (absPath && fs.existsSync(absPath)) {
       const filename = path.basename(absPath);
       const buf = fs.readFileSync(absPath);
@@ -264,15 +259,7 @@ function registerIpcHandlers() {
     return { success: true };
   });
 
-  ipcMain.handle('open-role-manager-window', async () => { openRoleManager(); return { success: true }; });
-  ipcMain.handle('close-role-manager-window', async (event) => {
-    const { BrowserWindow } = require('electron');
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win && !win.isDestroyed()) win.close();
-    return { success: true };
-  });
   ipcMain.handle('open-settings-window', async () => { openSettingsWindow(); return { success: true }; });
-  ipcMain.handle('open-effect-manager-window', async () => { openEffectManager(); return { success: true }; });
 
   ipcMain.handle('release-file-lock', async (event, filePath) => {
     fileLocker.unlock(filePath);

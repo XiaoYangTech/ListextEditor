@@ -218,12 +218,12 @@ class UIManager {
     if (type === 'pause') {
       this.showSilenceDialog((duration) => this.app.renderer.addBlock('pause', { ...opts, duration }));
     } else if (type === 'fx') {
-      this.showEffectDialog((effectId, duration) => {
+      this.showEffectDialog((effectId, duration, fade) => {
         if (!effectId) {
           this.app.updateStatus('请先选择音效');
           return;
         }
-        this.app.renderer.addBlock('fx', { ...opts, effectId, duration });
+        this.app.renderer.addBlock('fx', { ...opts, effectId, duration, fade });
       });
     } else if (type === 'repeat') {
       this.app.renderer.addBlock('repeat', opts);
@@ -248,13 +248,12 @@ class UIManager {
         editor.insertCodeAtCursor(`<pause dur="${duration}">`);
       });
     } else if (type === 'fx') {
-      this.showEffectDialog((effectId, duration) => {
+      this.showEffectDialog((effectId, duration, fade) => {
         if (!effectId) {
           this.app.updateStatus('请先选择音效');
           return;
         }
-        const durAttr = duration ? ` dur="${duration}"` : '';
-        editor.insertCodeAtCursor(`<fx id="${effectId}"${durAttr}>`);
+        this.app.renderer.addBlock('fx', { ...opts, effectId, duration, fade });
       });
     } else if (type === 'say') {
       editor.insertCodeAtCursor('<say role=""></say>', -6);
@@ -303,88 +302,152 @@ class UIManager {
   }
 
   initEffectDialog() {
-    const effectDialog = document.getElementById('effectDialog');
-    const effectSelect = document.getElementById('effectSelect');
-    const effectDuration = document.getElementById('effectDuration');
-    const effectConfirm = document.getElementById('effectConfirm');
+    const dialog = document.getElementById('effectDialog');
+    if (!dialog) return;
 
-    document.getElementById('btnOpenEffectManager')?.addEventListener('click', async () => {
-      await this.openEffectManager();
+    this._effectTab = 'builtin';
+    this._selectedEffectId = null;
+    this._effectBuiltinSounds = [];
+    this._effectCustomEffects = [];
+    this._effectCallback = null;
+
+    dialog.querySelector('.dialog-close')?.addEventListener('click', () => dialog.classList.remove('active'));
+    document.getElementById('effectDialogCancel')?.addEventListener('click', () => dialog.classList.remove('active'));
+    document.getElementById('effectDialogConfirm')?.addEventListener('click', () => {
+      if (!this._selectedEffectId) { this.app.updateStatus('请先选择音效'); return; }
+      const dur = parseInt(document.getElementById('effectDialogDuration')?.value, 10) || null;
+      const fade = parseInt(document.getElementById('effectDialogFade')?.value, 10) || null;
+      if (this._effectCallback) this._effectCallback(this._selectedEffectId, dur, fade);
+      dialog.classList.remove('active');
     });
 
-    effectDialog?.querySelector('.dialog-close')?.addEventListener('click', () => effectDialog.classList.remove('active'));
-    effectDialog?.querySelector('.btn-cancel')?.addEventListener('click', () => effectDialog.classList.remove('active'));
+    document.getElementById('btnImportLocalFx')?.addEventListener('click', () => this._importLocalEffect());
 
-    if (effectConfirm) {
-      const newConfirm = effectConfirm.cloneNode(true);
-      effectConfirm.parentNode.replaceChild(newConfirm, effectConfirm);
-      newConfirm.addEventListener('click', () => {
-        const dur = effectDuration?.value ? parseInt(effectDuration.value, 10) : null;
-        if (this.effectCallback) this.effectCallback(effectSelect?.value, dur);
-        effectDialog.classList.remove('active');
-      });
-    }
+    document.getElementById('effectTabBuiltin')?.addEventListener('click', () => {
+      this._effectTab = 'builtin';
+      document.getElementById('effectTabBuiltin').classList.add('active');
+      document.getElementById('effectTabCustom').classList.remove('active');
+      document.getElementById('effectCustomActions').style.display = 'none';
+      this._renderEffectList();
+    });
 
-    if (window.electronAPI?.onProjectEffectsChanged) {
-      window.electronAPI.onProjectEffectsChanged(async () => {
-        if (!effectDialog?.classList.contains('active')) return;
-        let effects = [];
-        try {
-          const data = await window.electronAPI.getProjectData();
-          effects = data?.effects || [];
-        } catch (e) { console.error('获取项目音效失败:', e); }
-        this._effectDialogEffects = effects;
-        const groups = [...new Set(effects.map(e => e.group || '未分组'))].filter(Boolean);
-        if (effectGroupSelect) {
-          const prevGroup = effectGroupSelect.value;
-          effectGroupSelect.innerHTML = '<option value="">全部分类</option>' +
-            groups.map(g => `<option value="${g}">${g}</option>`).join('');
-          if (groups.includes(prevGroup)) effectGroupSelect.value = prevGroup;
-        }
-        this._filterEffectSelect();
-      });
-    }
+    document.getElementById('effectTabCustom')?.addEventListener('click', () => {
+      this._effectTab = 'custom';
+      document.getElementById('effectTabCustom').classList.add('active');
+      document.getElementById('effectTabBuiltin').classList.remove('active');
+      document.getElementById('effectCustomActions').style.display = 'block';
+      this._renderEffectList();
+    });
   }
 
   async showEffectDialog(callback) {
-    this.effectCallback = callback;
-    const effectDialog = document.getElementById('effectDialog');
-    const effectSelect = document.getElementById('effectSelect');
-    const effectGroupSelect = document.getElementById('effectGroupSelect');
-    const effectDuration = document.getElementById('effectDuration');
+    this._effectCallback = callback;
+    this._selectedEffectId = null;
 
-    let effects = this.app.getActiveProjectData().effects || [];
-    if (!effects.length && window.electronAPI) {
+    if (window.electronAPI?.listBuiltinSounds) {
+      try { this._effectBuiltinSounds = await window.electronAPI.listBuiltinSounds() || []; } catch { this._effectBuiltinSounds = []; }
+    }
+
+    this._effectCustomEffects = [];
+    if (window.electronAPI?.getProjectData) {
       try {
         const data = await window.electronAPI.getProjectData();
-        effects = data?.effects || [];
-      } catch (e) { console.error('获取项目音效失败:', e); }
+        this._effectCustomEffects = (data?.effects || []).filter(e => e.source !== 'builtin');
+      } catch { this._effectCustomEffects = []; }
     }
 
-    this._effectDialogEffects = effects;
-    const groups = [...new Set(effects.map(e => e.group || '未分组'))].filter(Boolean);
+    this._effectTab = 'builtin';
+    document.getElementById('effectTabBuiltin').classList.add('active');
+    document.getElementById('effectTabCustom').classList.remove('active');
+    document.getElementById('effectCustomActions').style.display = 'none';
+    document.getElementById('effectDialogDuration').value = '';
+    document.getElementById('effectDialogFade').value = '';
 
-    if (effectGroupSelect) {
-      effectGroupSelect.innerHTML = '<option value="">全部分类</option>' +
-        groups.map(g => `<option value="${g}">${g}</option>`).join('');
-      effectGroupSelect.onchange = () => this._filterEffectSelect();
-    }
-
-    this._filterEffectSelect();
-    effectDuration.value = '';
-    effectDialog.classList.add('active');
+    this._renderEffectList();
+    document.getElementById('effectDialog').classList.add('active');
   }
 
-  _filterEffectSelect() {
-    const effectSelect = document.getElementById('effectSelect');
-    const effectGroupSelect = document.getElementById('effectGroupSelect');
-    if (!effectSelect) return;
-    const effects = this._effectDialogEffects || [];
-    const group = effectGroupSelect?.value || '';
-    const filtered = group ? effects.filter(e => (e.group || '未分组') === group) : effects;
-    effectSelect.innerHTML = filtered.length
-      ? filtered.map(e => `<option value="${e.id}">${e.id}</option>`).join('')
-      : '<option value="">（暂无音效）</option>';
+  _renderEffectList() {
+    const el = document.getElementById('effectList');
+    if (!el) return;
+    const effects = this._effectTab === 'builtin' ? this._effectBuiltinSounds : this._effectCustomEffects;
+    const isBuiltin = this._effectTab === 'builtin';
+
+    if (!effects || !effects.length) {
+      el.innerHTML = `<div class="effect-empty">${isBuiltin ? '暂无系统音效' : '暂无自定义音效，点击下方按钮导入'}</div>`;
+      return;
+    }
+
+    const groups = {};
+    for (const e of effects) {
+      const g = e.group || '未分组';
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(e);
+    }
+
+    let html = '';
+    for (const [group, items] of Object.entries(groups)) {
+      html += `<div class="effect-group-card"><div class="effect-group-header">${group} (${items.length})</div>`;
+      for (const item of items) {
+        const id = item.id || item.name;
+        const meta = item.filename ? ` · ${item.filename}` : '';
+        const selected = this._selectedEffectId === id ? ' selected' : '';
+        html += `<div class="effect-item${selected}" data-effect-id="${id}">
+          <span class="material-icons">music_note</span>
+          <div class="effect-item-info"><div class="effect-item-name">${id}</div><div class="effect-item-meta">${group}${meta}</div></div>
+          ${isBuiltin ? `<button class="effect-item-action" data-use="${id}">使用</button>` : `<button class="effect-item-remove" data-remove="${id}" title="删除"><span class="material-icons" style="font-size:16px">remove_circle</span></button>`}
+        </div>`;
+      }
+      html += '</div>';
+    }
+    el.innerHTML = html;
+
+    el.querySelectorAll('.effect-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('[data-use]') || e.target.closest('[data-remove]')) return;
+        this._selectedEffectId = item.dataset.effectId;
+        this._renderEffectList();
+      });
+    });
+
+    el.querySelectorAll('[data-use]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._selectedEffectId = btn.dataset.use;
+        this._renderEffectList();
+      });
+    });
+
+    el.querySelectorAll('[data-remove]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.remove;
+        this._effectCustomEffects = this._effectCustomEffects.filter(e => e.id !== id);
+        if (window.electronAPI?.setProjectEffects) {
+          await window.electronAPI.setProjectEffects(this._effectCustomEffects);
+        }
+        if (this._selectedEffectId === id) this._selectedEffectId = null;
+        this._renderEffectList();
+      });
+    });
+  }
+
+  _filterEffectSelect() { /* deprecated — merged into effect dialog */ }
+
+  async _importLocalEffect() {
+    if (!window.electronAPI?.selectAudioFile) return;
+    const filePath = await window.electronAPI.selectAudioFile();
+    if (!filePath) return;
+    const parts = filePath.replace(/\\/g, '/').split('/');
+    const filename = parts[parts.length - 1];
+    const name = filename.replace(/\.[^.]+$/, '');
+    if (this._effectCustomEffects.some(e => e.id === name)) { this.app.updateStatus('音效ID已存在'); return; }
+    this._effectCustomEffects.push({ id: name, source: 'imported', filename, group: '用户音效', path: filePath });
+    if (window.electronAPI?.setProjectEffects) {
+      await window.electronAPI.setProjectEffects(this._effectCustomEffects);
+    }
+    this._renderEffectList();
+    this.app.updateStatus('已导入本地音效');
   }
 
   initUnsavedDialog() {
@@ -430,11 +493,14 @@ class UIManager {
 
   initRoleManagerDialog() {}
   async openRoleManager() {
-    await window.electronAPI?.openRoleManagerWindow?.();
-  }
-
-  async openEffectManager() {
-    await window.electronAPI?.openEffectManagerWindow?.();
+    const dialog = document.getElementById('roleManagerDialog');
+    if (!dialog) return;
+    dialog.classList.add('active');
+    if (!window._roleManagerPage) window._roleManagerPage = new RoleManagerPage();
+    else {
+      await window._roleManagerPage.renderRoles();
+      await window._roleManagerPage.clearForm();
+    }
   }
 
   initSyntaxHelpDialog() {

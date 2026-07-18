@@ -85,7 +85,6 @@ class ListextEditor {
     });
 
     window.electronAPI.onShowSyntaxHelp(() => this.uiManager.showSyntaxHelp());
-    window.electronAPI.onShowRoleManager(() => this.uiManager.openRoleManager());
     window.electronAPI.onShowSettings(() => this.uiManager.showSettingsDialog());
 
     window.electronAPI.onMenuEdit((action) => {
