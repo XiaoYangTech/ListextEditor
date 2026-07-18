@@ -307,6 +307,7 @@ class UIManager {
 
     this._effectTab = 'builtin';
     this._selectedEffectId = null;
+    this._previewingPath = null;
     this._effectBuiltinSounds = [];
     this._effectCustomEffects = [];
     this._effectCallback = null;
@@ -349,6 +350,8 @@ class UIManager {
   async showEffectDialog(callback) {
     this._effectCallback = callback;
     this._selectedEffectId = null;
+    this._previewingPath = null;
+    this._stopPreview();
 
     if (window.electronAPI?.listBuiltinSounds) {
       try { this._effectBuiltinSounds = await window.electronAPI.listBuiltinSounds() || []; } catch { this._effectBuiltinSounds = []; }
@@ -408,8 +411,9 @@ class UIManager {
         const meta = item.filename ? ` · ${item.filename}` : '';
         const selected = this._selectedEffectId === id ? ' selected' : '';
         const filePath = item.path || '';
+        const isPlaying = this._previewingPath === filePath;
         html += `<div class="effect-item${selected}" data-effect-id="${id}">
-          ${filePath ? `<button class="effect-item-preview" data-play-path="${filePath.replace(/"/g, '&quot;')}" title="试听"><span class="material-icons" style="font-size:16px">play_arrow</span></button>` : '<span class="material-icons" style="font-size:16px;margin-left:6px">music_note</span>'}
+          ${filePath ? `<button class="effect-item-preview${isPlaying ? ' playing' : ''}" data-play-path="${filePath.replace(/"/g, '&quot;')}" title="${isPlaying ? '停止' : '试听'}"><span class="material-icons" style="font-size:16px">${isPlaying ? 'stop' : 'play_arrow'}</span></button>` : '<span class="material-icons" style="font-size:16px;margin-left:6px">music_note</span>'}
           <div class="effect-item-info"><div class="effect-item-name">${id}</div><div class="effect-item-meta">${group}${meta}</div></div>
           ${isBuiltin ? `<button class="effect-item-action" data-use="${id}">使用</button>` : `<button class="effect-item-remove" data-remove="${id}" title="删除"><span class="material-icons" style="font-size:16px">remove_circle</span></button>`}
         </div>`;
@@ -457,18 +461,23 @@ class UIManager {
 
   _previewSound(filePath) {
     if (!filePath) return;
+    if (this._previewingPath === filePath) { this._stopPreview(); return; }
     this.app.ttsRenderer?.stopPlay();
-    if (this._previewAudio) { this._previewAudio.pause(); this._previewAudio = null; }
+    this._stopPreview();
     try {
       const url = filePath.replace(/\\/g, '/');
       const proto = url.startsWith('/') ? 'file://' + url : 'file:///' + url;
       this._previewAudio = new Audio(proto);
+      this._previewAudio.addEventListener('ended', () => this._stopPreview());
       this._previewAudio.play();
+      this._previewingPath = filePath;
+      this._renderEffectList();
     } catch (e) { console.error('音效预览失败:', e); }
   }
 
   _stopPreview() {
     if (this._previewAudio) { this._previewAudio.pause(); this._previewAudio = null; }
+    if (this._previewingPath) { this._previewingPath = null; this._renderEffectList(); }
   }
 
   _filterEffectSelect() { /* deprecated — merged into effect dialog */ }
