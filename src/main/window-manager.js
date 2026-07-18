@@ -119,9 +119,9 @@ let menuItems = {};
 function setMenuContext(isHome) {
   const editItems = ['edit-undo', 'edit-redo', 'edit-cut', 'edit-copy', 'edit-paste', 'edit-select-all'];
   const fileItems = ['file-save', 'file-save-as', 'file-export'];
-  const toolItems = ['tools-preview', 'tools-stop'];
+  const playItems = ['play-preview', 'play-stop'];
 
-  const targets = isHome ? [...editItems, ...fileItems, ...toolItems] : [...editItems, ...fileItems, ...toolItems];
+  const targets = isHome ? [...editItems, ...fileItems, ...playItems] : [...editItems, ...fileItems, ...playItems];
   for (const id of targets) {
     const item = menuItems[id];
     if (item) item.enabled = !isHome;
@@ -164,6 +164,8 @@ function createMenu() {
           }
         },
         { type: 'separator' },
+        { id: 'file-preferences', label: '首选项', click: () => openSettingsWindow() },
+        { type: 'separator' },
         { id: 'file-quit', role: 'quit', label: '退出' }
       ]
     },
@@ -180,12 +182,10 @@ function createMenu() {
       ]
     },
     {
-      label: '工具',
+      label: '播放',
       submenu: [
-        { id: 'tools-settings', label: '设置', click: () => openSettingsWindow() },
-        { type: 'separator' },
-        { id: 'tools-preview', label: '预览播放', accelerator: 'F5', click: () => sendToMain('preview-play') },
-        { id: 'tools-stop', label: '停止播放', accelerator: 'Escape', click: () => sendToMain('stop-play') }
+        { id: 'play-preview', label: '预览播放', accelerator: 'F5', click: () => sendToMain('preview-play') },
+        { id: 'play-stop', label: '停止播放', accelerator: 'Escape', click: () => sendToMain('stop-play') }
       ]
     },
     {
