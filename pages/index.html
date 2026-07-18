@@ -230,9 +230,12 @@
           <button class="effect-tab active" id="effectTabBuiltin">系统音效</button>
           <button class="effect-tab" id="effectTabCustom">自定义音效</button>
         </div>
+        <div class="effect-toolbar" id="effectToolbar">
+          <select id="effectGroupFilter" class="effect-filter"><option value="">全部分类</option></select>
+        </div>
         <div class="effect-list" id="effectList"></div>
-        <div id="effectCustomActions" style="display:none; padding:0 0 8px 4px;">
-          <button class="btn btn-ghost" id="btnImportLocalFx">导入本地音效</button>
+        <div id="effectCustomActions" class="effect-custom-actions" style="display:none">
+          <button class="btn btn-primary" id="btnImportLocalFx">导入本地音效</button>
         </div>
         <div class="effect-options">
           <div class="form-group" style="flex:1">

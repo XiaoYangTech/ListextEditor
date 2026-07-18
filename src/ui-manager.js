@@ -310,23 +310,28 @@ class UIManager {
     this._effectBuiltinSounds = [];
     this._effectCustomEffects = [];
     this._effectCallback = null;
+    this._previewAudio = null;
 
-    dialog.querySelector('.dialog-close')?.addEventListener('click', () => dialog.classList.remove('active'));
-    document.getElementById('effectDialogCancel')?.addEventListener('click', () => dialog.classList.remove('active'));
+    dialog.querySelector('.dialog-close')?.addEventListener('click', () => { this._stopPreview(); dialog.classList.remove('active'); });
+    document.getElementById('effectDialogCancel')?.addEventListener('click', () => { this._stopPreview(); dialog.classList.remove('active'); });
     document.getElementById('effectDialogConfirm')?.addEventListener('click', () => {
       if (!this._selectedEffectId) { this.app.updateStatus('请先选择音效'); return; }
       const dur = parseInt(document.getElementById('effectDialogDuration')?.value, 10) || null;
       const fade = parseInt(document.getElementById('effectDialogFade')?.value, 10) || null;
       if (this._effectCallback) this._effectCallback(this._selectedEffectId, dur, fade);
+      this._stopPreview();
       dialog.classList.remove('active');
     });
 
     document.getElementById('btnImportLocalFx')?.addEventListener('click', () => this._importLocalEffect());
 
+    document.getElementById('effectGroupFilter')?.addEventListener('change', () => this._renderEffectList());
+
     document.getElementById('effectTabBuiltin')?.addEventListener('click', () => {
       this._effectTab = 'builtin';
       document.getElementById('effectTabBuiltin').classList.add('active');
       document.getElementById('effectTabCustom').classList.remove('active');
+      document.getElementById('effectToolbar').style.display = 'flex';
       document.getElementById('effectCustomActions').style.display = 'none';
       this._renderEffectList();
     });
@@ -335,7 +340,8 @@ class UIManager {
       this._effectTab = 'custom';
       document.getElementById('effectTabCustom').classList.add('active');
       document.getElementById('effectTabBuiltin').classList.remove('active');
-      document.getElementById('effectCustomActions').style.display = 'block';
+      document.getElementById('effectToolbar').style.display = 'none';
+      document.getElementById('effectCustomActions').style.display = 'flex';
       this._renderEffectList();
     });
   }
@@ -356,9 +362,15 @@ class UIManager {
       } catch { this._effectCustomEffects = []; }
     }
 
+    const groups = [...new Set(this._effectBuiltinSounds.map(s => s.group).filter(Boolean))];
+    const filter = document.getElementById('effectGroupFilter');
+    filter.innerHTML = '<option value="">全部分类</option>' + groups.map(g => `<option value="${g}">${g}</option>`).join('');
+    filter.value = '';
+
     this._effectTab = 'builtin';
     document.getElementById('effectTabBuiltin').classList.add('active');
     document.getElementById('effectTabCustom').classList.remove('active');
+    document.getElementById('effectToolbar').style.display = 'flex';
     document.getElementById('effectCustomActions').style.display = 'none';
     document.getElementById('effectDialogDuration').value = '';
     document.getElementById('effectDialogFade').value = '';
@@ -385,15 +397,19 @@ class UIManager {
       groups[g].push(e);
     }
 
+    const activeFilter = isBuiltin ? document.getElementById('effectGroupFilter')?.value : '';
+
     let html = '';
     for (const [group, items] of Object.entries(groups)) {
+      if (activeFilter && group !== activeFilter) continue;
       html += `<div class="effect-group-card"><div class="effect-group-header">${group} (${items.length})</div>`;
       for (const item of items) {
         const id = item.id || item.name;
         const meta = item.filename ? ` · ${item.filename}` : '';
         const selected = this._selectedEffectId === id ? ' selected' : '';
+        const filePath = item.path || '';
         html += `<div class="effect-item${selected}" data-effect-id="${id}">
-          <span class="material-icons">music_note</span>
+          ${filePath ? `<button class="effect-item-preview" data-play-path="${filePath.replace(/"/g, '&quot;')}" title="试听"><span class="material-icons" style="font-size:16px">play_arrow</span></button>` : '<span class="material-icons" style="font-size:16px;margin-left:6px">music_note</span>'}
           <div class="effect-item-info"><div class="effect-item-name">${id}</div><div class="effect-item-meta">${group}${meta}</div></div>
           ${isBuiltin ? `<button class="effect-item-action" data-use="${id}">使用</button>` : `<button class="effect-item-remove" data-remove="${id}" title="删除"><span class="material-icons" style="font-size:16px">remove_circle</span></button>`}
         </div>`;
@@ -404,9 +420,16 @@ class UIManager {
 
     el.querySelectorAll('.effect-item').forEach(item => {
       item.addEventListener('click', (e) => {
-        if (e.target.closest('[data-use]') || e.target.closest('[data-remove]')) return;
+        if (e.target.closest('[data-use]') || e.target.closest('[data-remove]') || e.target.closest('[data-play-path]')) return;
         this._selectedEffectId = item.dataset.effectId;
         this._renderEffectList();
+      });
+    });
+
+    el.querySelectorAll('[data-play-path]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._previewSound(btn.dataset.playPath);
       });
     });
 
@@ -430,6 +453,22 @@ class UIManager {
         this._renderEffectList();
       });
     });
+  }
+
+  _previewSound(filePath) {
+    if (!filePath) return;
+    this.app.ttsRenderer?.stopPlay();
+    if (this._previewAudio) { this._previewAudio.pause(); this._previewAudio = null; }
+    try {
+      const url = filePath.replace(/\\/g, '/');
+      const proto = url.startsWith('/') ? 'file://' + url : 'file:///' + url;
+      this._previewAudio = new Audio(proto);
+      this._previewAudio.play();
+    } catch (e) { console.error('音效预览失败:', e); }
+  }
+
+  _stopPreview() {
+    if (this._previewAudio) { this._previewAudio.pause(); this._previewAudio = null; }
   }
 
   _filterEffectSelect() { /* deprecated — merged into effect dialog */ }
