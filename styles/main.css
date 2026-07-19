@@ -1576,29 +1576,33 @@ body.toolbar-left .layout-align-btn {
 }
 
 .home-banner {
-  --banner-image: none;
   position: relative;
   border-radius: 12px;
   overflow: hidden;
-  padding: 28px 24px;
   margin-bottom: 20px;
   color: #fff;
+  cursor: pointer;
+  aspect-ratio: 3 / 1;
   min-height: 120px;
+  max-height: 220px;
   background: #e0e0e0;
 }
 
 .home-banner-bg {
   position: absolute;
   inset: 0;
-  background: var(--banner-image) center/cover no-repeat;
-  opacity: 0.35;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: opacity .5s ease;
+  opacity: 1;
 }
 
 .home-banner-bg::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.4) 100%);
+  background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.35) 100%);
 }
 
 .home-banner-placeholder {
@@ -1615,10 +1619,20 @@ body.toolbar-left .layout-align-btn {
   gap: 8px;
   pointer-events: none;
 }
+.home-banner-placeholder .material-icons { font-size: 36px; }
 
-.home-banner-placeholder .material-icons {
-  font-size: 36px;
-}
+.home-banner-nav { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.home-banner:hover .home-banner-nav { opacity: 1; }
+.banner-arrow { width: 36px; height: 36px; border: none; border-radius: 50%; background: rgba(0,0,0,0.3); color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; pointer-events: auto; }
+.banner-arrow:hover { background: rgba(0,0,0,0.5); }
+.banner-arrow .material-icons { font-size: 20px; }
+
+.home-banner-dots { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; }
+.banner-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.5); border: none; cursor: pointer; padding: 0; }
+.banner-dot.active { background: #fff; }
+
+.home-banner-info { position: absolute; bottom: 32px; left: 20px; right: 20px; }
+.banner-title { font-size: 18px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,0.3); }
 
 .home-section {
   margin-bottom: 20px;

@@ -77,29 +77,9 @@ class TabManager {
     });
 
     this.renderRecentProjects();
-    this.applyBannerImage();
     this.loadBanners();
     this.loadAnnouncements();
     this.loadRoutines();
-  }
-
-  setBannerImage(url) {
-    try { localStorage.setItem('bannerImage', url || ''); } catch (e) { console.error('保存横幅图片失败:', e); }
-    this.applyBannerImage();
-  }
-
-  applyBannerImage() {
-    const banner = document.getElementById('homeBanner');
-    const placeholder = document.getElementById('homeBannerPlaceholder');
-    if (!banner) return;
-    const url = localStorage.getItem('bannerImage') || '';
-    if (url) {
-      banner.style.setProperty('--banner-image', `url(${url})`);
-      if (placeholder) placeholder.style.display = 'none';
-    } else {
-      banner.style.setProperty('--banner-image', 'none');
-      if (placeholder) placeholder.style.display = 'flex';
-    }
   }
 
   async loadBanners() {
@@ -107,10 +87,84 @@ class TabManager {
     try {
       const list = await window.electronAPI.fetchBanners();
       if (list && list.length) {
-        const banner = list[0]; // use first banner by order
-        this.setBannerImage(banner.image_url || '');
+        this._banners = list.sort((a, b) => (a.order || 0) - (b.order || 0));
+        this._bannerIndex = 0;
+        this._renderBanner();
+        this._startBannerTimer();
       }
     } catch { /* offline or API error — keep placeholder */ }
+  }
+
+  _renderBanner() {
+    const bgEl = document.getElementById('homeBannerBg');
+    const placeholder = document.getElementById('homeBannerPlaceholder');
+    const nav = document.getElementById('homeBannerNav');
+    const dots = document.getElementById('homeBannerDots');
+    const info = document.getElementById('homeBannerInfo');
+    const titleEl = document.getElementById('bannerTitle');
+
+    if (!this._banners || !this._banners.length) return;
+    const b = this._banners[this._bannerIndex];
+
+    // Show image, hide placeholder
+    bgEl.style.backgroundImage = `url(${b.image_url})`;
+    if (placeholder) placeholder.style.display = 'none';
+    if (nav) nav.style.display = 'flex';
+    if (info) info.style.display = 'block';
+    if (titleEl) titleEl.textContent = b.title || '';
+
+    // Dots
+    if (dots && this._banners.length > 1) {
+      dots.innerHTML = this._banners.map((_, i) =>
+        `<button class="banner-dot${i === this._bannerIndex ? ' active' : ''}" data-index="${i}"></button>`
+      ).join('');
+      dots.querySelectorAll('.banner-dot').forEach(d => {
+        d.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this._bannerIndex = parseInt(d.dataset.index, 10);
+          this._renderBanner();
+          this._startBannerTimer();
+        });
+      });
+    } else if (dots) {
+      dots.innerHTML = '';
+    }
+
+    // Banner click → open link
+    const banner = document.getElementById('homeBanner');
+    const handler = () => {
+      const currentBanner = this._banners?.[this._bannerIndex];
+      if (currentBanner?.link_url) {
+        window.electronAPI?.openExternal?.(currentBanner.link_url);
+      }
+    };
+    banner.onclick = handler;
+
+    // Arrows
+    document.getElementById('bannerArrowLeft').onclick = (e) => {
+      e.stopPropagation();
+      if (!this._banners) return;
+      this._bannerIndex = (this._bannerIndex - 1 + this._banners.length) % this._banners.length;
+      this._renderBanner();
+      this._startBannerTimer();
+    };
+    document.getElementById('bannerArrowRight').onclick = (e) => {
+      e.stopPropagation();
+      if (!this._banners) return;
+      this._bannerIndex = (this._bannerIndex + 1) % this._banners.length;
+      this._renderBanner();
+      this._startBannerTimer();
+    };
+  }
+
+  _startBannerTimer() {
+    clearTimeout(this._bannerTimer);
+    if (!this._banners || this._banners.length <= 1) return;
+    this._bannerTimer = setTimeout(() => {
+      this._bannerIndex = (this._bannerIndex + 1) % this._banners.length;
+      this._renderBanner();
+      this._startBannerTimer();
+    }, 5000);
   }
 
   async loadAnnouncements() {
