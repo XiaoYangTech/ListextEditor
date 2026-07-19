@@ -312,6 +312,43 @@
     </div>
   </div>
 
+  <div id="loginDialog" class="dialog">
+    <div class="dialog-content dialog-small" style="max-width:380px;">
+      <div class="dialog-header"><h2>登录亿方听力大师</h2><button class="dialog-close" id="loginClose">&times;</button></div>
+      <div class="dialog-body">
+        <div id="loginReason" class="login-reason" style="display:none"></div>
+        <div class="form-group"><label>邮箱</label><input id="loginEmail" type="email" placeholder="user@example.com"></div>
+        <div class="form-group"><label>密码</label><input id="loginPassword" type="password" placeholder="输入密码"></div>
+        <div class="form-group"><label>设备名称</label><input id="loginDeviceName" type="text" placeholder="自动获取"></div>
+        <div id="loginError" class="login-error" style="display:none"></div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-ghost" id="loginRegister">注册账号</button>
+        <button class="btn btn-cancel" id="loginCancel">取消</button>
+        <button class="btn btn-primary" id="loginSubmit">登录</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="deviceLimitDialog" class="dialog">
+    <div class="dialog-content dialog-small" style="max-width:400px;">
+      <div class="dialog-header"><h2>设备数量已达上限</h2><button class="dialog-close" id="deviceLimitClose">&times;</button></div>
+      <div class="dialog-body">
+        <p style="font-size:13px;color:#757575;margin-bottom:12px">请选择一台设备下线后重新登录</p>
+        <div id="deviceLimitList" class="device-list"></div>
+        <div id="deviceLimitError" class="login-error" style="display:none"></div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-cancel" id="deviceLimitCancel">取消</button>
+        <button class="btn btn-primary" id="deviceLimitConfirm">下线并登录</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="accountMenu" class="account-menu" style="display:none">
+    <div id="accountMenuBody"></div>
+  </div>
+
   <script src="../src/listext-parser.js"></script>
   <script src="../src/tts-engine.js"></script>
   <script src="../src/play-queue.js"></script>
@@ -324,6 +361,7 @@
   <script src="../src/tts-renderer.js"></script>
   <script src="../src/tab-manager.js"></script>
   <script src="../src/role-manager-page.js"></script>
+  <script src="../src/auth-manager.js"></script>
   <script src="../src/app.js"></script>
 </body>
 </html>

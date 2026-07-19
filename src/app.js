@@ -10,6 +10,8 @@ class ListextEditor {
 
     this.init();
     this.tabManager = new TabManager(this);
+    this.authManager = new AuthManager();
+    this.authManager.init();
     this.loadDefaultContent();
   }
 

@@ -1792,6 +1792,33 @@ body.toolbar-left .layout-align-btn {
   background: #B71C1C !important;
 }
 
+/* Auth: Login Dialog */
+.login-reason { background: #fff3e0; border: 1px solid #ffcc02; padding: 8px 12px; border-radius: 6px; font-size: 12px; color: #e65100; margin-bottom: 12px; }
+.login-error { background: #ffebee; color: #b00020; padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-top: 8px; }
+
+/* Auth: Device List */
+.device-list { display: flex; flex-direction: column; gap: 6px; }
+.device-radio { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--md-divider); border-radius: 6px; cursor: pointer; font-size: 13px; }
+.device-radio:hover { background: #f5f5f5; }
+.device-radio input[type="radio"] { margin: 0; }
+
+/* Auth: Account Menu */
+.account-menu { position: fixed; min-width: 240px; background: var(--md-surface); border: 1px solid var(--md-divider); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); z-index: 1001; overflow: hidden; }
+.am-user { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.am-username { font-size: 14px; font-weight: 500; }
+.am-email { font-size: 12px; color: var(--md-on-surface-variant); }
+.am-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+.am-avatar-icon { font-size: 40px; color: #BDBDBD; }
+.am-divider { height: 1px; background: var(--md-divider); }
+.am-info { padding: 8px 16px; font-size: 13px; color: var(--md-on-surface-variant); }
+.am-quota { cursor: default; }
+.am-banner { background: linear-gradient(135deg, #ff9800, #f44336); color: #fff; padding: 8px 16px; font-size: 12px; text-align: center; font-weight: 500; }
+.am-btn { display: block; width: 100%; border: none; background: transparent; padding: 10px 16px; font-size: 13px; cursor: pointer; text-align: left; color: var(--md-on-surface); }
+.am-btn:hover { background: #f5f5f5; }
+.am-btn-pro { color: #e65100; font-weight: 500; }
+.am-btn-logout { color: var(--md-error); }
+.am-btn-logout:hover { background: #ffebee; }
+
 .btn-ghost { background: #eee; color: #333; border: none; }
 .btn-ghost:hover { background: #ddd; }
 .btn-outline { background: transparent; border: 1px solid var(--md-divider); color: var(--md-on-surface); }
