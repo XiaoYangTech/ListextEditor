@@ -212,19 +212,31 @@ class TabManager {
     if (!a) return;
 
     if (a.kind === 'url' && a.content) {
-      // Remove any existing webview
       const old = el.querySelector('webview');
       if (old) { old.remove(); }
+      if (this._announceObserver) { this._announceObserver.disconnect(); this._announceObserver = null; }
       el.innerHTML = '';
+      el.style.overflow = 'hidden';
+      el.style.padding = '0';
       const wv = document.createElement('webview');
       wv.src = a.content;
-      wv.style.cssText = 'width:100%;height:100%;min-height:300px;border:none';
+      wv.style.cssText = 'width:1280px;height:900px;border:none;transform-origin:0 0';
       wv.setAttribute('allowpopups', '');
       el.appendChild(wv);
-      wv.addEventListener('did-start-loading', () => {
-        el.querySelector('.home-empty-hint')?.remove();
-      });
+
+      const fit = () => {
+        const cw = el.clientWidth;
+        const ch = el.clientHeight;
+        if (!cw || !ch) return;
+        wv.style.transform = `scale(${Math.min(cw / 1280, ch / 900, 1)})`;
+      };
+      wv.addEventListener('did-finish-load', fit);
+      this._announceObserver = new ResizeObserver(fit);
+      this._announceObserver.observe(el);
     } else {
+      if (this._announceObserver) { this._announceObserver.disconnect(); this._announceObserver = null; }
+      el.style.overflow = '';
+      el.style.padding = '';
       el.innerHTML = `<div style="font-size:14px;font-weight:600;margin-bottom:12px">${a.title}</div>
         <p style="white-space:pre-wrap;color:#555">${a.content || ''}</p>`;
     }
