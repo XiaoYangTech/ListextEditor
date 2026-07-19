@@ -9,7 +9,6 @@ const { ensureDir } = require('./utils');
 const { openSettingsWindow } = require('./window-manager');
 const { getBuiltInDir, getBuiltInRoots, scanBuiltInSounds } = require('./sound-handler');
 const fileLocker = require('./file-locker');
-const { apiClient } = require('./api-client');
 
 const tempDir = path.join(app.getPath('temp'), 'listext-editor');
 
@@ -122,18 +121,9 @@ function openProjectPackage(filePath) {
 
   const codeRoles = parseRoleDefs(project.content || '');
   const fileRoles = Array.isArray(project.roles) ? project.roles : [];
-  let filteredFileRoles = fileRoles;
-
-  const ent = apiClient.entitlementCache || {};
-  const isPro = ent.plan === 'pro' && !ent.expired;
-  const isFreeDisplay = ent.free_display?.enabled;
-  if (!isPro && !isFreeDisplay && fileRoles.length > 3) {
-    filteredFileRoles = fileRoles.slice(0, 3);
-    warnings.push(`项目包含 ${fileRoles.length} 个角色，免费版限制 3 个，已截取前 3 个。多余角色可通过代码 <role> 标签定义（只读）。`);
-  }
 
   const mergedRoles = [...codeRoles];
-  for (const r of filteredFileRoles) {
+  for (const r of fileRoles) {
     if (!mergedRoles.find(m => m.id === r.id)) {
       mergedRoles.push(r);
     }

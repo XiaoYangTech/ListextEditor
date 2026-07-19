@@ -986,6 +986,16 @@ body.toolbar-left .layout-align-btn {
 .rm-list-item.rm-overlimit { opacity: 0.5; border-color: #ffcdd2; }
 .rm-source-lock { background: #ffebee; color: #b00020; }
 
+.rr-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--md-divider); border-radius: 6px; margin-bottom: 6px; cursor: pointer; flex-wrap: wrap; }
+.rr-item:hover { background: #fafafa; }
+.rr-keep { border-left: 3px solid #4caf50; }
+.rr-remove { border-left: 3px solid #ff9800; opacity: 0.8; }
+.rr-item-info { flex: 1; min-width: 120px; }
+.rr-item-meta { font-size: 11px; color: var(--md-on-surface-variant); }
+.rr-replace { width: 100%; margin-top: 6px; padding-left: 24px; font-size: 12px; color: var(--md-on-surface-variant); display: flex; align-items: center; gap: 6px; }
+.rr-select { padding: 4px 8px; border: 1px solid var(--md-divider); border-radius: 4px; font-size: 12px; }
+.rr-check { margin: 0; }
+
 .notice-dialog .dialog-footer {
   justify-content: center;
 }
@@ -1656,10 +1666,22 @@ body.toolbar-left .layout-align-btn {
 .home-recent-list,
 .home-announce-list,
 .home-template-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
+
+.home-section .home-empty-hint { color: var(--md-on-surface-variant); font-size: 13px; padding: 16px; text-align: center; }
+
+/* Split panel for announcements & routines */
+.home-split-panel { display: flex; gap: 0; border: 1px solid var(--md-divider); border-radius: 8px; overflow: hidden; min-height: 200px; }
+.home-split-list { flex: 0 0 38%; border-right: 1px solid var(--md-divider); overflow-y: auto; max-height: 400px; background: #fafafa; }
+.home-split-detail { flex: 1; padding: 16px; overflow-y: auto; max-height: 400px; background: #fff; font-size: 13px; line-height: 1.6; }
+.split-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--md-divider); font-size: 13px; transition: background .1s; }
+.split-item:hover { background: #f0f0f0; }
+.split-item.active { background: #e3f2fd; border-left: 3px solid var(--md-primary); }
+.split-item-title { font-weight: 500; }
+.split-item-time { font-size: 11px; color: var(--md-on-surface-variant); margin-top: 2px; }
 
 .home-empty-hint {
   grid-column: 1 / -1;

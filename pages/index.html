@@ -78,14 +78,24 @@
             </div>
             <div class="home-section" id="homeAnnouncements" style="display:none;">
               <h3 class="home-section-title">系统公告</h3>
-              <div class="home-announce-list" id="homeAnnounceList">
-                <div class="home-empty-hint">暂无公告</div>
+              <div class="home-split-panel" id="homeAnnouncePanel">
+                <div class="home-split-list" id="homeAnnounceList">
+                  <div class="home-empty-hint">暂无公告</div>
+                </div>
+                <div class="home-split-detail" id="homeAnnounceDetail">
+                  <div class="home-empty-hint">选择左侧公告查看详情</div>
+                </div>
               </div>
             </div>
             <div class="home-section" id="homeTemplates" style="display:none;">
               <h3 class="home-section-title">例程模板库</h3>
-              <div class="home-template-list" id="homeTemplateList">
-                <div class="home-empty-hint">模板库即将上线</div>
+              <div class="home-split-panel" id="homeTemplatePanel">
+                <div class="home-split-list" id="homeTemplateList">
+                  <div class="home-empty-hint">模板库无内容</div>
+                </div>
+                <div class="home-split-detail" id="homeTemplateDetail">
+                  <div class="home-empty-hint">选择左侧例程查看详情</div>
+                </div>
               </div>
             </div>
           </div>
@@ -353,6 +363,35 @@
     </div>
   </div>
 
+  <div id="roleReplaceDialog" class="dialog">
+    <div class="dialog-content" style="min-width:500px;max-width:600px;max-height:85%;overflow-y:auto">
+      <div class="dialog-header"><h2>导入项目 - 角色选择</h2><button class="dialog-close" id="roleReplaceClose">&times;</button></div>
+      <div class="dialog-body" style="padding:12px 20px">
+        <p style="font-size:13px;color:#e65100;margin-bottom:12px">此项目包含多个角色，免费版限制 3 个。请选择保留的角色，被移除的角色引用将替换为你指定的角色。</p>
+        <div id="roleReplaceList"></div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-cancel" id="roleReplaceCancel">放弃导入</button>
+        <button class="btn btn-primary" id="roleReplaceConfirm">确认并导入</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="accountMenu" class="account-menu" style="display:none">
+    <div class="dialog-content dialog-small" style="max-width:400px;">
+      <div class="dialog-header"><h2>设备数量已达上限</h2><button class="dialog-close" id="deviceLimitClose">&times;</button></div>
+      <div class="dialog-body">
+        <p style="font-size:13px;color:#757575;margin-bottom:12px">请选择一台设备下线后重新登录</p>
+        <div id="deviceLimitList" class="device-list"></div>
+        <div id="deviceLimitError" class="login-error" style="display:none"></div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-cancel" id="deviceLimitCancel">取消</button>
+        <button class="btn btn-primary" id="deviceLimitConfirm">下线并登录</button>
+      </div>
+    </div>
+  </div>
+
   <div id="accountMenu" class="account-menu" style="display:none">
     <div id="accountMenuBody"></div>
   </div>
@@ -372,6 +411,7 @@
   <script src="../src/tab-manager.js"></script>
   <script src="../src/role-manager-page.js"></script>
   <script src="../src/auth-manager.js"></script>
+  <script src="../src/role-replace-dialog.js"></script>
   <script src="../src/entitlement.js"></script>
   <script src="../src/app.js"></script>
 </body>

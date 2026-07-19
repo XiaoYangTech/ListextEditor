@@ -168,60 +168,108 @@ class TabManager {
   }
 
   async loadAnnouncements() {
-    const el = document.getElementById('homeAnnounceList');
-    if (!el) return;
+    const listEl = document.getElementById('homeAnnounceList');
+    const detailEl = document.getElementById('homeAnnounceDetail');
+    if (!listEl) return;
     if (!window.electronAPI?.fetchAnnouncements) {
-      el.innerHTML = '<div class="home-empty-hint">功能即将上线</div>';
+      listEl.innerHTML = '<div class="home-empty-hint">功能即将上线</div>';
       return;
     }
     try {
       const list = await window.electronAPI.fetchAnnouncements();
       if (!list || !list.length) {
-        el.innerHTML = '<div class="home-empty-hint">暂无公告</div>';
+        listEl.innerHTML = '<div class="home-empty-hint">暂无公告</div>';
+        if (detailEl) detailEl.innerHTML = '<div class="home-empty-hint">选择左侧公告查看详情</div>';
         return;
       }
-      el.innerHTML = list.map(a => {
+      this._announcements = list;
+      listEl.innerHTML = list.map((a, i) => {
         const date = a.created_at ? a.created_at.split(' ')[0] : '';
-        if (a.kind === 'url' && a.content) {
-          return `<div class="home-announce-item">
-            <div class="home-announce-title">${a.title} <span class="home-announce-time">${date}</span></div>
-            <div class="home-card-body"><a class="home-action-btn primary" style="display:inline-flex;margin-top:4px" href="#" onclick="window.electronAPI?.openExternal?.('${a.content.replace(/'/g, '\\\'')}');return false">查看详情</a></div>
-          </div>`;
-        }
-        return `<div class="home-announce-item">
-          <div class="home-announce-title">${a.title} <span class="home-announce-time">${date}</span></div>
-          <div class="home-card-body">${(a.content || '').replace(/\n/g, '<br>')}</div>
+        return `<div class="split-item${i === 0 ? ' active' : ''}" data-index="${i}">
+          <div class="split-item-title">${a.title}</div>
+          <div class="split-item-time">${date}</div>
         </div>`;
       }).join('');
+
+      listEl.querySelectorAll('.split-item').forEach(item => {
+        item.addEventListener('click', () => {
+          listEl.querySelectorAll('.split-item').forEach(s => s.classList.remove('active'));
+          item.classList.add('active');
+          this._showAnnounceDetail(parseInt(item.dataset.index, 10));
+        });
+      });
+
+      this._showAnnounceDetail(0);
     } catch {
-      el.innerHTML = '<div class="home-empty-hint">加载失败，请检查网络</div>';
+      listEl.innerHTML = '<div class="home-empty-hint">加载失败，请检查网络</div>';
+    }
+  }
+
+  _showAnnounceDetail(index) {
+    const el = document.getElementById('homeAnnounceDetail');
+    if (!el || !this._announcements) return;
+    const a = this._announcements[index];
+    if (!a) return;
+
+    if (a.kind === 'url' && a.content) {
+      el.innerHTML = `<div style="font-size:14px;font-weight:600;margin-bottom:12px">${a.title}</div>
+        <p><a class="home-action-btn primary" style="display:inline-flex" href="#" onclick="window.electronAPI?.openExternal?.('${a.content.replace(/'/g, '\\\'')}');return false">在浏览器中打开</a></p>`;
+    } else {
+      el.innerHTML = `<div style="font-size:14px;font-weight:600;margin-bottom:12px">${a.title}</div>
+        <p style="white-space:pre-wrap;color:#555">${a.content || ''}</p>`;
     }
   }
 
   async loadRoutines() {
-    const el = document.getElementById('homeTemplateList');
-    if (!el) return;
+    const listEl = document.getElementById('homeTemplateList');
+    const detailEl = document.getElementById('homeTemplateDetail');
+    if (!listEl) return;
     if (!window.electronAPI?.fetchRoutines) {
-      el.innerHTML = '<div class="home-empty-hint">功能即将上线</div>';
+      listEl.innerHTML = '<div class="home-empty-hint">功能即将上线</div>';
       return;
     }
     try {
       const list = await window.electronAPI.fetchRoutines();
       if (!list || !list.length) {
-        el.innerHTML = '<div class="home-empty-hint">暂无例程模板</div>';
+        listEl.innerHTML = '<div class="home-empty-hint">暂无例程模板</div>';
+        if (detailEl) detailEl.innerHTML = '<div class="home-empty-hint">选择左侧例程查看详情</div>';
         return;
       }
-      el.innerHTML = list.map(r => {
+      this._routines = list;
+      listEl.innerHTML = list.map((r, i) => {
         const date = r.published_at || '';
-        const content = (r.content || '').replace(/\n/g, '<br>');
-        const downloadBtn = r.download_url
-          ? `<a href="#" onclick="window.electronAPI?.openExternal?.('${r.download_url.replace(/'/g, '\\\'')}');return false" class="home-action-btn primary" style="display:inline-flex;margin-top:8px"><span class="material-icons" style="font-size:16px">download</span>下载</a>`
-          : '';
-        return `<div class="home-card"><div class="home-card-title">${r.title} <span style="font-size:11px;color:#999;font-weight:400">${date}</span></div><div class="home-card-body">${content}${downloadBtn ? '<br>' + downloadBtn : ''}</div></div>`;
+        return `<div class="split-item${i === 0 ? ' active' : ''}" data-index="${i}">
+          <div class="split-item-title">${r.title}</div>
+          <div class="split-item-time">${date}</div>
+        </div>`;
       }).join('');
+
+      listEl.querySelectorAll('.split-item').forEach(item => {
+        item.addEventListener('click', () => {
+          listEl.querySelectorAll('.split-item').forEach(s => s.classList.remove('active'));
+          item.classList.add('active');
+          this._showRoutineDetail(parseInt(item.dataset.index, 10));
+        });
+      });
+
+      this._showRoutineDetail(0);
     } catch {
-      el.innerHTML = '<div class="home-empty-hint">加载失败，请检查网络</div>';
+      listEl.innerHTML = '<div class="home-empty-hint">加载失败，请检查网络</div>';
     }
+  }
+
+  _showRoutineDetail(index) {
+    const el = document.getElementById('homeTemplateDetail');
+    if (!el || !this._routines) return;
+    const r = this._routines[index];
+    if (!r) return;
+
+    const downloadBtn = r.download_url
+      ? `<a class="home-action-btn primary" style="display:inline-flex;margin-top:12px" href="#" onclick="window.electronAPI?.openExternal?.('${r.download_url.replace(/'/g, '\\\'')}');return false"><span class="material-icons" style="font-size:16px">download</span>下载</a>`
+      : '';
+    el.innerHTML = `<div style="font-size:14px;font-weight:600;margin-bottom:12px">${r.title}</div>
+      <p style="white-space:pre-wrap;color:#555">${(r.content || '').replace(/\n/g, '<br>')}</p>
+      ${downloadBtn}`;
   }
 
   recordRecentProject(filePath, title) {

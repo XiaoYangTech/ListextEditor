@@ -164,17 +164,33 @@ class FileManager {
 
     const normalized = await this.normalizeImportedRoles(result.roles || []);
     const effects = result.effects || [];
+    let finalContent = result.content || '';
+    let finalRoles = normalized.roles;
+
+    const isUnlocked = window.entitlement?.isUnlocked();
+    const uiRoles = finalRoles.filter(r => r.source !== 'code');
+    if (!isUnlocked && uiRoles.length > 3) {
+      const choice = await new Promise(resolve => {
+        window._roleReplaceDialog?.show(finalRoles, finalContent, resolve);
+      });
+      if (!choice) {
+        this.app.updateStatus('已取消导入：角色数超出免费版限制');
+        return false;
+      }
+      finalRoles = choice.roles;
+      finalContent = choice.content;
+    }
 
     const title = result.title || filePath.split(/[/\\]/).pop();
     if (this.app.tabManager) {
-      this.app.tabManager.createNewTab(title, result.content || '', filePath, true, {
-        roles: normalized.roles,
+      this.app.tabManager.createNewTab(title, finalContent, filePath, true, {
+        roles: finalRoles,
         effects: effects
       });
     }
 
     await this.api.setProjectEffects(effects);
-    await this.api.setProjectRoles(normalized.roles);
+    await this.api.setProjectRoles(finalRoles);
 
     const allNotes = [...normalized.notes, ...(result.warnings || [])];
     this.app.uiManager?.refreshSectionJump?.();
