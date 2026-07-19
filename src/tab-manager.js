@@ -128,8 +128,8 @@ class TabManager {
       }
       el.innerHTML = list.map(a => {
         const date = a.created_at ? a.created_at.split(' ')[0] : '';
-        if (a.kind === 'url' && a.link_url) {
-          return `<div class="home-card"><div class="home-card-title">${a.title} <span style="font-size:11px;color:#999;font-weight:400">${date}</span></div><div class="home-card-body"><a href="#" onclick="window.electronAPI.openExternal('${a.link_url}');return false">查看详情 →</a></div></div>`;
+        if (a.kind === 'url' && a.content) {
+          return `<div class="home-card"><div class="home-card-title">${a.title} <span style="font-size:11px;color:#999;font-weight:400">${date}</span></div><div class="home-card-body"><a href="#" onclick="window.electronAPI?.openExternal?.('${a.content.replace(/'/g, '\\\'')}');return false">查看详情 →</a></div></div>`;
         }
         return `<div class="home-card"><div class="home-card-title">${a.title} <span style="font-size:11px;color:#999;font-weight:400">${date}</span></div><div class="home-card-body">${a.content || ''}</div></div>`;
       }).join('');

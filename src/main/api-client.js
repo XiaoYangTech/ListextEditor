@@ -187,7 +187,8 @@ class ApiClient {
   }
 
   async getDevices() {
-    return await this.request('client_devices');
+    const result = await this.request('client_devices');
+    return result?.data || result;
   }
 
   async removeDevice(id) {
@@ -195,19 +196,23 @@ class ApiClient {
   }
 
   async getAnnouncements() {
-    return await this.requestNoAuth('announcements');
+    const result = await this.requestNoAuth('announcements');
+    return result?.data || result || [];
   }
 
   async getRoutines() {
-    return await this.requestNoAuth('routines');
+    const result = await this.requestNoAuth('routines');
+    return result?.data || result || [];
   }
 
   async getBanners() {
-    return await this.requestNoAuth('banners');
+    const result = await this.requestNoAuth('banners');
+    return result?.data || result || [];
   }
 
   async getExportQuota() {
-    return await this.request('export_quota');
+    const result = await this.request('export_quota');
+    return result?.data || result;
   }
 
   async consumeExport() {
