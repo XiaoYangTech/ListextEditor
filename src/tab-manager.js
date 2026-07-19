@@ -220,7 +220,7 @@ class TabManager {
       el.style.padding = '0';
       const wv = document.createElement('webview');
       wv.src = a.content;
-      wv.style.cssText = 'width:1280px;height:900px;border:none;transform-origin:0 0';
+      wv.style.cssText = 'width:1024px;height:768px;border:none;transform-origin:0 0';
       wv.setAttribute('allowpopups', '');
       el.appendChild(wv);
 
@@ -228,7 +228,7 @@ class TabManager {
         const cw = el.clientWidth;
         const ch = el.clientHeight;
         if (!cw || !ch) return;
-        wv.style.transform = `scale(${Math.min(cw / 1280, ch / 900, 1)})`;
+        wv.style.transform = `scale(${Math.min(cw / 1024, ch / 768, 1)})`;
       };
       wv.addEventListener('did-finish-load', fit);
       this._announceObserver = new ResizeObserver(fit);

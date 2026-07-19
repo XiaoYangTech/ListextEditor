@@ -34,6 +34,24 @@ class AuthManager {
       this.api?.openExternal?.('https://api.yfyw.top');
     });
 
+    const loginEmail = document.getElementById('loginEmail');
+    const loginPassword = document.getElementById('loginPassword');
+    const loginSubmit = document.getElementById('loginSubmit');
+
+    const updateLoginBtn = () => {
+      if (loginSubmit) {
+        loginSubmit.disabled = !(loginEmail?.value.trim() && loginPassword?.value.trim());
+      }
+    };
+    loginEmail?.addEventListener('input', updateLoginBtn);
+    loginPassword?.addEventListener('input', updateLoginBtn);
+
+    if (loginPassword) {
+      loginPassword.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !loginSubmit?.disabled) this.doLogin();
+      });
+    }
+
     document.getElementById('deviceLimitCancel')?.addEventListener('click', () => this.hideDeviceLimitDialog());
     document.getElementById('deviceLimitClose')?.addEventListener('click', () => this.hideDeviceLimitDialog());
     document.getElementById('deviceLimitConfirm')?.addEventListener('click', () => this.doDeviceRemoveAndLogin());
@@ -67,9 +85,12 @@ class AuthManager {
   async doLogin() {
     const email = document.getElementById('loginEmail')?.value.trim();
     const password = document.getElementById('loginPassword')?.value.trim();
-    if (!email || !password) {
-      document.getElementById('loginError').textContent = '请填写邮箱和密码';
-      document.getElementById('loginError').style.display = 'block';
+    const submitBtn = document.getElementById('loginSubmit');
+    if (!email || !password || submitBtn?.disabled) {
+      if (!email || !password) {
+        document.getElementById('loginError').textContent = '请填写邮箱和密码';
+        document.getElementById('loginError').style.display = 'block';
+      }
       return;
     }
 
@@ -151,7 +172,7 @@ class AuthManager {
     document.getElementById('loginEmail').value = '';
     document.getElementById('loginPassword').value = '';
     document.getElementById('loginError').style.display = 'none';
-    document.getElementById('loginSubmit').disabled = false;
+    document.getElementById('loginSubmit').disabled = true;
     document.getElementById('loginSubmit').textContent = '登录';
     const reasonEl = document.getElementById('loginReason');
     reasonEl.style.display = reason ? 'block' : 'none';
@@ -168,7 +189,13 @@ class AuthManager {
     if (!el) return;
     const list = document.getElementById('deviceLimitList');
     list.innerHTML = (this._devicesCache || []).map((d, i) =>
-      `<label class="device-radio"><input type="radio" name="deviceRadio" value="${d.id}" ${i === 0 ? 'checked' : ''}> ${d.name || d.os} · ${d.ip || ''} · 最后活跃: ${d.last_seen_at || ''}</label>`
+      `<label class="device-radio">
+        <input type="radio" name="deviceRadio" value="${d.id}" ${i === 0 ? 'checked' : ''}>
+        <div class="device-info">
+          <div class="device-name">${d.name || d.os}</div>
+          <div class="device-meta">${d.ip || ''} · 最后活跃: ${d.last_seen_at || ''}</div>
+        </div>
+      </label>`
     ).join('');
     document.getElementById('deviceLimitError').style.display = 'none';
     document.getElementById('deviceLimitConfirm').disabled = false;
