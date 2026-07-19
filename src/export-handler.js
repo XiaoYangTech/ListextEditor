@@ -41,18 +41,50 @@ class ExportHandler {
     const dialog = document.getElementById('exportDialog');
     if (!dialog) { this.doExport(null); return; }
 
-    const fileName = document.getElementById('exportFileName');
-    const dirInput = document.getElementById('exportDir');
-    const info = document.getElementById('exportInfo');
+    this._ensureAuthForExport(async () => {
+      const fileName = document.getElementById('exportFileName');
+      const dirInput = document.getElementById('exportDir');
+      const info = document.getElementById('exportInfo');
 
-    if (fileName) {
-      const tab = window.app?.tabManager?.getActiveTab();
-      const baseName = tab?.filePath ? tab.filePath.split(/[/\\]/).pop().replace(/\.[^.]+$/, '') : 'listening';
-      fileName.value = baseName + '.mp3';
+      if (fileName) {
+        const tab = window.app?.tabManager?.getActiveTab();
+        const baseName = tab?.filePath ? tab.filePath.split(/[/\\]/).pop().replace(/\.[^.]+$/, '') : 'listening';
+        fileName.value = baseName + '.mp3';
+      }
+      if (dirInput) dirInput.value = this.exportDir || '';
+      if (info) info.textContent = '';
+      dialog.classList.add('active');
+    });
+  }
+
+  async _ensureAuthForExport(onSuccess) {
+    const loggedIn = await this.api?.isLoggedIn();
+    if (!loggedIn) {
+      window.app?.authManager?.showLoginDialog('请登录后使用导出功能');
+      return;
     }
-    if (dirInput) dirInput.value = this.exportDir || '';
-    if (info) info.textContent = '';
-    dialog.classList.add('active');
+    const ent = await this.api?.getEntitlement();
+    const isPro = ent?.plan === 'pro' && !ent?.expired;
+    const isFreeDisplay = ent?.free_display?.enabled;
+
+    if (!isPro && !isFreeDisplay) {
+      try {
+        const quota = await this.api?.getExportQuota();
+        if (quota && typeof quota.remaining === 'number' && quota.remaining > 0) {
+          onSuccess();
+          return;
+        }
+      } catch {}
+      this.updateStatus('本月导出次数已用完，请前往 api.yfyw.top 升级');
+      return;
+    }
+
+    if (isPro || isFreeDisplay) {
+      onSuccess();
+      return;
+    }
+
+    this.updateStatus('请连接网络后使用导出功能');
   }
 
   updateStatus(text) {
@@ -136,6 +168,7 @@ class ExportHandler {
       await api.cleanupTemp?.();
 
       if (result?.success) {
+        await api.consumeExport?.().catch(() => {});
         this.updateStatus('导出完成');
         setTimeout(() => window.app?.updateStatus?.('就绪'), 1200);
       } else {
