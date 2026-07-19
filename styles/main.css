@@ -1819,6 +1819,9 @@ body.toolbar-left .layout-align-btn {
 .am-btn-logout { color: var(--md-error); }
 .am-btn-logout:hover { background: #ffebee; }
 
+.vip-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff9800, #e65100); color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 13px; z-index: 2000; opacity: 0; transition: opacity .3s; pointer-events: none; }
+.vip-toast.show { opacity: 1; }
+
 .btn-ghost { background: #eee; color: #333; border: none; }
 .btn-ghost:hover { background: #ddd; }
 .btn-outline { background: transparent; border: 1px solid var(--md-divider); color: var(--md-on-surface); }

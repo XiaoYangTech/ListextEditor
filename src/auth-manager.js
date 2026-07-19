@@ -9,6 +9,7 @@ class AuthManager {
     if (loggedIn) {
       await this.refreshProfile();
     }
+    await window.entitlement?.refresh();
     this.updateAccountUI();
     this.bindEvents();
   }

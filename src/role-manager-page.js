@@ -119,7 +119,13 @@ class RoleManagerPage {
 
     if (type === 'edge' && window.electronAPI?.listEdgeVoices) {
       const res = await window.electronAPI.listEdgeVoices();
-      const voices = res?.voices || [];
+      let voices = res?.voices || [];
+      if (!window.entitlement?.isUnlocked()) {
+        const currentVoice = this.roleVoice.value;
+        voices = voices.filter(v =>
+          v.startsWith('zh-CN') || v.startsWith('en-US') || v === currentVoice
+        );
+      }
       this.roleVoice.innerHTML = voices.length
         ? voices.map(v => `<option value="${v}">${v}</option>`).join('')
         : '<option value="">未获取到 EdgeTTS 发音人</option>';
@@ -233,6 +239,14 @@ class RoleManagerPage {
     const roles = await this.getRoles();
     const payload = { id, name, type, voice, source: 'ui' };
     const idx = roles.findIndex(r => r.id === id && r.source !== 'code');
+
+    if (idx < 0) {
+      const uiCount = roles.filter(r => r.source !== 'code').length;
+      if (!window.entitlement?.isUnlocked() && uiCount >= 3) {
+        window.entitlement?.showVipToast('无限角色个数');
+        return;
+      }
+    }
     if (idx >= 0) roles[idx] = payload;
     else roles.push(payload);
 

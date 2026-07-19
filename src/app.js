@@ -193,6 +193,12 @@ class ListextEditor {
 
   switchMode(mode, sync = true) {
     if (mode !== 'block' && mode !== 'code' && mode !== 'split') return;
+    if (mode === 'split' && this.currentMode !== 'split') {
+      if (!window.entitlement?.isUnlocked()) {
+        window.entitlement?.showVipToast('分屏模式');
+        return;
+      }
+    }
     if (mode === this.currentMode && sync) return;
 
     this.stopSplitSync();
