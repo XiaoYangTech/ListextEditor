@@ -15,21 +15,29 @@ class RoleManagerPage {
     this.init();
   }
 
+  _showError(msg) {
+    window.app?.uiManager?.showInfoDialog?.('提示', msg);
+  }
+
   bind() {
-    this.roleType.addEventListener('change', async () => {
-      if (this.roleType.value === 'local') {
-        await this.getLocalVoices();
-      }
+    this.roleType.removeEventListener('change', this._onTypeChange);
+    this.btnSave.replaceWith(this.btnSave.cloneNode(true));
+    this.btnClear.replaceWith(this.btnClear.cloneNode(true));
+    this.roleType = document.getElementById('roleType');
+    this.btnSave = document.getElementById('btnSave');
+    this.btnClear = document.getElementById('btnClear');
+    this.roleId = document.getElementById('roleId');
+    this.roleName = document.getElementById('roleName');
+    this.roleVoice = document.getElementById('roleVoice');
+    this.roleList = document.getElementById('roleList');
+
+    this._onTypeChange = async () => {
+      if (this.roleType.value === 'local') await this.getLocalVoices();
       await this.populateVoices();
-    });
+    };
+    this.roleType.addEventListener('change', this._onTypeChange);
     this.btnSave.addEventListener('click', () => this.saveRole());
     this.btnClear.addEventListener('click', () => this.clearForm());
-
-    if (window.electronAPI?.onProjectRolesChanged) {
-      window.electronAPI.onProjectRolesChanged(() => this.renderRoles());
-    }
-
-    document.getElementById('roleManagerClose')?.addEventListener('click', () => this.close());
   }
 
   close() {
@@ -42,7 +50,6 @@ class RoleManagerPage {
       if (localOption) localOption.disabled = true;
       this.roleType.value = 'edge';
     }
-
     this.roleType.value = 'edge';
     await this.populateVoices();
     await this.renderRoles();
@@ -50,20 +57,14 @@ class RoleManagerPage {
 
   async getRoles() {
     if (window.electronAPI) {
-      try {
-        const data = await window.electronAPI.getProjectData();
-        return data?.roles || [];
-      } catch {
-        return [];
-      }
+      try { const data = await window.electronAPI.getProjectData(); return data?.roles || []; }
+      catch { return []; }
     }
     return [];
   }
 
   async setRoles(roles) {
-    if (window.electronAPI) {
-      await window.electronAPI.setProjectRoles(roles);
-    }
+    if (window.electronAPI) await window.electronAPI.setProjectRoles(roles);
   }
 
   getRolesFromCode(content) {
@@ -74,17 +75,9 @@ class RoleManagerPage {
       const attrs = {};
       const attrRegex = /(\w+)=["']([^"']*)["']/g;
       let am;
-      while ((am = attrRegex.exec(m[1])) !== null) {
-        attrs[am[1]] = am[2];
-      }
+      while ((am = attrRegex.exec(m[1])) !== null) attrs[am[1]] = am[2];
       if (attrs.id) {
-        roles.push({
-          id: attrs.id,
-          name: attrs.name || attrs.id,
-          type: attrs.type || 'edge',
-          voice: attrs.voice || '',
-          source: 'code'
-        });
+        roles.push({ id: attrs.id, name: attrs.name || attrs.id, type: attrs.type || 'edge', voice: attrs.voice || '', source: 'code' });
       }
     }
     return roles;
@@ -95,11 +88,7 @@ class RoleManagerPage {
     try { speechSynthesis.getVoices(); } catch { /* ignored */ }
     return await new Promise(resolve => {
       let done = false;
-      const finish = (voices) => {
-        if (done) return;
-        done = true;
-        resolve(Array.from(voices || []));
-      };
+      const finish = (voices) => { if (done) return; done = true; resolve(Array.from(voices || [])); };
       const immediate = speechSynthesis.getVoices();
       if (immediate.length) { finish(immediate); return; }
       const handler = () => { speechSynthesis.removeEventListener('voiceschanged', handler); finish(speechSynthesis.getVoices()); };
@@ -120,15 +109,19 @@ class RoleManagerPage {
     if (type === 'edge' && window.electronAPI?.listEdgeVoices) {
       const res = await window.electronAPI.listEdgeVoices();
       let voices = res?.voices || [];
-      if (!window.entitlement?.isUnlocked()) {
+      const isUnlocked = window.entitlement?.isUnlocked();
+      if (!isUnlocked) {
         const currentVoice = this.roleVoice.value;
-        voices = voices.filter(v =>
-          v.startsWith('zh-CN') || v.startsWith('en-US') || v === currentVoice
-        );
+        voices = voices.filter(v => v.startsWith('zh-CN') || v.startsWith('en-US') || v === currentVoice);
       }
-      this.roleVoice.innerHTML = voices.length
+      let html = voices.length
         ? voices.map(v => `<option value="${v}">${v}</option>`).join('')
         : '<option value="">未获取到 EdgeTTS 发音人</option>';
+      if (!isUnlocked) {
+        html += '<option disabled>── 以下30+语种需专业版 ──</option>';
+        html += '<option value="" disabled>💎 升级专业版解锁日语/俄语/西班牙语等小语种</option>';
+      }
+      this.roleVoice.innerHTML = html;
       return;
     }
 
@@ -142,66 +135,81 @@ class RoleManagerPage {
     const uiRoles = (await this.getRoles()).filter(r => r.source !== 'code');
 
     let codeContent = '';
-    try {
-      const data = await window.electronAPI.getProjectData();
-      codeContent = data?.content || '';
-    } catch {}
-    const codeRoles = this.getRolesFromCode(codeContent);
+    try { const data = await window.electronAPI.getProjectData(); codeContent = data?.content || ''; } catch {}
 
-    if (!uiRoles.length && !codeRoles.length) {
-      this.roleList.innerHTML = '<div class="empty">尚未添加角色。可通过此界面添加，或在代码中使用 &lt;role&gt; 标签定义。</div>';
-      return;
-    }
+    const codeRoles = this.getRolesFromCode(codeContent);
+    const isUnlocked = window.entitlement?.isUnlocked();
+    const isFreeDisplay = window.entitlement?.isFreeDisplay;
+    const uiCount = uiRoles.length;
+    const totalRoles = uiCount + codeRoles.length;
+    const isOverLimit = !isUnlocked && uiCount > 3;
 
     let html = '';
 
-    if (codeRoles.length) {
-      html += '<div style="margin-bottom:8px;font-size:12px;color:#757575;">代码中定义的角色（只读）</div>';
-      html += codeRoles.map(role => `
-        <div class="rm-list-item" data-id="${role.id}">
-          <div>
-            <div><strong>${role.name}</strong> (${role.id})<span class="rm-source-tag rm-source-code">代码定义</span></div>
-            <div class="rm-meta">${role.type === 'local' ? '系统TTS' : 'EdgeTTS'} · ${role.voice || '未设置'}</div>
-          </div>
-        </div>
-      `).join('');
+    if (!isUnlocked) {
+      html += `<div class="rm-vip-bar">
+        ${isFreeDisplay ? '🎉 全服限免中' : '📋 免费版'} · ${uiCount}/3 个角色已添加 · 共 ${totalRoles} 个
+        <a href="#" class="rm-upgrade-link" onclick="window.electronAPI?.openExternal?.('https://api.yfyw.top');return false">💎 升级专业版</a>
+      </div>`;
+      if (isOverLimit) {
+        html += `<div class="rm-overlimit-warn">⚠️ 角色数(${uiCount})超过免费版限制(3个)。多余的角色仅可查看，无法编辑或添加新角色。</div>`;
+      }
     }
 
-    if (uiRoles.length) {
-      if (codeRoles.length) html += '<div style="margin:12px 0 8px;font-size:12px;color:#757575;">手动添加的角色</div>';
-      html += uiRoles.map(role => `
-        <div class="rm-list-item" data-id="${role.id}">
-          <div>
-            <div><strong>${role.name}</strong> (${role.id})<span class="rm-source-tag rm-source-ui">手动添加</span></div>
-            <div class="rm-meta">${role.type === 'edge' ? 'EdgeTTS' : '系统TTS'} · ${role.voice || '未设置'}</div>
+    if (!uiRoles.length && !codeRoles.length) {
+      html += '<div class="effect-empty">尚未添加角色。可通过此界面添加，或在代码中使用 &lt;role&gt; 标签定义。</div>';
+    } else {
+      if (codeRoles.length) {
+        html += '<div style="margin-bottom:8px;font-size:12px;color:#757575;">代码中定义的角色（只读）</div>';
+        html += codeRoles.map(role => `
+          <div class="rm-list-item" data-id="${role.id}">
+            <div>
+              <div><strong>${role.name}</strong> (${role.id})<span class="rm-source-tag rm-source-code">代码定义</span></div>
+              <div class="rm-meta">${role.type === 'local' ? '系统TTS' : 'EdgeTTS'} · ${role.voice || '未设置'}</div>
+            </div>
           </div>
-          <div class="rm-actions">
-            <button class="btn btn-ghost" data-action="edit" data-id="${role.id}">编辑</button>
-            <button class="btn btn-danger" data-action="delete" data-id="${role.id}">删除</button>
-          </div>
-        </div>
-      `).join('');
+        `).join('');
+      }
+
+      if (uiRoles.length) {
+        if (codeRoles.length) html += '<div style="margin:12px 0 8px;font-size:12px;color:#757575;">手动添加的角色</div>';
+        html += uiRoles.map((role, i) => {
+          const overLimit = isOverLimit && i >= 3;
+          return `<div class="rm-list-item${overLimit ? ' rm-overlimit' : ''}" data-id="${role.id}">
+            <div>
+              <div><strong>${role.name}</strong> (${role.id})<span class="rm-source-tag rm-source-ui">手动添加</span>${overLimit ? '<span class="rm-source-tag rm-source-lock">🔒 超限</span>' : ''}</div>
+              <div class="rm-meta">${role.type === 'edge' ? 'EdgeTTS' : '系统TTS'} · ${role.voice || '未设置'}</div>
+            </div>
+            ${overLimit ? '' : `<div class="rm-actions"><button class="btn btn-ghost" data-action="edit" data-id="${role.id}">编辑</button><button class="btn btn-danger" data-action="delete" data-id="${role.id}">删除</button></div>`}
+          </div>`;
+        }).join('');
+      }
     }
 
     this.roleList.innerHTML = html;
 
     this.roleList.querySelectorAll('button[data-action="edit"]').forEach(btn => btn.addEventListener('click', async () => await this.editRole(btn.dataset.id)));
     this.roleList.querySelectorAll('button[data-action="delete"]').forEach(btn => btn.addEventListener('click', async () => await this.deleteRole(btn.dataset.id)));
+
+    if (isOverLimit) {
+      this.btnSave.disabled = true;
+      this.btnSave.style.opacity = '0.5';
+      this.btnSave.title = '角色数已达免费版上限';
+    } else {
+      this.btnSave.disabled = false;
+      this.btnSave.style.opacity = '';
+      this.btnSave.title = '';
+    }
   }
 
   async editRole(id) {
     const roles = await this.getRoles();
     const role = roles.find(r => r.id === id);
     if (!role) return;
-
     this.roleId.value = role.id;
     this.roleName.value = role.name || '';
     this.roleType.value = role.type || 'edge';
-
-    if (this.disableLocalTts && this.roleType.value === 'local') {
-      this.roleType.value = 'edge';
-    }
-
+    if (this.disableLocalTts && this.roleType.value === 'local') this.roleType.value = 'edge';
     await this.populateVoices();
     this.roleVoice.value = role.voice || '';
   }
@@ -227,12 +235,12 @@ class RoleManagerPage {
     const voice = this.roleVoice.value.trim();
 
     if (!id || !name) {
-      alert('请填写角色ID和角色名称');
+      this._showError('请填写角色ID和角色名称');
       return;
     }
 
     if (type === 'local' && this.disableLocalTts) {
-      alert('当前平台禁用系统TTS，请改为 EdgeTTS');
+      this._showError('当前平台禁用系统TTS，请改为 EdgeTTS');
       return;
     }
 
@@ -247,6 +255,7 @@ class RoleManagerPage {
         return;
       }
     }
+
     if (idx >= 0) roles[idx] = payload;
     else roles.push(payload);
 

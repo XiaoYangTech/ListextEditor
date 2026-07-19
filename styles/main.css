@@ -979,6 +979,13 @@ body.toolbar-left .layout-align-btn {
 .rm-meta { font-size: 12px; color: var(--md-on-surface-variant); margin-top: 4px; }
 .rm-actions { display: flex; gap: 8px; }
 
+.rm-vip-bar { background: linear-gradient(135deg, #fff3e0, #ffe0b2); border: 1px solid #ffcc02; border-radius: 6px; padding: 8px 12px; font-size: 12px; color: #e65100; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+.rm-upgrade-link { color: #e65100; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.rm-upgrade-link:hover { text-decoration: underline; }
+.rm-overlimit-warn { background: #ffebee; border: 1px solid #ffcdd2; border-radius: 6px; padding: 8px 12px; font-size: 12px; color: #b00020; margin-bottom: 10px; }
+.rm-list-item.rm-overlimit { opacity: 0.5; border-color: #ffcdd2; }
+.rm-source-lock { background: #ffebee; color: #b00020; }
+
 .notice-dialog .dialog-footer {
   justify-content: center;
 }
@@ -1579,12 +1586,13 @@ body.toolbar-left .layout-align-btn {
   position: relative;
   border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 20px;
+  margin: 0 auto 20px auto;
   color: #fff;
   cursor: pointer;
   aspect-ratio: 3 / 1;
   min-height: 120px;
   max-height: 220px;
+  max-width: 100%;
   background: #e0e0e0;
 }
 

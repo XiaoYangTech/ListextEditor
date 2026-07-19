@@ -183,9 +183,15 @@ class TabManager {
       el.innerHTML = list.map(a => {
         const date = a.created_at ? a.created_at.split(' ')[0] : '';
         if (a.kind === 'url' && a.content) {
-          return `<div class="home-card"><div class="home-card-title">${a.title} <span style="font-size:11px;color:#999;font-weight:400">${date}</span></div><div class="home-card-body"><a href="#" onclick="window.electronAPI?.openExternal?.('${a.content.replace(/'/g, '\\\'')}');return false">查看详情 →</a></div></div>`;
+          return `<div class="home-announce-item">
+            <div class="home-announce-title">${a.title} <span class="home-announce-time">${date}</span></div>
+            <div class="home-card-body"><a class="home-action-btn primary" style="display:inline-flex;margin-top:4px" href="#" onclick="window.electronAPI?.openExternal?.('${a.content.replace(/'/g, '\\\'')}');return false">查看详情</a></div>
+          </div>`;
         }
-        return `<div class="home-card"><div class="home-card-title">${a.title} <span style="font-size:11px;color:#999;font-weight:400">${date}</span></div><div class="home-card-body">${a.content || ''}</div></div>`;
+        return `<div class="home-announce-item">
+          <div class="home-announce-title">${a.title} <span class="home-announce-time">${date}</span></div>
+          <div class="home-card-body">${(a.content || '').replace(/\n/g, '<br>')}</div>
+        </div>`;
       }).join('');
     } catch {
       el.innerHTML = '<div class="home-empty-hint">加载失败，请检查网络</div>';
@@ -207,10 +213,11 @@ class TabManager {
       }
       el.innerHTML = list.map(r => {
         const date = r.published_at || '';
+        const content = (r.content || '').replace(/\n/g, '<br>');
         const downloadBtn = r.download_url
-          ? `<a href="#" onclick="window.electronAPI.openExternal('${r.download_url}');return false" class="home-action-btn primary" style="display:inline-flex;margin-top:8px"><span class="material-icons" style="font-size:16px">download</span>下载</a>`
+          ? `<a href="#" onclick="window.electronAPI?.openExternal?.('${r.download_url.replace(/'/g, '\\\'')}');return false" class="home-action-btn primary" style="display:inline-flex;margin-top:8px"><span class="material-icons" style="font-size:16px">download</span>下载</a>`
           : '';
-        return `<div class="home-card"><div class="home-card-title">${r.title} <span style="font-size:11px;color:#999;font-weight:400">${date}</span></div><div class="home-card-body">${r.content || ''}<br>${downloadBtn}</div></div>`;
+        return `<div class="home-card"><div class="home-card-title">${r.title} <span style="font-size:11px;color:#999;font-weight:400">${date}</span></div><div class="home-card-body">${content}${downloadBtn ? '<br>' + downloadBtn : ''}</div></div>`;
       }).join('');
     } catch {
       el.innerHTML = '<div class="home-empty-hint">加载失败，请检查网络</div>';

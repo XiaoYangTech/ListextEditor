@@ -539,16 +539,26 @@ class UIManager {
     }
   }
 
-  initRoleManagerDialog() {}
+  initRoleManagerDialog() {
+    const dialog = document.getElementById('roleManagerDialog');
+    if (!dialog) return;
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) dialog.classList.remove('active');
+    });
+  }
   async openRoleManager() {
     const dialog = document.getElementById('roleManagerDialog');
     if (!dialog) return;
     dialog.classList.add('active');
     if (!window._roleManagerPage) window._roleManagerPage = new RoleManagerPage();
     else {
+      window._roleManagerPage.bind();
       await window._roleManagerPage.renderRoles();
       await window._roleManagerPage.clearForm();
     }
+    setTimeout(() => {
+      document.getElementById('roleId')?.focus();
+    }, 100);
   }
 
   initSyntaxHelpDialog() {

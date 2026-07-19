@@ -19,11 +19,21 @@ const voiceConfig = {
 async function synthesizeTTS(text, voice, rate = '+0%') {
   try {
     ensureDir(tempDir);
-    const voiceName = voiceConfig[voice] || voice || voiceConfig.female;
+    const rawVoice = voiceConfig[voice] || voice || voiceConfig.female;
+
+    const ent = await ipcRenderer.invoke('api-get-entitlement');
+    const isPro = ent?.plan === 'pro' && !ent?.expired;
+    const isFreeDisplay = ent?.free_display?.enabled;
+    if (!isPro && !isFreeDisplay) {
+      if (!rawVoice.startsWith('zh-CN') && !rawVoice.startsWith('en-US')) {
+        return { success: false, error: '小语种 TTS 是专业版功能，请升级后使用' };
+      }
+    }
+
     const outputPath = path.join(tempDir, `tts_${Date.now()}.mp3`);
 
     const tts = new MsEdgeTTS();
-    await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+    await tts.setMetadata(rawVoice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
 
     const writeStream = fs.createWriteStream(outputPath);
     const { audioStream } = await tts.toStream(text, { rate });
