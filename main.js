@@ -4,6 +4,7 @@ const { createMainWindow, getMainWindow } = require('./src/main/window-manager')
 const { registerIpcHandlers } = require('./src/main/ipc-handler');
 const { registerConfigHandlers, loadSettings, applyProxySettings } = require('./src/main/config-handler');
 const { registerSoundHandlers } = require('./src/main/sound-handler');
+const { registerApiHandlers } = require('./src/main/api-client');
 const { setupCrypto, ensureDir } = require('./src/main/utils');
 
 // Setup global polyfills
@@ -20,11 +21,17 @@ async function initApp() {
   
   // Create main window
   const mainWindow = createMainWindow();
+
+  // Disable F12 DevTools
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12') event.preventDefault();
+  });
   
   // Register IPC handlers
   registerIpcHandlers();
   registerConfigHandlers(ipcMain);
   registerSoundHandlers(ipcMain);
+  registerApiHandlers();
   
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

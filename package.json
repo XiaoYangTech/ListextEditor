@@ -54,6 +54,7 @@
       "src/**/*",
       "styles/**/*",
       "assets/default-sounds/**/*",
+      "assets/freeWatermark.mp3",
       "package.json"
     ],
     "win": {

@@ -129,5 +129,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onProjectEffectsChanged: (callback) => ipcRenderer.on('project-effects-changed', (event, effects) => callback(effects)),
   onProjectRolesChanged: (callback) => ipcRenderer.on('project-roles-changed', (event, roles) => callback(roles)),
   releaseFileLock: (filePath) => ipcRenderer.invoke('release-file-lock', filePath),
-  sendTabContext: (isHome) => ipcRenderer.send('tab-context-changed', isHome)
+  sendTabContext: (isHome) => ipcRenderer.send('tab-context-changed', isHome),
+
+  fetchBanners: () => ipcRenderer.invoke('api-banners'),
+  fetchAnnouncements: () => ipcRenderer.invoke('api-announcements'),
+  fetchRoutines: () => ipcRenderer.invoke('api-routines'),
+
+  login: (email, pw, deviceName, osName, removeDeviceId) => ipcRenderer.invoke('api-login', email, pw, deviceName, osName, removeDeviceId),
+  logout: () => ipcRenderer.invoke('api-logout'),
+  getProfile: () => ipcRenderer.invoke('api-profile'),
+  getDevices: () => ipcRenderer.invoke('api-devices'),
+  removeDevice: (id) => ipcRenderer.invoke('api-remove-device', id),
+  isLoggedIn: () => ipcRenderer.invoke('api-is-logged-in'),
+  getEntitlement: () => ipcRenderer.invoke('api-get-entitlement'),
+  getUser: () => ipcRenderer.invoke('api-get-user'),
+
+  getExportQuota: () => ipcRenderer.invoke('api-export-quota'),
+  consumeExport: () => ipcRenderer.invoke('api-export-consume')
 });
