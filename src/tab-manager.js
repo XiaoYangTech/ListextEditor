@@ -69,8 +69,8 @@ class TabManager {
         item.classList.add('active');
         const section = item.dataset.section;
         document.getElementById('homeDashboard').style.display = section === 'dashboard' ? '' : 'none';
-        document.getElementById('homeAnnouncements').style.display = section === 'announcements' ? '' : 'none';
-        document.getElementById('homeTemplates').style.display = section === 'templates' ? '' : 'none';
+        document.getElementById('homeAnnouncements').style.display = section === 'announcements' ? 'flex' : 'none';
+        document.getElementById('homeTemplates').style.display = section === 'templates' ? 'flex' : 'none';
         if (section === 'announcements') this.loadAnnouncements();
         if (section === 'templates') this.loadRoutines();
       });
@@ -212,8 +212,18 @@ class TabManager {
     if (!a) return;
 
     if (a.kind === 'url' && a.content) {
-      el.innerHTML = `<div style="font-size:14px;font-weight:600;margin-bottom:12px">${a.title}</div>
-        <p><a class="home-action-btn primary" style="display:inline-flex" href="#" onclick="window.electronAPI?.openExternal?.('${a.content.replace(/'/g, '\\\'')}');return false">在浏览器中打开</a></p>`;
+      // Remove any existing webview
+      const old = el.querySelector('webview');
+      if (old) { old.remove(); }
+      el.innerHTML = '';
+      const wv = document.createElement('webview');
+      wv.src = a.content;
+      wv.style.cssText = 'width:100%;height:100%;min-height:300px;border:none';
+      wv.setAttribute('allowpopups', '');
+      el.appendChild(wv);
+      wv.addEventListener('did-start-loading', () => {
+        el.querySelector('.home-empty-hint')?.remove();
+      });
     } else {
       el.innerHTML = `<div style="font-size:14px;font-weight:600;margin-bottom:12px">${a.title}</div>
         <p style="white-space:pre-wrap;color:#555">${a.content || ''}</p>`;
