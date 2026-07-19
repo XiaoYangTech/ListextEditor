@@ -71,11 +71,16 @@ class TabManager {
         document.getElementById('homeDashboard').style.display = section === 'dashboard' ? '' : 'none';
         document.getElementById('homeAnnouncements').style.display = section === 'announcements' ? '' : 'none';
         document.getElementById('homeTemplates').style.display = section === 'templates' ? '' : 'none';
+        if (section === 'announcements') this.loadAnnouncements();
+        if (section === 'templates') this.loadRoutines();
       });
     });
 
     this.renderRecentProjects();
     this.applyBannerImage();
+    this.loadBanners();
+    this.loadAnnouncements();
+    this.loadRoutines();
   }
 
   setBannerImage(url) {
@@ -94,6 +99,67 @@ class TabManager {
     } else {
       banner.style.setProperty('--banner-image', 'none');
       if (placeholder) placeholder.style.display = 'flex';
+    }
+  }
+
+  async loadBanners() {
+    if (!window.electronAPI?.fetchBanners) return;
+    try {
+      const list = await window.electronAPI.fetchBanners();
+      if (list && list.length) {
+        const banner = list[0]; // use first banner by order
+        this.setBannerImage(banner.image_url || '');
+      }
+    } catch { /* offline or API error — keep placeholder */ }
+  }
+
+  async loadAnnouncements() {
+    const el = document.getElementById('homeAnnounceList');
+    if (!el) return;
+    if (!window.electronAPI?.fetchAnnouncements) {
+      el.innerHTML = '<div class="home-empty-hint">功能即将上线</div>';
+      return;
+    }
+    try {
+      const list = await window.electronAPI.fetchAnnouncements();
+      if (!list || !list.length) {
+        el.innerHTML = '<div class="home-empty-hint">暂无公告</div>';
+        return;
+      }
+      el.innerHTML = list.map(a => {
+        const date = a.created_at ? a.created_at.split(' ')[0] : '';
+        if (a.kind === 'url' && a.link_url) {
+          return `<div class="home-card"><div class="home-card-title">${a.title} <span style="font-size:11px;color:#999;font-weight:400">${date}</span></div><div class="home-card-body"><a href="#" onclick="window.electronAPI.openExternal('${a.link_url}');return false">查看详情 →</a></div></div>`;
+        }
+        return `<div class="home-card"><div class="home-card-title">${a.title} <span style="font-size:11px;color:#999;font-weight:400">${date}</span></div><div class="home-card-body">${a.content || ''}</div></div>`;
+      }).join('');
+    } catch {
+      el.innerHTML = '<div class="home-empty-hint">加载失败，请检查网络</div>';
+    }
+  }
+
+  async loadRoutines() {
+    const el = document.getElementById('homeTemplateList');
+    if (!el) return;
+    if (!window.electronAPI?.fetchRoutines) {
+      el.innerHTML = '<div class="home-empty-hint">功能即将上线</div>';
+      return;
+    }
+    try {
+      const list = await window.electronAPI.fetchRoutines();
+      if (!list || !list.length) {
+        el.innerHTML = '<div class="home-empty-hint">暂无例程模板</div>';
+        return;
+      }
+      el.innerHTML = list.map(r => {
+        const date = r.published_at || '';
+        const downloadBtn = r.download_url
+          ? `<a href="#" onclick="window.electronAPI.openExternal('${r.download_url}');return false" class="home-action-btn primary" style="display:inline-flex;margin-top:8px"><span class="material-icons" style="font-size:16px">download</span>下载</a>`
+          : '';
+        return `<div class="home-card"><div class="home-card-title">${r.title} <span style="font-size:11px;color:#999;font-weight:400">${date}</span></div><div class="home-card-body">${r.content || ''}<br>${downloadBtn}</div></div>`;
+      }).join('');
+    } catch {
+      el.innerHTML = '<div class="home-empty-hint">加载失败，请检查网络</div>';
     }
   }
 
