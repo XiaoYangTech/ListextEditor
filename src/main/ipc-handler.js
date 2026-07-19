@@ -179,7 +179,7 @@ function runFfmpeg(args) {
   });
 }
 
-async function composeMp3(targetPath, segments) {
+async function composeMp3(targetPath, segments, skipWatermark = false) {
   ensureDir(tempDir);
   const jobDir = path.join(tempDir, 'compose_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
   ensureDir(jobDir);
@@ -214,13 +214,33 @@ async function composeMp3(targetPath, segments) {
 
   if (!partPaths.length) return { success: false, error: '没有可合成片段' };
 
+  const rawOutput = path.join(jobDir, 'raw_output.mp3');
   const listFile = path.join(jobDir, 'concat.txt');
   const listContent = partPaths.map(p => "file '" + p.replace(/'/g, "''") + "'").join(os.EOL);
   fs.writeFileSync(listFile, listContent, 'utf-8');
 
   ensureDir(path.dirname(targetPath));
-  await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', targetPath]);
+  await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', rawOutput]);
 
+  if (!skipWatermark) {
+    const wm = path.join(app.getAppPath(), 'assets', 'freeWatermark.mp3');
+    const wmDev = path.join(process.cwd(), 'assets', 'freeWatermark.mp3');
+    const wmPath = fs.existsSync(wm) ? wm : (fs.existsSync(wmDev) ? wmDev : null);
+
+    if (wmPath) {
+      const wmList = path.join(jobDir, 'wm_concat.txt');
+      fs.writeFileSync(wmList,
+        "file '" + wmPath.replace(/'/g, "''") + "'\n" +
+        "file '" + rawOutput.replace(/'/g, "''") + "'\n" +
+        "file '" + wmPath.replace(/'/g, "''") + "'\n", 'utf-8');
+      await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', wmList,
+        '-metadata', 'artist=亿方听力大师',
+        '-c', 'copy', targetPath]);
+      return { success: true, filePath: targetPath };
+    }
+  }
+
+  await runFfmpeg(['-y', '-i', rawOutput, '-metadata', 'artist=亿方听力大师', '-c', 'copy', targetPath]);
   return { success: true, filePath: targetPath };
 }
 
@@ -244,10 +264,10 @@ function registerIpcHandlers() {
     catch (error) { return { success: false, error: error.message }; }
   });
 
-  ipcMain.handle('compose-mp3', async (event, targetPath, segments) => {
+  ipcMain.handle('compose-mp3', async (event, targetPath, segments, skipWatermark) => {
     try {
       if (!targetPath || !Array.isArray(segments)) return { success: false, error: '参数不完整' };
-      return await composeMp3(targetPath, segments);
+      return await composeMp3(targetPath, segments, skipWatermark);
     } catch (error) {
       return { success: false, error: error.message };
     }

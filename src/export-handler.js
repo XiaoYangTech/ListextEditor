@@ -164,7 +164,8 @@ class ExportHandler {
       if (typeof api.composeMp3 !== 'function') return this.updateStatus('导出失败：composeMp3 不可用');
 
       this.updateStatus('正在合成 MP3...');
-      const result = await api.composeMp3(targetPath, segments);
+      const skipWatermark = window.entitlement?.isUnlocked();
+      const result = await api.composeMp3(targetPath, segments, skipWatermark);
       await api.cleanupTemp?.();
 
       if (result?.success) {

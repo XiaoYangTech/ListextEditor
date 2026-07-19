@@ -103,7 +103,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sendCloseCheckResult: (shouldClose) => ipcRenderer.send('close-check-result', shouldClose),
 
   openSettingsWindow: () => ipcRenderer.invoke('open-settings-window'),
-  composeMp3: (targetPath, segments) => ipcRenderer.invoke('compose-mp3', targetPath, segments),
+  composeMp3: (targetPath, segments, skipWatermark) => ipcRenderer.invoke('compose-mp3', targetPath, segments, skipWatermark),
 
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
