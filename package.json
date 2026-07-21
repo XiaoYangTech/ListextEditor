@@ -22,7 +22,7 @@
     "listening",
     "education"
   ],
-  "author": "",
+  "author": "The InspireWorks Development Team",
   "license": "GPL-3.0",
   "devDependencies": {
     "electron": "^43.0.0",
@@ -40,7 +40,7 @@
     "uuid": "^9.0.1"
   },
   "build": {
-    "appId": "top.yifang.listext-editor",
+    "appId": "top.yfyw.listext-editor",
     "productName": "亿方听力大师",
     "asar": true,
     "directories": {

@@ -1,47 +1,30 @@
-.buildx:
-  - docker:
-      image: docker.cnb.cool/examples/language/node-22
-    stages:
-      - name: changelog
-        image: cnbcool/changelog
-        exports:
-          latestChangeLog: LATEST_CHANGE_LOG
-      - name: create release
-        type: git:release
-        options:
-          title: ${CNB_BRANCH}
-          description: ${LATEST_CHANGE_LOG}
-          latest: true
-      - name: 安装依赖
-        script: npm install
-      - name: 构建
-        script: npm run build:all
-      - name: release 上传附件
-        image: cnbcool/attachments:latest
-        settings:
-          attachments:
-            - demo
+main:
+  push:
+    - name: sync-to-github
+      imports: https://cnb.cool/InspireWorks/tokens/-/blob/main/github.yml
+   ```
+      stages:
+        - name: sync
+          jobs:
+            - name: sync-to-github
+              image: docker.cnb.cool/cnb/plugins/git-sync:latest
+              settings:
+                target_url: https://github.com/XiaoYangTech/ListextEditor.git
+                target_token: ${GITHUB_TOKEN}
+                sync_branches: main master
+                sync_tags: true
 
-.tag_build:
-  - docker:
-      image: docker.cnb.cool/examples/language/node-22
-    stages:
-      - name: 安装依赖
-        script: npm install
-      - name: 构建
-        script: npm run build:all
-      - name: 上传附件
-        image: cnbcool/attachments:latest
-        settings:
-          attachments:
-            - demo
-
-$:
-  vscode:
-    - docker:
-        image: docker.cnb.cool/examples/language/node-22
-      services:
-        - vscode
-        - docker
-  tag_push: !reference [.tag_build]
-  web_trigger_build: !reference [.buildx]
+master:
+  push:
+    - name: sync-to-github
+      imports: .cnb/secrets/github.yml
+      stages:
+        - name: sync
+          jobs:
+            - name: sync-to-github
+              image: docker.cnb.cool/cnb/plugins/git-sync:latest
+              settings:
+                target_url: https://github.com/XiaoYangTech/ListextEditor.git
+                target_token: ${GITHUB_TOKEN}
+                sync_branches: main master
+                sync_tags: true

@@ -1,5 +1,0 @@
-branch:
-  - buttons:
-      - name: 构建
-        description: 手动触发构建
-        event: web_trigger_build
