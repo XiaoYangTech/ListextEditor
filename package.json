@@ -7,21 +7,14 @@
     "start": "electron .",
     "build": "electron-builder",
     "build:win:x64": "electron-builder --win nsis --x64",
-    "build:linux:x64": "electron-builder --linux AppImage deb rpm --x64",
-    "build:linux:arm64": "electron-builder --linux AppImage deb rpm --arm64",
-    "build:linux:loong64": "electron-builder --linux AppImage --loong64",
+    "build:linux:x64": "electron-builder --linux AppImage deb --x64",
+    "build:linux:arm64": "electron-builder --linux AppImage deb --arm64",
+    "build:linux:loong64": "electron-builder --linux AppImage deb --loong64",
     "build:xinchuang": "npm run build:linux:x64 && npm run build:linux:arm64 && npm run build:linux:loong64",
-    "build:all": "npm run build:win:x64 && npm run build:xinchuang"
+    "build:mac": "electron-builder --mac",
+    "build:all": "npm run build:win:x64 && npm run build:xinchuang && npm run build:mac"
   },
-  "keywords": [
-    "electron",
-    "tts",
-    "EdgeTTS",
-    "Blockly",
-    "AI",
-    "listening",
-    "education"
-  ],
+  "keywords": ["electron", "tts", "EdgeTTS", "Blockly", "AI", "listening", "education"],
   "author": "The InspireWorks Development Team",
   "license": "GPL-3.0",
   "devDependencies": {
@@ -61,9 +54,7 @@
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
         }
       ],
       "certificateFile": null,
@@ -86,25 +77,20 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": [
-            "x64",
-            "arm64",
-            "loong64"
-          ]
+          "arch": ["x64", "arm64", "loong64"]
         },
         {
           "target": "deb",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
+          "arch": ["x64", "arm64", "loong64"]
+        }
+      ]
+    },
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
         {
-          "target": "rpm",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
         }
       ]
     }
