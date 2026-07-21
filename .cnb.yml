@@ -6,12 +6,13 @@ main:
         - name: sync
           jobs:
             - name: sync-to-github
-              image: docker.cnb.cool/cnb/plugins/git-sync:latest
+              image: tencentcom/git-sync
               settings:
                 target_url: https://github.com/XiaoYangTech/ListextEditor.git
-                target_token: ${GITHUB_TOKEN}
-                sync_branches: main master
-                sync_tags: true
+                auth_type: https
+                username: ${GITHUB_USERNAME}
+                password: ${GITHUB_TOKEN}
+                push_tags: true
 
 master:
   push:
@@ -21,9 +22,10 @@ master:
         - name: sync
           jobs:
             - name: sync-to-github
-              image: docker.cnb.cool/cnb/plugins/git-sync:latest
+              image: tencentcom/git-sync
               settings:
                 target_url: https://github.com/XiaoYangTech/ListextEditor.git
-                target_token: ${GITHUB_TOKEN}
-                sync_branches: main master
-                sync_tags: true
+                auth_type: https
+                username: ${GITHUB_USERNAME}
+                password: ${GITHUB_TOKEN}
+                push_tags: true
