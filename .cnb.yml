@@ -2,7 +2,6 @@ main:
   push:
     - name: sync-to-github
       imports: https://cnb.cool/InspireWorks/tokens/-/blob/main/github.yml
-   ```
       stages:
         - name: sync
           jobs:
