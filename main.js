@@ -22,11 +22,14 @@ async function initApp() {
   // Create main window
   const mainWindow = createMainWindow();
 
-  // Disable F12 DevTools
+  // F12 toggle DevTools
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.key === 'F12') event.preventDefault();
+    if (input.key === 'F12') {
+      mainWindow.webContents.toggleDevTools();
+      event.preventDefault();
+    }
   });
-  
+
   // Register IPC handlers
   registerIpcHandlers();
   registerConfigHandlers(ipcMain);

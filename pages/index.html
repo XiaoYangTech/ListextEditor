@@ -162,56 +162,6 @@
     <div id="tabContextMenu" class="tab-context-menu" style="display:none;"></div>
   </div>
 
-  <div id="syntaxHelpDialog" class="dialog">
-    <div class="dialog-content">
-      <div class="dialog-header">
-        <h2>Listext 语法说明</h2>
-        <button class="dialog-close">&times;</button>
-      </div>
-      <div class="dialog-body">
-          <div class="syntax-help" style="max-height:420px; overflow-y:auto;">
-            <h3>基础标签</h3>
-            <table>
-              <tr><td><code>&lt;say&gt;</code></td><td>朗读文本，支持 role、rate 属性</td></tr>
-              <tr><td><code>&lt;pause&gt;</code></td><td>停顿，支持 dur 属性（秒）</td></tr>
-              <tr><td><code>&lt;repeat&gt;</code></td><td>重复内部内容，支持 count 属性</td></tr>
-              <tr><td><code>&lt;fx&gt;</code></td><td>播放音效，支持 id、dur、fade 属性</td></tr>
-              <tr><td><code>&lt;role&gt;</code></td><td>定义角色，支持 id、name、type、voice 属性（自闭合）</td></tr>
-              <tr><td><code>&lt;divider&gt;</code></td><td>分割线（视觉辅助）</td></tr>
-              <tr><td><code>&lt;section&gt;</code></td><td>分节锚点，支持 title 属性</td></tr>
-            </table>
-
-            <h3>属性说明</h3>
-            <table>
-              <tr><td><code>role</code></td><td>朗读角色ID，需先用 &lt;role&gt; 定义</td></tr>
-              <tr><td><code>rate</code></td><td>语速倍率，如 0.8（慢）、1.0（正常）、1.2（快）</td></tr>
-              <tr><td><code>dur</code></td><td>持续时间（秒）</td></tr>
-              <tr><td><code>fade</code></td><td>淡出时间（秒），需配合 dur 使用</td></tr>
-              <tr><td><code>count</code></td><td>重复次数</td></tr>
-              <tr><td><code>voice</code></td><td>EdgeTTS 发音人，如 zh-CN-XiaoxiaoNeural</td></tr>
-            </table>
-
-            <h3>完整示例</h3>
-            <button id="btnCopySyntaxExample" class="btn btn-primary" style="margin-bottom:8px;">复制示例代码</button>
-            <pre id="syntaxExampleCode" class="syntax-example">&lt;role id="teacher" name="老师" voice="zh-CN-YunxiNeural"/&gt;
-&lt;role id="student" name="学生" voice="zh-CN-XiaoxiaoNeural"/&gt;
-
-&lt;section title="听力理解"&gt;
-  &lt;say role="teacher"&gt;第一部分 听力理解&lt;/say&gt;
-  &lt;pause dur="2"&gt;
-  &lt;fx id="bell" dur="3"&gt;
-  &lt;repeat count="2"&gt;
-    &lt;say role="student"&gt;你觉得这件衣服怎么样？&lt;/say&gt;
-    &lt;say role="teacher"&gt;颜色有点深，不过样式不错。&lt;/say&gt;
-  &lt;/repeat&gt;
-  &lt;say role="teacher"&gt;女的是什么意思？&lt;/say&gt;
-  &lt;pause dur="10"&gt;
-&lt;/section&gt;</pre>
-          </div>
-      </div>
-    </div>
-  </div>
-
   <div id="unsavedDialog" class="dialog">
     <div class="dialog-content dialog-small">
       <div class="dialog-header"><h2>未保存</h2><button class="dialog-close">&times;</button></div>
@@ -288,6 +238,10 @@
     <div class="dialog-content dialog-small">
       <div class="dialog-header"><h2>导出音频</h2><button class="dialog-close">&times;</button></div>
       <div class="dialog-body">
+        <div id="exportWatermarkWarn" style="display:none;background:#fff3e0;border:1px solid #ffcc02;border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#e65100;">
+          <span style="font-weight:600;">🛡️ 免费版水印提示</span><br>
+          导出的音频首尾将各追加 <strong>25 秒</strong> 免费版水印，<a href="#" onclick="window.electronAPI?.openExternal?.('https://api.yfyw.top');return false" style="color:#1976d2;">💎 开通会员</a> 即可去除水印
+        </div>
         <div class="form-group">
           <label>文件名</label>
           <input type="text" id="exportFileName" placeholder="listening.mp3" value="listening.mp3">
@@ -304,6 +258,19 @@
       <div class="dialog-footer">
         <button class="btn btn-cancel" id="exportCancel">取消</button>
         <button class="btn btn-primary" id="exportConfirm">导出</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="exportProgressDialog" class="dialog">
+    <div class="dialog-content dialog-small" style="max-width:400px;">
+      <div class="dialog-header"><h2 id="exportProgressTitle">正在导出</h2></div>
+      <div class="dialog-body" style="padding:24px 20px 16px;">
+        <div id="exportProgressText" style="font-size:13px;color:#555;margin-bottom:12px;text-align:center;">准备中...</div>
+        <div class="export-progress-bar">
+          <div class="export-progress-fill" id="exportProgressFill"></div>
+        </div>
+        <div id="exportProgressPercent" style="font-size:12px;color:#999;text-align:center;margin-top:8px;">0%</div>
       </div>
     </div>
   </div>
@@ -377,17 +344,41 @@
     </div>
   </div>
 
-  <div id="accountMenu" class="account-menu" style="display:none">
-    <div class="dialog-content dialog-small" style="max-width:400px;">
-      <div class="dialog-header"><h2>设备数量已达上限</h2><button class="dialog-close" id="deviceLimitClose">&times;</button></div>
-      <div class="dialog-body">
-        <p style="font-size:13px;color:#757575;margin-bottom:12px">请选择一台设备下线后重新登录</p>
-        <div id="deviceLimitList" class="device-list"></div>
-        <div id="deviceLimitError" class="login-error" style="display:none"></div>
+  <div id="aboutDialog" class="dialog">
+    <div class="dialog-content dialog-about">
+      <button class="dialog-close about-close">&times;</button>
+      <div class="about-header">
+        <h1 class="about-title">亿方听力大师</h1>
+        <p class="about-version" id="aboutVersion">v1.1.0</p>
+        <p class="about-platform" id="aboutPlatform"></p>
+      </div>
+      <div class="about-body">
+        <p class="about-desc">跨平台听力材料编辑与合成工具。用搭积木的方式创作听力材料，支持 Win / Mac / 信创三端，采用微软高仿真语音引擎，发音准确自然。</p>
+        <p class="about-license">
+          <span class="material-icons" style="font-size:14px;vertical-align:-2px;">description</span>
+          Apache-2.0 License
+        </p>
+
+        <div class="about-thanks">
+          <h3>特别鸣谢</h3>
+          <div class="about-thanks-names">
+            <span>玄离199</span>
+            <span class="about-thanks-sep">·</span>
+            <span>统信科技 孙若楠</span>
+          </div>
+        </div>
+
+        <div class="about-divider"></div>
+
+        <blockquote class="about-quote">
+          <p>「但行好事，莫问前程」</p>
+          <p class="about-quote-meta">
+            ——知名科技区UP主 <a class="bili-highlight about-bili-link" href="https://space.bilibili.com/67079745">玄离199</a> 在指导亿方运维上一个项目<span class="about-proj">《亿方教材助手》</span>未来发展方向时引用。
+          </p>
+        </blockquote>
       </div>
       <div class="dialog-footer">
-        <button class="btn btn-cancel" id="deviceLimitCancel">取消</button>
-        <button class="btn btn-primary" id="deviceLimitConfirm">下线并登录</button>
+        <button class="btn btn-primary about-close-btn">确定</button>
       </div>
     </div>
   </div>

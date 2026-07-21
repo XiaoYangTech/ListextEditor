@@ -35,9 +35,20 @@ class ApiClient {
         this.saveState();
       }
     } catch (e) {
-      console.error('加载认证数据失败:', e);
+      console.error('[AUTH] 加载认证数据失败:', e.message);
+      if (fs.existsSync(authPath)) {
+        try {
+          const bk = authPath + '.bak';
+          fs.renameSync(authPath, bk);
+          console.log('[AUTH] 已损坏的 auth.json 备份为 auth.json.bak');
+        } catch {}
+      }
+      this.token = null;
+      this.userCache = null;
+      this.entitlementCache = null;
       this.deviceKey = this.generateDeviceKey();
       this.deviceName = this.getDeviceName();
+      this.saveState();
     }
   }
 
@@ -113,6 +124,7 @@ class ApiClient {
 
     if (data.ok === false) {
       if (data.error?.code === 401 && this.token) {
+        console.log('[AUTH] 服务器返回 401，自动清除登录态 (route=' + route + ')');
         this.token = null;
         this.userCache = null;
         this.entitlementCache = null;
@@ -144,11 +156,12 @@ class ApiClient {
     if (removeDeviceId) body.remove_device_id = removeDeviceId;
 
     const result = await this.request('client_login', 'POST', body);
-    if (result.ok && result.token) {
-      this.token = result.token;
-      this.userCache = result.user || null;
-      if (result.entitlement) {
-        this.entitlementCache = { ...result.entitlement };
+    const data = result?.data || {};
+    if (result.ok && data.token) {
+      this.token = data.token;
+      this.userCache = data.user || null;
+      if (data.entitlement) {
+        this.entitlementCache = { ...data.entitlement };
         this.entitlementCache.cached_at = new Date().toISOString();
         this.entitlementCache.signature = this.signEntitlement(this.entitlementCache);
       }
@@ -160,10 +173,11 @@ class ApiClient {
 
   async getStatus() {
     const result = await this.request('client_status');
+    const data = result?.data || {};
     if (result.ok) {
-      this.userCache = result.user || this.userCache;
-      if (result.entitlement) {
-        this.entitlementCache = { ...result.entitlement };
+      this.userCache = data.user || this.userCache;
+      if (data.entitlement) {
+        this.entitlementCache = { ...data.entitlement };
         this.entitlementCache.cached_at = new Date().toISOString();
         this.entitlementCache.signature = this.signEntitlement(this.entitlementCache);
       }
@@ -174,10 +188,11 @@ class ApiClient {
 
   async getProfile() {
     const result = await this.request('client_profile');
+    const data = result?.data || {};
     if (result.ok) {
-      this.userCache = result.user || this.userCache;
-      if (result.entitlement) {
-        this.entitlementCache = { ...result.entitlement };
+      this.userCache = data.user || this.userCache;
+      if (data.entitlement) {
+        this.entitlementCache = { ...data.entitlement };
         this.entitlementCache.cached_at = new Date().toISOString();
         this.entitlementCache.signature = this.signEntitlement(this.entitlementCache);
       }
@@ -301,6 +316,10 @@ function registerApiHandlers() {
     return await apiClient.consumeExport();
   });
 
+  ipcMain.handle('paste-from-clipboard', () => {
+    return require('electron').clipboard.readText();
+  });
+
   ipcMain.handle('api-is-logged-in', async () => {
     return !!apiClient.token;
   });
@@ -310,7 +329,12 @@ function registerApiHandlers() {
   });
 
   ipcMain.handle('api-get-user', async () => {
-    return apiClient.userCache || null;
+    const user = apiClient.userCache;
+    if (!user) return null;
+    if (user.avatar && !/^https?:\/\//i.test(user.avatar)) {
+      user.avatar = apiClient.baseUrl + user.avatar;
+    }
+    return user;
   });
 }
 

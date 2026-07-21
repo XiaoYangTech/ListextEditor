@@ -20,7 +20,7 @@ class Entitlement {
   showVipToast(featureName) {
     const toast = document.getElementById('vipToast');
     if (!toast) return;
-    toast.querySelector('.vip-toast-text').textContent = `「${featureName}」是专业版功能，请前往 api.yfyw.top 升级`;
+    toast.querySelector('.vip-toast-text').textContent = `「${featureName}」是专业版功能，请前往 api.yfyw.top 购买会员后使用。`;
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 3000);
   }

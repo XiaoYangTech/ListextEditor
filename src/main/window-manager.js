@@ -79,6 +79,26 @@ function createMainWindow() {
     mainWindow.setTitle(getAppTitle());
   });
 
+  const editContextMenu = Menu.buildFromTemplate([
+    { role: 'undo',      label: '撤销' },
+    { role: 'redo',      label: '重做' },
+    { type: 'separator' },
+    { role: 'cut',       label: '剪切' },
+    { role: 'copy',      label: '复制' },
+    { role: 'paste',     label: '粘贴' },
+    { role: 'delete',    label: '删除' },
+    { type: 'separator' },
+    { role: 'selectAll', label: '全选' }
+  ]);
+
+  mainWindow.webContents.on('context-menu', (e, params) => {
+    if (params.isEditable) {
+      editContextMenu.popup({ window: mainWindow });
+    } else {
+      e.preventDefault();
+    }
+  });
+
   mainWindow.on('close', (e) => {
     if (isClosing) return;
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -188,21 +208,8 @@ function createMenu() {
     {
       label: '帮助',
       submenu: [
-        { id: 'help-syntax', label: '语法说明', click: () => sendToMain('show-syntax-help') },
-        { type: 'separator' },
-        {
-          id: 'help-about', label: '关于',
-          click: () => {
-            const owner = getMainTargetWindow() || mainWindow;
-            const meta = readPackageMeta();
-            const detail = [meta.description || '', meta.author ? `开发者：${meta.author}` : ''].filter(Boolean).join('\n');
-            dialog.showMessageBox(owner, {
-              type: 'info',
-              title: `关于 ${meta.name}`,
-              message: `${meta.name} v${meta.version}`,
-              detail: detail || `版本：${meta.version}`
-            });
-          }
+        { id: 'help-about', label: '关于',
+          click: () => sendToMain('show-about')
         }
       ]
     }

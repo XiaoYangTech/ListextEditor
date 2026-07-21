@@ -28,11 +28,11 @@ class TTSRenderer {
     };
 
     this.playQueue.onTtsFallback = () => {
-      this.app.updateStatus('EdgeTTS 失败，已尝试系统TTS');
+      this.app.uiManager?.showInfoDialog?.('提示', 'EdgeTTS 失败，已尝试系统TTS');
     };
 
     this.playQueue.onTtsError = (message) => {
-      this.app.updateStatus(message || 'TTS 调用失败');
+      this.app.uiManager?.showInfoDialog?.('错误', message || 'TTS 调用失败');
     };
 
     this.playQueue.onBlockHighlight = (node, highlight) => {

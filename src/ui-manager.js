@@ -192,7 +192,7 @@ class UIManager {
     if (!keyword) return;
     const found = this.app.renderer.findBlockByKeyword(keyword);
     if (!found) {
-      this.app.updateStatus(`未找到: ${keyword}`);
+      this.app.uiManager?.showInfoDialog?.('提示', `未找到: ${keyword}`);
       return;
     }
     this.app.renderer.scrollToBlockId(found.dataset.id);
@@ -272,8 +272,8 @@ class UIManager {
     this.initUnsavedDialog();
     this.initInfoDialog();
     this.initRoleManagerDialog();
-    this.initSyntaxHelpDialog();
     this.initSettingsDialog();
+    this.initAboutDialog();
   }
 
   initSilenceDialog() {
@@ -489,7 +489,7 @@ class UIManager {
     const parts = filePath.replace(/\\/g, '/').split('/');
     const filename = parts[parts.length - 1];
     const name = filename.replace(/\.[^.]+$/, '');
-    if (this._effectCustomEffects.some(e => e.id === name)) { this.app.updateStatus('音效ID已存在'); return; }
+    if (this._effectCustomEffects.some(e => e.id === name)) { this.app.uiManager?.showInfoDialog?.('提示', '音效ID已存在'); return; }
     this._effectCustomEffects.push({ id: name, source: 'imported', filename, group: '用户音效', path: filePath });
     if (window.electronAPI?.setProjectEffects) {
       await window.electronAPI.setProjectEffects(this._effectCustomEffects);
@@ -510,9 +510,6 @@ class UIManager {
     const close = () => this.infoDialog?.classList.remove('active');
     this.infoDialog?.querySelector('.dialog-close')?.addEventListener('click', close);
     this.infoDialog?.querySelector('#infoDialogConfirm')?.addEventListener('click', close);
-    this.infoDialog?.addEventListener('click', e => {
-      if (e.target === this.infoDialog) close();
-    });
   }
 
   showInfoDialog(title, message) {
@@ -542,9 +539,7 @@ class UIManager {
   initRoleManagerDialog() {
     const dialog = document.getElementById('roleManagerDialog');
     if (!dialog) return;
-    dialog.addEventListener('click', (e) => {
-      if (e.target === dialog) dialog.classList.remove('active');
-    });
+    dialog.querySelector('.dialog-close')?.addEventListener('click', () => dialog.classList.remove('active'));
   }
   async openRoleManager() {
     const dialog = document.getElementById('roleManagerDialog');
@@ -561,22 +556,6 @@ class UIManager {
     }, 100);
   }
 
-  initSyntaxHelpDialog() {
-    const dialog = document.getElementById('syntaxHelpDialog');
-    dialog?.querySelector('.dialog-close')?.addEventListener('click', () => dialog.classList.remove('active'));
-    document.getElementById('btnCopySyntaxExample')?.addEventListener('click', async () => {
-      const text = document.getElementById('syntaxExampleCode')?.textContent || '';
-      try {
-        await navigator.clipboard.writeText(text);
-        this.app.updateStatus('语法示例已复制');
-      } catch {
-        this.app.updateStatus('复制失败，请手动复制');
-      }
-    });
-  }
-
-  showSyntaxHelp() { document.getElementById('syntaxHelpDialog')?.classList.add('active'); }
-
   initSettingsDialog() {
     this.settingsCloseTopBtn?.addEventListener('click', () => this.settingsDialog.classList.remove('active'));
     this.settingsCancelBtn?.addEventListener('click', () => this.settingsDialog.classList.remove('active'));
@@ -590,9 +569,46 @@ class UIManager {
         this.app.updateStatus('设置已保存');
         this.settingsDialog.classList.remove('active');
       } else {
-        this.app.updateStatus('设置保存失败');
+        this.app.uiManager?.showInfoDialog?.('错误', '设置保存失败');
       }
     });
+  }
+
+  initAboutDialog() {
+    const dialog = document.getElementById('aboutDialog');
+    dialog?.querySelector('.about-close')?.addEventListener('click', () => dialog.classList.remove('active'));
+    dialog?.querySelector('.about-close-btn')?.addEventListener('click', () => dialog.classList.remove('active'));
+  }
+
+  showAboutDialog() {
+    const dialog = document.getElementById('aboutDialog');
+    if (!dialog) return;
+
+    const verEl = document.getElementById('aboutVersion');
+    const platEl = document.getElementById('aboutPlatform');
+    if (window.electronAPI?.getAppInfo) {
+      window.electronAPI.getAppInfo().then(info => {
+        if (verEl && info?.version) verEl.textContent = `v${info.version}`;
+        if (platEl && info?.platform) {
+          const osMap = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' };
+          const archMap = { x64: 'x64', arm64: 'ARM64', loong64: 'LoongArch64' };
+          const osName = osMap[info.platform] || info.platform;
+          const archName = archMap[info.arch] || info.arch;
+          platEl.textContent = `${osName} · ${archName}`;
+        }
+      }).catch(() => {});
+    }
+
+    dialog.querySelectorAll('.about-bili-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (window.electronAPI?.openExternal) {
+          window.electronAPI.openExternal(link.href);
+        }
+      });
+    }, { once: true });
+
+    dialog.classList.add('active');
   }
 
   async showSettingsDialog() {
@@ -685,6 +701,8 @@ class UIManager {
       }
 
       if (!inBlockMode) return;
+
+      if (textActive) return;
 
       if (this.matchShortcut(e, this.shortcuts.previewPlay)) {
         e.preventDefault();

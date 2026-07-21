@@ -6,8 +6,15 @@ class AuthManager {
 
   async init() {
     const loggedIn = await this.api?.isLoggedIn();
+    console.log('[AUTH] init 登录状态:', loggedIn);
     if (loggedIn) {
-      await this.refreshProfile();
+      try {
+        await this.refreshProfile();
+        await this.api?.getStatus();
+        console.log('[AUTH] init 个人资料刷新成功');
+      } catch (e) {
+        console.log('[AUTH] init 个人资料刷新失败:', e.message);
+      }
     }
     await window.entitlement?.refresh();
     this.updateAccountUI();
@@ -77,6 +84,8 @@ class AuthManager {
     try {
       const userData = await this.api.getUser();
       const entData = await this.api.getEntitlement();
+      console.log('REFRESH_PROFILE userData:', JSON.stringify(userData));
+      console.log('REFRESH_PROFILE entData:', JSON.stringify(entData));
       if (userData) this._userCache = userData;
       if (entData) this._entitlementCache = entData;
     } catch {}
@@ -104,10 +113,20 @@ class AuthManager {
 
     try {
       const result = await this.api.login(email, password, this._pendingDeviceName, this.api.platform || 'Windows');
+      console.log('LOGIN_RESULT:', JSON.stringify(result));
       document.getElementById('loginSubmit').disabled = false;
       document.getElementById('loginSubmit').textContent = '登录';
 
       if (result.ok) {
+        const loggedIn = await this.api?.isLoggedIn();
+        if (!loggedIn) {
+          const errMsg = result.error?.message || result.message || JSON.stringify(result);
+          document.getElementById('loginError').textContent = errMsg;
+          document.getElementById('loginError').style.display = 'block';
+          document.getElementById('loginSubmit').disabled = false;
+          document.getElementById('loginSubmit').textContent = '登录';
+          return;
+        }
         this.hideLoginDialog();
         await this.refreshProfile();
         this.updateAccountUI();
@@ -258,11 +277,14 @@ class AuthManager {
       <div class="am-divider"></div>
       <div class="am-info">订阅计划: <span style="color:${planColor}">${planLabel}</span></div>`;
 
-    if (ent.plan === 'pro' && ent.subscription_until) {
-      html += `<div class="am-info">到期时间: ${ent.subscription_until}</div>`;
+    if (ent.plan === 'pro') {
+      if (ent.subscription_until) {
+        html += `<div class="am-info">到期时间: ${ent.subscription_until}</div>`;
+      } else {
+        html += `<div class="am-info">到期时间: 永久有效</div>`;
+      }
     } else {
       html += `<div class="am-info am-quota" id="am-quota-row">本月导出: <span id="am-quota-text">加载中...</span></div>`;
-      this._loadQuotaDisplay();
     }
 
     html += `
@@ -273,6 +295,7 @@ class AuthManager {
       <button class="am-btn am-btn-logout" id="am-btn-logout">退出登录</button>`;
 
     el.innerHTML = html;
+    if (ent.plan !== 'pro') this._loadQuotaDisplay();
     el.querySelector('#am-btn-manage')?.addEventListener('click', () => this.api?.openExternal?.('https://api.yfyw.top'));
     el.querySelector('#am-btn-buy')?.addEventListener('click', () => this.api?.openExternal?.('https://api.yfyw.top'));
     el.querySelector('#am-btn-logout')?.addEventListener('click', () => this.doLogout());
@@ -280,15 +303,25 @@ class AuthManager {
 
   async _loadQuotaDisplay() {
     const el = document.getElementById('am-quota-text');
-    if (!el) return;
+    if (!el) { console.log('QUOTA_EL_NOT_FOUND', new Error().stack); return; }
+    console.log('QUOTA_START');
     try {
-      const q = await this.api?.getExportQuota();
+      const q = await Promise.race([
+        this.api?.getExportQuota(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+      ]);
+      console.log('QUOTA_RESULT:', JSON.stringify(q));
       if (q?.ok !== false && typeof q?.used !== 'undefined') {
-        el.textContent = `${q.used}/${q.limit} 次`;
+        if (!q?.limit || q.limit > 1000000) {
+          el.textContent = `已用 ${q.used} 次（无限制）`;
+        } else {
+          el.textContent = `${q.used}/${q.limit} 次`;
+        }
       } else {
         el.textContent = '需联网查询';
       }
-    } catch {
+    } catch (e) {
+      console.error('QUOTA_ERROR:', e);
       el.textContent = '需联网查询';
     }
   }

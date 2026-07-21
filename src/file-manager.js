@@ -146,10 +146,6 @@ class FileManager {
         cleanup();
         resolve(result);
       });
-
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) { cleanup(); resolve(null); }
-      });
     });
   }
 
@@ -158,7 +154,7 @@ class FileManager {
     const result = await this.api.openProjectFile(filePath);
 
     if (!result?.success) {
-      this.app.updateStatus('打开失败: ' + (result?.error || '未知错误'));
+      this.app.uiManager?.showInfoDialog?.('错误', '打开失败: ' + (result?.error || '未知错误'));
       return false;
     }
 
@@ -174,7 +170,7 @@ class FileManager {
         window._roleReplaceDialog?.show(finalRoles, finalContent, resolve);
       });
       if (!choice) {
-        this.app.updateStatus('已取消导入：角色数超出免费版限制');
+        this.app.uiManager?.showInfoDialog?.('提示', '已取消导入：角色数超出免费版限制');
         return false;
       }
       finalRoles = choice.roles;
@@ -248,7 +244,7 @@ class FileManager {
       return true;
     }
 
-    this.app.updateStatus('保存失败: ' + (result?.error || '未知错误'));
+    this.app.uiManager?.showInfoDialog?.('错误', '保存失败: ' + (result?.error || '未知错误'));
     return false;
   }
 

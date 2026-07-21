@@ -79,7 +79,6 @@ class BlockRenderer {
 
     dialog.querySelector('.dialog-close').addEventListener('click', () => dialog.classList.remove('active'));
     dialog.querySelector('.btn-cancel').addEventListener('click', () => dialog.classList.remove('active'));
-    dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.classList.remove('active'); });
   }
 
   createContextMenu() {

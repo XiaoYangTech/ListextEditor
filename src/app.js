@@ -86,10 +86,28 @@ class ListextEditor {
       this.exportHandler.showExportDialog();
     });
 
-    window.electronAPI.onShowSyntaxHelp(() => this.uiManager.showSyntaxHelp());
+    window.electronAPI.onShowAbout(() => this.uiManager.showAboutDialog());
     window.electronAPI.onShowSettings(() => this.uiManager.showSettingsDialog());
 
-    window.electronAPI.onMenuEdit((action) => {
+    window.electronAPI.onMenuEdit(async (action) => {
+      if (this.isTextInputActive()) {
+        if (action === 'paste') {
+          const text = await window.electronAPI?.pasteFromClipboard();
+          if (text) {
+            const el = document.activeElement;
+            if (el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT')) {
+              const start = el.selectionStart;
+              const end = el.selectionEnd;
+              el.value = el.value.slice(0, start) + text + el.value.slice(end);
+              el.selectionStart = el.selectionEnd = start + text.length;
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          }
+        } else {
+          document.execCommand(action);
+        }
+        return;
+      }
       if (this.isHomeActive()) return;
       this.handleEditAction(action);
     });
@@ -213,7 +231,7 @@ class ListextEditor {
         }
       } catch (e) {
         console.warn('模式切换同步失败:', e);
-        this.updateStatus('模式切换失败，请先修正语法后再切换');
+        this.uiManager?.showInfoDialog?.('错误', '模式切换失败，请先修正语法后再切换');
         return;
       }
     }

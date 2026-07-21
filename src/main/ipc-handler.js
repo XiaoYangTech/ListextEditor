@@ -299,6 +299,10 @@ function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle('file-exists', async (event, filePath) => {
+    return fs.existsSync(filePath);
+  });
+
   ipcMain.handle('save-binary', async (event, filePath, base64) => {
     if (!filePath || !base64) return { success: false, error: '参数不完整' };
     ensureDir(path.dirname(filePath));
@@ -404,6 +408,12 @@ function registerIpcHandlers() {
     }
     return { success: true };
   });
+
+  ipcMain.handle('get-app-info', () => ({
+    version: app.getVersion(),
+    platform: process.platform,
+    arch: process.arch
+  }));
 }
 
 app.on('will-quit', () => { fileLocker.unlockAll(); });

@@ -7,19 +7,10 @@ const { ensureDir, isNetworkError, sleep } = require('./src/main/utils');
 
 const tempDir = path.join(os.tmpdir(), 'listext-editor');
 
-const voiceConfig = {
-  male_announcer: 'zh-CN-YunjianNeural',
-  female_announcer: 'zh-CN-XiaoyiNeural',
-  male: 'zh-CN-YunxiNeural',
-  female: 'zh-CN-XiaoxiaoNeural',
-  male_en: 'en-US-GuyNeural',
-  female_en: 'en-US-JennyNeural'
-};
-
 async function synthesizeTTS(text, voice, rate = '+0%') {
   try {
     ensureDir(tempDir);
-    const rawVoice = voiceConfig[voice] || voice || voiceConfig.female;
+    const rawVoice = voice || 'zh-CN-XiaoxiaoNeural';
 
     const ent = await ipcRenderer.invoke('api-get-entitlement');
     const isPro = ent?.plan === 'pro' && !ent?.expired;
@@ -68,7 +59,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listBuiltinSounds: () => ipcRenderer.invoke('list-builtin-sounds'),
   getBuiltInPaths: () => ipcRenderer.invoke('get-built-in-paths'),
 
-  getVoices: async () => voiceConfig,
+  getVoices: async () => [],
   synthesizeTTS,
   synthesizeBatch: async (items) => {
     const results = [];
@@ -94,10 +85,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
           continue;
         }
         if (isNetworkError(error)) {
-          return { success: false, voices: Object.values(voiceConfig), error: 'EdgeTTS 网络不可用' };
+          return { success: false, voices: ['zh-CN-XiaoxiaoNeural', 'zh-CN-YunxiNeural'], error: 'EdgeTTS 网络不可用' };
         }
         console.error('获取发音人列表失败', error);
-        return { success: false, voices: Object.values(voiceConfig) };
+        return { success: false, voices: ['zh-CN-XiaoxiaoNeural', 'zh-CN-YunxiNeural'] };
       }
     }
   },
@@ -107,7 +98,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onStopPlay: (callback) => ipcRenderer.on('stop-play', () => callback()),
   onExportAudio: (callback) => ipcRenderer.on('export-audio', (event, filePath) => callback(filePath)),
 
-  onShowSyntaxHelp: (callback) => ipcRenderer.on('show-syntax-help', () => callback()),
+  onShowAbout: (callback) => ipcRenderer.on('show-about', () => callback()),
+
   onShowSettings: (callback) => ipcRenderer.on('show-settings', () => callback()),
   onRequestCloseCheck: (callback) => ipcRenderer.on('request-close-check', () => callback()),
   sendCloseCheckResult: (shouldClose) => ipcRenderer.send('close-check-result', shouldClose),
@@ -131,6 +123,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectExportPath: () => ipcRenderer.invoke('select-export-path'),
   platform: process.platform,
   arch: process.arch,
+  getAppInfo: () => ipcRenderer.invoke('get-app-info'),
 
   getProjectData: () => ipcRenderer.invoke('get-project-data'),
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
@@ -155,5 +148,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUser: () => ipcRenderer.invoke('api-get-user'),
 
   getExportQuota: () => ipcRenderer.invoke('api-export-quota'),
-  consumeExport: () => ipcRenderer.invoke('api-export-consume')
+  consumeExport: () => ipcRenderer.invoke('api-export-consume'),
+  pasteFromClipboard: () => ipcRenderer.invoke('paste-from-clipboard'),
+  getStatus: () => ipcRenderer.invoke('api-status'),
+  fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath)
 });

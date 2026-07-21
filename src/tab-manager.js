@@ -110,9 +110,6 @@ class TabManager {
     bgEl.style.backgroundImage = `url(${b.image_url})`;
     if (placeholder) placeholder.style.display = 'none';
     if (nav) nav.style.display = 'flex';
-    if (info) info.style.display = 'block';
-    if (titleEl) titleEl.textContent = b.title || '';
-
     // Dots
     if (dots && this._banners.length > 1) {
       dots.innerHTML = this._banners.map((_, i) =>
@@ -220,19 +217,10 @@ class TabManager {
       el.style.padding = '0';
       const wv = document.createElement('webview');
       wv.src = a.content;
-      wv.style.cssText = 'width:1024px;height:768px;border:none;transform-origin:0 0';
+      wv.style.cssText = 'width:100%;height:100%;border:none;overflow:hidden';
       wv.setAttribute('allowpopups', '');
+      wv.setAttribute('scrolling', 'no');
       el.appendChild(wv);
-
-      const fit = () => {
-        const cw = el.clientWidth;
-        const ch = el.clientHeight;
-        if (!cw || !ch) return;
-        wv.style.transform = `scale(${Math.min(cw / 1024, ch / 768, 1)})`;
-      };
-      wv.addEventListener('did-finish-load', fit);
-      this._announceObserver = new ResizeObserver(fit);
-      this._announceObserver.observe(el);
     } else {
       if (this._announceObserver) { this._announceObserver.disconnect(); this._announceObserver = null; }
       el.style.overflow = '';
@@ -378,7 +366,6 @@ class TabManager {
     const cleanup = () => { if (overlay.parentNode) overlay.remove(); };
 
     overlay.addEventListener('click', async (e) => {
-      if (e.target === overlay) cleanup();
       const action = e.target.closest('[data-action]')?.dataset?.action;
       if (!action || action === 'cancel') { cleanup(); return; }
 

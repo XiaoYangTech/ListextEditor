@@ -122,6 +122,7 @@ class RoleManagerPage {
         html += '<option value="" disabled>💎 升级专业版解锁日语/俄语/西班牙语等小语种</option>';
       }
       this.roleVoice.innerHTML = html;
+      if (voices.length) this.roleVoice.value = voices[0];
       return;
     }
 
@@ -225,7 +226,6 @@ class RoleManagerPage {
     this.roleName.value = '';
     this.roleType.value = 'edge';
     await this.populateVoices();
-    this.roleVoice.value = '';
   }
 
   async saveRole() {
