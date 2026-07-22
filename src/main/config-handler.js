@@ -5,9 +5,6 @@ const { ensureDir } = require('./utils');
 const SHORTCUT_DEFAULTS = require('../shortcut-defaults');
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
-const effectsConfigPath = path.join(app.getPath('userData'), 'effects-config.json');
-
-const DEFAULT_GROUPS = ['开场音乐', '常见音效', '环境音'];
 
 function getDefaultSettings() {
   return {
@@ -29,14 +26,6 @@ function getDefaultStoragePaths() {
     sounds: path.join(app.getPath('userData'), 'sounds-user'),
     cache: path.join(app.getPath('temp'), 'listext-editor'),
     roles: path.join(app.getPath('userData'), 'roles')
-  };
-}
-
-function getDefaultEffectsConfig() {
-  return {
-    mappings: {},       // key -> custom id
-    meta: {},           // key -> { group, source }
-    groups: [...DEFAULT_GROUPS]
   };
 }
 
@@ -78,49 +67,6 @@ async function applyProxySettings(settings) {
     await session.defaultSession.setProxy({ mode: 'direct' });
   } else {
     await session.defaultSession.setProxy({ mode: 'system' });
-  }
-}
-
-function normalizeEffectsConfig(raw) {
-  const base = getDefaultEffectsConfig();
-  if (!raw || typeof raw !== 'object') return base;
-
-  // 兼容旧版: { filename: customId }
-  const hasLegacyShape = !('mappings' in raw) && !('meta' in raw) && !('groups' in raw);
-  if (hasLegacyShape) {
-    base.mappings = { ...raw };
-    return base;
-  }
-
-  base.mappings = { ...(raw.mappings || {}) };
-  base.meta = { ...(raw.meta || {}) };
-  const groups = Array.isArray(raw.groups) ? raw.groups.filter(Boolean) : [];
-  base.groups = Array.from(new Set([...DEFAULT_GROUPS, ...groups]));
-  return base;
-}
-
-function loadEffectsConfig() {
-  try {
-    if (fs.existsSync(effectsConfigPath)) {
-      const data = fs.readFileSync(effectsConfigPath, 'utf-8');
-      const parsed = JSON.parse(data || '{}');
-      return normalizeEffectsConfig(parsed);
-    }
-  } catch (error) {
-    console.error('读取音效配置失败:', error);
-  }
-  return getDefaultEffectsConfig();
-}
-
-function saveEffectsConfig(config) {
-  try {
-    ensureDir(path.dirname(effectsConfigPath));
-    const normalized = normalizeEffectsConfig(config);
-    fs.writeFileSync(effectsConfigPath, JSON.stringify(normalized, null, 2), 'utf-8');
-    return true;
-  } catch (error) {
-    console.error('保存音效配置失败:', error);
-    return false;
   }
 }
 
@@ -179,12 +125,9 @@ function registerConfigHandlers(ipcMain) {
 }
 
 module.exports = {
-  DEFAULT_GROUPS,
   loadSettings,
   saveSettings,
   applyProxySettings,
-  loadEffectsConfig,
-  saveEffectsConfig,
   registerConfigHandlers,
   getShortcuts,
   saveShortcuts,

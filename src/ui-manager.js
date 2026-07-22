@@ -5,9 +5,13 @@ class UIManager {
     this.initElements();
     this.initModeSwitcher();
     this.initToolbar();
+
+    try {
+      if (localStorage.getItem('toolbarAlign') === 'left') document.body.classList.add('toolbar-left');
+    } catch (e) {}
+
     this.initDialogs();
     this.initSplitDivider();
-    this.initLayoutAlign();
     this.loadShortcuts().then(() => this.initKeyboardShortcuts());
   }
 
@@ -143,28 +147,6 @@ class UIManager {
 
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
-    });
-  }
-
-  initLayoutAlign() {
-    const btn = document.getElementById('btnLayoutAlign');
-    if (!btn) return;
-    const icon = btn.querySelector('.material-icons');
-
-    const apply = (left) => {
-      document.body.classList.toggle('toolbar-left', left);
-      if (icon) icon.textContent = left ? 'format_align_left' : 'format_align_center';
-      btn.title = left ? '切换到居中布局' : '切换到靠左布局';
-    };
-
-    const saved = localStorage.getItem('toolbarAlign');
-    const isLeft = saved === 'left';
-    apply(isLeft);
-
-    btn.addEventListener('click', () => {
-      const next = !document.body.classList.contains('toolbar-left');
-      apply(next);
-      try { localStorage.setItem('toolbarAlign', next ? 'left' : 'center'); } catch (e) { console.error('保存工具栏位置失败:', e); }
     });
   }
 
@@ -480,8 +462,6 @@ class UIManager {
     if (this._previewingPath) { this._previewingPath = null; this._renderEffectList(); }
   }
 
-  _filterEffectSelect() { /* deprecated — merged into effect dialog */ }
-
   async _importLocalEffect() {
     if (!window.electronAPI?.selectAudioFile) return;
     const filePath = await window.electronAPI.selectAudioFile();
@@ -649,7 +629,7 @@ class UIManager {
 
       if (this.matchShortcut(e, this.shortcuts.openEffects)) {
         e.preventDefault();
-        this.openEffectManager();
+        this.showEffectDialog(() => {});
         return;
       }
 

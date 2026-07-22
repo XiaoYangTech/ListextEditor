@@ -46,6 +46,10 @@
     .form-group input.error { border-color: var(--md-error); }
     .form-group .hint { font-size: 12px; color: var(--md-on-surface-variant); margin-top: 4px; }
     .form-group .error-msg { font-size: 12px; color: var(--md-error); margin-top: 4px; }
+
+    .radio-group { display: flex; gap: 16px; }
+    .radio-group label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+    .radio-group input[type="radio"] { accent-color: var(--md-primary); }
     
     .path-row { display: flex; gap: 8px; align-items: center; }
     .path-row input { flex: 1; }
@@ -84,8 +88,11 @@
   <nav class="nav-panel">
     <div class="nav-header">设置</div>
     <div class="nav-list">
-      <div class="nav-item active" data-page="shortcuts">
+      <div class="nav-item" data-page="shortcuts">
         <span>快捷键</span>
+      </div>
+      <div class="nav-item" data-page="layout">
+        <span>布局</span>
       </div>
       <div class="nav-item" data-page="proxy">
         <span>网络代理</span>
@@ -199,6 +206,20 @@
         </div>
       </div>
       
+      <!-- 布局设置页 -->
+      <div id="layout-page" class="settings-page">
+        <div class="card">
+          <div class="card-title">工具栏对齐方式</div>
+          <div class="form-group">
+            <div class="radio-group">
+              <label><input type="radio" name="toolbarAlign" value="center" checked> 居中</label>
+              <label><input type="radio" name="toolbarAlign" value="left"> 靠左</label>
+            </div>
+            <div class="hint">修改后即时生效</div>
+          </div>
+        </div>
+      </div>
+
       <!-- 网络代理设置页 -->
       <div id="proxy-page" class="settings-page">
         <div class="card">

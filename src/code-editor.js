@@ -94,7 +94,7 @@ class CodeEditor {
   }
 
   getValue() { return this.editor.value; }
-  setValue(v) { this.editor.value = v; this.updateScheduled = false; this.updateLineNumbers(); this.updateCodeHighlight(); this.validateCode(); this.syncScroll(); }
+  setValue(v) { this.editor.value = v; this.updateScheduled = false; this.updateLineNumbers(); this.updateCodeHighlight(); this.validateCode(); this.syncScroll(); if (this.callbacks.onInput) this.callbacks.onInput(); }
   focus() { this.editor.focus(); }
 
   insertCodeAtCursor(code, cursorOffset) {

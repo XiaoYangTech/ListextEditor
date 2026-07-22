@@ -70,13 +70,6 @@ class AuthManager {
     document.getElementById('btnBuyPro')?.addEventListener('click', () => {
       this.api?.openExternal?.('https://api.yfyw.top');
     });
-
-    const pwdInput = document.getElementById('loginPassword');
-    if (pwdInput) {
-      pwdInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') this.doLogin();
-      });
-    }
   }
 
   async refreshProfile() {

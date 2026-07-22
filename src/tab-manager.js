@@ -100,8 +100,6 @@ class TabManager {
     const placeholder = document.getElementById('homeBannerPlaceholder');
     const nav = document.getElementById('homeBannerNav');
     const dots = document.getElementById('homeBannerDots');
-    const info = document.getElementById('homeBannerInfo');
-    const titleEl = document.getElementById('bannerTitle');
 
     if (!this._banners || !this._banners.length) return;
     const b = this._banners[this._bannerIndex];

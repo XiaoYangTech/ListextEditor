@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -109,12 +109,12 @@ function createMainWindow() {
     mainWindow.webContents.send('request-close-check');
 
     const closeTimeout = setTimeout(() => {
-      mainWindow.destroy();
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
     }, 5000);
 
     ipcMain.once('close-check-result', (event, shouldClose) => {
       clearTimeout(closeTimeout);
-      if (shouldClose) {
+      if (shouldClose && mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.destroy();
       } else {
         isClosing = false;
@@ -138,7 +138,7 @@ function setMenuContext(isHome) {
   const fileItems = ['file-save', 'file-save-as', 'file-export'];
   const playItems = ['play-preview', 'play-stop'];
 
-  const targets = isHome ? [...editItems, ...fileItems, ...playItems] : [...editItems, ...fileItems, ...playItems];
+  const targets = [...editItems, ...fileItems, ...playItems];
   for (const id of targets) {
     const item = menuItems[id];
     if (item) item.enabled = !isHome;
@@ -147,6 +147,7 @@ function setMenuContext(isHome) {
 
 function createMenu() {
   const sendEditAction = (action) => sendToMain('menu-edit', action);
+  const openExternal = (url) => shell.openExternal(url);
 
   const menuTemplate = [
     {
@@ -208,6 +209,14 @@ function createMenu() {
     {
       label: '帮助',
       submenu: [
+        { id: 'help-website', label: '访问软件官网', click: () => openExternal('https://www.yfyw.top') },
+        { id: 'help-docs', label: '软件知识库文档', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/space/7664618862058458330?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home') },
+        { id: 'help-syntax', label: 'Listext语法说明', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/J1EQwIfuFi6pQTk9BytcwhumnFb?fromScene=spaceOverview') },
+        { id: 'help-ai-prompt', label: '用于一键导入听力原文的AI Prompt', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/LKkCwl7AvidXngkvJlkcCxg9nGd?fromScene=spaceOverview') },
+        { type: 'separator' },
+        { id: 'help-author-bilibili', label: '关注作者B站', click: () => openExternal('https://space.bilibili.com/413043448') },
+        { id: 'help-xuanli-bilibili', label: '关注玄离199', click: () => openExternal('https://space.bilibili.com/67079745') },
+        { type: 'separator' },
         { id: 'help-about', label: '关于',
           click: () => sendToMain('show-about')
         }

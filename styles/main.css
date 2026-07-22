@@ -95,18 +95,6 @@ body {
   min-width: 0;
 }
 
-.app-bar-left {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.app-title {
-  font-size: 20px;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-}
-
 .app-bar-center {
   display: flex;
   flex: 1;
@@ -253,25 +241,9 @@ body {
   position: relative;
 }
 
-.layout-align-btn {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  flex-shrink: 0;
-}
-
 body.toolbar-left .view-mode-switch,
 body.toolbar-left .toolbar {
   justify-content: flex-start;
-}
-
-body.toolbar-left .layout-align-btn {
-  position: relative;
-  right: auto;
-  top: auto;
-  transform: none;
-  margin-left: 8px;
 }
 
 #blockOnlyItems {
@@ -309,43 +281,6 @@ body.toolbar-left .layout-align-btn {
   background: var(--md-divider);
   margin: 0 4px;
 }
-
-
-.code-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background: var(--md-surface);
-  border-bottom: 1px solid var(--md-divider);
-  flex-wrap: wrap;
-}
-
-.code-quick-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border: 1px solid var(--md-divider);
-  border-radius: 16px;
-  background: var(--md-background);
-  color: var(--md-on-surface);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.code-quick-btn:hover {
-  background: var(--md-primary);
-  color: var(--md-on-primary);
-  border-color: var(--md-primary);
-}
-
-.code-quick-btn .material-icons {
-  font-size: 16px;
-}
-
 
 .block-container {
   flex: 1;
@@ -1079,54 +1014,6 @@ body.toolbar-left .layout-align-btn {
   background: var(--md-divider);
 }
 
-
-.syntax-help h3 {
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 12px;
-  margin-top: 20px;
-  color: var(--md-primary);
-}
-
-.syntax-help h3:first-child {
-  margin-top: 0;
-}
-
-.syntax-help table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.syntax-help td {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--md-divider);
-  font-size: 13px;
-}
-
-.syntax-help td:first-child {
-  width: 160px;
-}
-
-.syntax-help code {
-  background: #F5F5F5;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-family: 'Consolas', monospace;
-  font-size: 12px;
-}
-
-.syntax-help pre {
-  background: #263238;
-  color: #ECEFF1;
-  padding: 16px;
-  border-radius: 4px;
-  font-family: 'Consolas', monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  overflow-x: auto;
-}
-
-
 .sortable-placeholder {
   height: 60px;
   background: rgba(25, 118, 210, 0.1);
@@ -1369,31 +1256,6 @@ body.toolbar-left .layout-align-btn {
 
 .toolbar-input {
   min-width: 180px;
-}
-
-
-.syntax-help table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  margin-bottom: 12px;
-}
-
-.syntax-help td, .syntax-help th {
-  border: 1px solid #e0e0e0;
-  padding: 6px 8px;
-}
-
-.syntax-help pre.syntax-example {
-  background: #0f172a;
-  color: #e2e8f0;
-  border: 1px solid #1e293b;
-  border-radius: 8px;
-  padding: 12px;
-  white-space: pre-wrap;
-  user-select: text;
-  font-size: 12px;
-  line-height: 1.5;
 }
 
 .block-section .block-content {
@@ -1647,9 +1509,6 @@ body.toolbar-left .layout-align-btn {
 .banner-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.5); border: none; cursor: pointer; padding: 0; }
 .banner-dot.active { background: #fff; }
 
-.home-banner-info { position: absolute; bottom: 32px; left: 20px; right: 20px; }
-.banner-title { font-size: 18px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,0.3); }
-
 .home-section {
   margin-bottom: 20px;
 }
@@ -1889,11 +1748,6 @@ body.toolbar-left .layout-align-btn {
 .about-body { padding: 16px 24px 0; }
 .about-desc { font-size: 14px; color: #616161; line-height: 1.7; margin: 0 0 12px; }
 .about-license { font-size: 12px; color: #9e9e9e; margin: 0 0 20px; display: flex; align-items: center; gap: 6px; }
-
-.about-thanks { background: #fafafa; border-radius: 10px; padding: 14px 18px; margin: 0 0 16px; text-align: center; }
-.about-thanks h3 { font-size: 12px; font-weight: 500; color: #9e9e9e; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 1px; }
-.about-thanks-names { font-size: 16px; font-weight: 500; color: #424242; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
-.about-thanks-sep { color: #bdbdbd; }
 
 .about-divider { height: 1px; background: #e0e0e0; margin: 0 0 16px; }
 

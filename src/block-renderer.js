@@ -710,6 +710,7 @@ class BlockRenderer {
       block._effectId = document.getElementById('editFxId').value || '';
       if (!block._effectId) {
         window.app?.updateStatus?.('请先选择音效');
+        return;
       }
       block._effectDuration = parseInt(document.getElementById('editFxDur').value, 10) || null;
       block._effectFade = parseInt(document.getElementById('editFxFade').value, 10) || null;
@@ -766,7 +767,7 @@ class BlockRenderer {
     const dialog = this.editDialog;
     dialog.querySelector('#editDialogTitle').textContent = '设置朗读属性';
     dialog.querySelector('#editDialogBody').innerHTML = `
-      <div class="form-group"><label>角色ID（可选）</label><select id="editSayRole"><option value="">不使用角色</option>${roles.map(r => `<option value="${r.id}" ${r.id === (block._roleId || '') ? 'selected' : ''}>${r.name} (${r.id})</option>`).join('')}</select></div>
+      <div class="form-group"><label>角色ID（可选）</label><select id="editSayRole"><option value="">不使用角色</option>${roles.map(r => `<option value="${this.escapeHtml(r.id)}" ${r.id === (block._roleId || '') ? 'selected' : ''}>${this.escapeHtml(r.name)} (${this.escapeHtml(r.id)})</option>`).join('')}</select></div>
       <div class="form-group"><label>语速（0.5 - 2.0）</label><input id="editSayRate" type="number" min="0.5" max="2" step="0.1" value="${block._rate || 1.0}" /></div>
     `;
 

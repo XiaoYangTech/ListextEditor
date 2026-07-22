@@ -163,10 +163,10 @@ class RoleManagerPage {
       if (codeRoles.length) {
         html += '<div style="margin-bottom:8px;font-size:12px;color:#757575;">代码中定义的角色（只读）</div>';
         html += codeRoles.map(role => `
-          <div class="rm-list-item" data-id="${role.id}">
+          <div class="rm-list-item" data-id="${this.escapeHtml(role.id)}">
             <div>
-              <div><strong>${role.name}</strong> (${role.id})<span class="rm-source-tag rm-source-code">代码定义</span></div>
-              <div class="rm-meta">${role.type === 'local' ? '系统TTS' : 'EdgeTTS'} · ${role.voice || '未设置'}</div>
+              <div><strong>${this.escapeHtml(role.name)}</strong> (${this.escapeHtml(role.id)})<span class="rm-source-tag rm-source-code">代码定义</span></div>
+              <div class="rm-meta">${role.type === 'local' ? '系统TTS' : 'EdgeTTS'} · ${this.escapeHtml(role.voice || '未设置')}</div>
             </div>
           </div>
         `).join('');
@@ -176,12 +176,12 @@ class RoleManagerPage {
         if (codeRoles.length) html += '<div style="margin:12px 0 8px;font-size:12px;color:#757575;">手动添加的角色</div>';
         html += uiRoles.map((role, i) => {
           const overLimit = isOverLimit && i >= 3;
-          return `<div class="rm-list-item${overLimit ? ' rm-overlimit' : ''}" data-id="${role.id}">
+          return `<div class="rm-list-item${overLimit ? ' rm-overlimit' : ''}" data-id="${this.escapeHtml(role.id)}">
             <div>
-              <div><strong>${role.name}</strong> (${role.id})<span class="rm-source-tag rm-source-ui">手动添加</span>${overLimit ? '<span class="rm-source-tag rm-source-lock">🔒 超限</span>' : ''}</div>
-              <div class="rm-meta">${role.type === 'edge' ? 'EdgeTTS' : '系统TTS'} · ${role.voice || '未设置'}</div>
+              <div><strong>${this.escapeHtml(role.name)}</strong> (${this.escapeHtml(role.id)})<span class="rm-source-tag rm-source-ui">手动添加</span>${overLimit ? '<span class="rm-source-tag rm-source-lock">🔒 超限</span>' : ''}</div>
+              <div class="rm-meta">${role.type === 'edge' ? 'EdgeTTS' : '系统TTS'} · ${this.escapeHtml(role.voice || '未设置')}</div>
             </div>
-            ${overLimit ? '' : `<div class="rm-actions"><button class="btn btn-ghost" data-action="edit" data-id="${role.id}">编辑</button><button class="btn btn-danger" data-action="delete" data-id="${role.id}">删除</button></div>`}
+            ${overLimit ? '' : `<div class="rm-actions"><button class="btn btn-ghost" data-action="edit" data-id="${this.escapeHtml(role.id)}">编辑</button><button class="btn btn-danger" data-action="delete" data-id="${this.escapeHtml(role.id)}">删除</button></div>`}
           </div>`;
         }).join('');
       }
@@ -263,4 +263,6 @@ class RoleManagerPage {
     await this.clearForm();
     await this.renderRoles();
   }
+
+  escapeHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 }

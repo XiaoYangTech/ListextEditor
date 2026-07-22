@@ -40,12 +40,14 @@ class SettingsManager {
     
     const titles = {
       shortcuts: '快捷键',
+      layout: '布局',
       proxy: '网络代理'
     };
     document.getElementById('page-title').textContent = titles[page] || '';
   }
 
   async loadAll() {
+    this.loadLayout();
     await Promise.all([
       this.loadShortcuts(),
       this.loadProxy()
@@ -204,6 +206,13 @@ class SettingsManager {
     await window.electronAPI.saveSettings(payload);
   }
 
+  loadLayout() {
+    const saved = localStorage.getItem('toolbarAlign') || 'center';
+    document.querySelectorAll('input[name="toolbarAlign"]').forEach(r => {
+      r.checked = r.value === saved;
+    });
+  }
+
   bindEvents() {
     document.getElementById('btnSaveShortcuts')?.addEventListener('click', () => this.saveShortcuts());
     document.getElementById('btnResetShortcuts')?.addEventListener('click', () => this.resetShortcuts());
@@ -212,6 +221,14 @@ class SettingsManager {
     document.getElementById('btnReloadProxy')?.addEventListener('click', () => this.loadProxy());
 
     document.getElementById('proxyMode')?.addEventListener('change', () => this.toggleProxyUrl());
+
+    document.querySelectorAll('input[name="toolbarAlign"]').forEach(r => {
+      r.addEventListener('change', () => {
+        if (r.checked) {
+          localStorage.setItem('toolbarAlign', r.value);
+        }
+      });
+    });
   }
 
   toggleProxyUrl() {
@@ -219,8 +236,6 @@ class SettingsManager {
     const group = document.getElementById('proxyUrlGroup');
     if (group) group.style.display = mode === 'manual' ? '' : 'none';
   }
-
-  setStatus(text) { /* deprecated — removed */ }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
