@@ -89,16 +89,40 @@
 ListextEditor/
 ├─ assets/
 │  └─ default-sounds/         # 默认自带音效（只读来源）
+├─ pages/
+│  ├─ index.html              # 主页面
+│  └─ settings.html           # 设置页面
 ├─ src/
 │  ├─ main/                   # 主进程逻辑
-│  └─ ...                     # 渲染进程逻辑
+│  │  ├─ api-client.js        # API 客户端
+│  │  ├─ config-handler.js    # 配置管理
+│  │  ├─ file-locker.js       # 文件锁定
+│  │  ├─ ipc-handler.js       # IPC 通信处理
+│  │  ├─ sound-handler.js     # 音效处理
+│  │  ├─ utils.js             # 工具函数
+│  │  └─ window-manager.js    # 窗口管理
+│  ├─ app.js                  # 渲染进程入口
+│  ├─ block-renderer.js       # 积木块渲染
+│  ├─ code-editor.js          # 代码编辑器
+│  ├─ listext-parser.js       # 文本解析器
+│  ├─ tts-engine.js           # TTS 引擎
+│  ├─ tts-renderer.js         # TTS 渲染
+│  ├─ ui-manager.js           # UI 管理
+│  ├─ tab-manager.js          # 标签页管理
+│  ├─ file-manager.js         # 文件管理
+│  ├─ settings.js             # 设置逻辑
+│  ├─ role-manager-page.js    # 角色管理
+│  ├─ export-handler.js       # 导出处理
+│  ├─ play-queue.js           # 播放队列
+│  ├─ entitlement.js          # 授权管理
+│  ├─ shortcut-defaults.js     # 默认快捷键
+│  ├─ auth-manager.js         # 认证管理
+│  └─ role-replace-dialog.js  # 角色替换对话框
 ├─ styles/
-├─ index.html
-├─ effects-manager.html
-├─ role-manager.html
-├─ settings.html
-├─ preload.js
-├─ main.js
+│  ├─ fonts/                  # 字体文件
+│  └─ main.css                # 主样式文件
+├─ main.js                    # Electron 主进程入口
+├─ preload.js                 # 预加载脚本
 └─ package.json
 ```
 
@@ -124,19 +148,18 @@ npm start
 
 > 以下命令已在 `package.json` 中定义。
 
-### Windows （传统 + 信创）
+### Windows
 
 ```bash
-npm run build:win:x64 #对应 传统Intel/AMD架构、兆芯 世纪大道 架构（ZHAOXIN/CentaurHauls），海光 C86 架构（HygonGeneiue）的处理器
-npm run build:win:arm64 #对应 传统 ARMV8 架构、飞腾 ARMV8 架构等ARM64架构的处理器（本项目不推荐飞腾处理器原生运行Windows，会存在缺少驱动的现象。如有相关需求，请在Linux平台使用本项目，或是安装Windows虚拟机使用。）
+npm run build:win:x64
 ```
 
 ### macOS
 
 ```bash
-npm run build:mac:x64 #对应 传统Intel x86架构的处理器
-npm run build:mac:arm64 #对应 苹果M系列的处理器
+npm run build:mac
 ```
+macOS 构建同时输出 x64 和 arm64 两套安装包。
 
 ### Linux （传统 + 信创）
 
@@ -146,7 +169,7 @@ npm run build:linux:arm64 #对应 传统 ARMV8 架构、飞腾 ARMV8 架构等AR
 npm run build:linux:loong64 #对应 龙芯处理器 LoongArch 架构的处理器
 ```
 
-### 信创（Linux ARM64 + Loong64）
+### 信创（Linux x64 + ARM64 + Loong64）
 
 ```bash
 npm run build:xinchuang
