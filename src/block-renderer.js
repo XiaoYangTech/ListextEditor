@@ -1138,6 +1138,7 @@ class BlockRenderer {
       if (textarea) textarea.focus();
 
       this.selectSingleBlock(block);
+      block.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       this.onBlockChange();
       window.app?.uiManager?.refreshSectionJump?.();
     }
