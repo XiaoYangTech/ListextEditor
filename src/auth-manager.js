@@ -110,6 +110,13 @@ class AuthManager {
       document.getElementById('loginSubmit').disabled = false;
       document.getElementById('loginSubmit').textContent = '登录';
 
+      if (result.data?.device_limit && result.data?.devices) {
+        this._devicesCache = result.data.devices;
+        this._maxDevices = result.data.max_devices || 3;
+        this.showDeviceLimitDialog();
+        return;
+      }
+
       if (result.ok) {
         const loggedIn = await this.api?.isLoggedIn();
         if (!loggedIn) {
@@ -123,13 +130,6 @@ class AuthManager {
         this.hideLoginDialog();
         await this.refreshProfile();
         this.updateAccountUI();
-        return;
-      }
-
-      if (result.device_limit && result.devices) {
-        this._devicesCache = result.devices;
-        this._maxDevices = result.max_devices || 3;
-        this.showDeviceLimitDialog();
         return;
       }
 
@@ -153,6 +153,16 @@ class AuthManager {
 
     try {
       const result = await this.api.login(this._loginEmail, this._loginPassword, this._pendingDeviceName, this.api.platform || 'Windows', removeId);
+
+      if (result.data?.device_limit && result.data?.devices) {
+        this._devicesCache = result.data.devices;
+        this._maxDevices = result.data.max_devices || 3;
+        document.getElementById('deviceLimitError').textContent = '仍然超限，请选择其他设备下线';
+        document.getElementById('deviceLimitError').style.display = 'block';
+        this.showDeviceLimitDialog();
+        return;
+      }
+
       if (result.ok) {
         this.hideDeviceLimitDialog();
         this.hideLoginDialog();

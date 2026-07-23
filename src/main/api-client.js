@@ -297,6 +297,13 @@ class ApiClient {
     const result = await this.requestApp('client_heartbeat', 'POST').catch(() => null);
     if (result && result.ok) {
       await this.getStatus();
+    } else if (!result || !result.ok) {
+      console.log('[AUTH] 心跳失败，清除登录态');
+      this.token = null;
+      this.userCache = null;
+      this.entitlementCache = null;
+      this.saveState();
+      this.stopHeartbeat();
     }
   }
 
