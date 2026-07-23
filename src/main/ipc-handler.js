@@ -231,7 +231,6 @@ async function composeMp3(targetPath, segments, skipWatermark = false) {
     if (wmPath) {
       const wmList = path.join(jobDir, 'wm_concat.txt');
       fs.writeFileSync(wmList,
-        "file '" + wmPath.replace(/'/g, "''") + "'\n" +
         "file '" + rawOutput.replace(/'/g, "''") + "'\n" +
         "file '" + wmPath.replace(/'/g, "''") + "'\n", 'utf-8');
       await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', wmList,
