@@ -9,6 +9,7 @@ const authPath = path.join(app.getPath('userData'), 'auth.json');
 class ApiClient {
   constructor() {
     this.baseUrl = 'https://api.yfyw.top';
+    this.appBaseUrl = 'https://api.yfyw.top/apps/lstx';
     this.token = null;
     this.deviceKey = null;
     this.deviceName = '';
@@ -146,6 +147,52 @@ class ApiClient {
     }
   }
 
+  async requestApp(route, method = 'GET', body = null) {
+    const url = `${this.appBaseUrl}/api.php?route=${route}`;
+    const headers = { 'Content-Type': 'application/json; charset=utf-8' };
+    if (this.token) headers['X-Device-Token'] = this.token;
+
+    const options = { method, headers };
+    if (body && method !== 'GET') options.body = JSON.stringify(body);
+
+    let response;
+    try {
+      response = await fetch(url, options);
+    } catch (e) {
+      return { ok: false, error: { code: 0, message: '网络连接失败' } };
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      return { ok: false, error: { code: response.status, message: '服务器响应异常' } };
+    }
+
+    if (data.ok === false) {
+      if (data.error?.code === 401 && this.token) {
+        console.log('[AUTH] 服务器返回 401，自动清除登录态 (route=' + route + ')');
+        this.token = null;
+        this.userCache = null;
+        this.entitlementCache = null;
+        this.saveState();
+        this.stopHeartbeat();
+      }
+    }
+
+    return data;
+  }
+
+  async requestNoAuthApp(route) {
+    const url = `${this.appBaseUrl}/api.php?route=${route}`;
+    try {
+      const response = await fetch(url);
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
   async login(email, password, deviceName, osName, removeDeviceId) {
     const body = {
       email, password,
@@ -172,7 +219,7 @@ class ApiClient {
   }
 
   async getStatus() {
-    const result = await this.request('client_status');
+    const result = await this.requestApp('client_status');
     const data = result?.data || {};
     if (result.ok) {
       this.userCache = data.user || this.userCache;
@@ -187,7 +234,7 @@ class ApiClient {
   }
 
   async getProfile() {
-    const result = await this.request('client_profile');
+    const result = await this.requestApp('client_profile');
     const data = result?.data || {};
     if (result.ok) {
       this.userCache = data.user || this.userCache;
@@ -202,41 +249,41 @@ class ApiClient {
   }
 
   async getDevices() {
-    const result = await this.request('client_devices');
+    const result = await this.requestApp('client_devices');
     return result?.data || result;
   }
 
   async removeDevice(id) {
-    return await this.request('devices', 'DELETE', { id });
+    return await this.requestApp('client_devices', 'POST', { id });
   }
 
   async getAnnouncements() {
-    const result = await this.requestNoAuth('announcements');
+    const result = await this.requestNoAuthApp('announcements');
     return result?.data || result || [];
   }
 
   async getRoutines() {
-    const result = await this.requestNoAuth('routines');
+    const result = await this.requestNoAuthApp('routines');
     return result?.data || result || [];
   }
 
   async getBanners() {
-    const result = await this.requestNoAuth('banners');
+    const result = await this.requestNoAuthApp('banners');
     return result?.data || result || [];
   }
 
   async getExportQuota() {
-    const result = await this.request('export_quota');
+    const result = await this.requestApp('export_quota');
     return result?.data || result;
   }
 
   async consumeExport() {
-    return await this.request('export_consume', 'POST');
+    return await this.requestApp('export_consume', 'POST');
   }
 
   async logout() {
     if (this.token) {
-      await this.request('client_logout', 'POST').catch(() => {});
+      await this.requestApp('client_logout', 'POST').catch(() => {});
     }
     this.token = null;
     this.userCache = null;
@@ -247,7 +294,7 @@ class ApiClient {
 
   async heartbeat() {
     if (!this.token) return;
-    const result = await this.request('client_heartbeat', 'POST').catch(() => null);
+    const result = await this.requestApp('client_heartbeat', 'POST').catch(() => null);
     if (result && result.ok) {
       await this.getStatus();
     }
