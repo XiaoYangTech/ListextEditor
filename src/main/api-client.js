@@ -131,6 +131,7 @@ class ApiClient {
         this.entitlementCache = null;
         this.saveState();
         this.stopHeartbeat();
+        this.onAuthLost?.();
       }
     }
 
@@ -177,6 +178,7 @@ class ApiClient {
         this.entitlementCache = null;
         this.saveState();
         this.stopHeartbeat();
+        this.onAuthLost?.();
       }
     }
 
@@ -304,6 +306,7 @@ class ApiClient {
       this.entitlementCache = null;
       this.saveState();
       this.stopHeartbeat();
+      this.onAuthLost?.();
     }
   }
 
@@ -317,7 +320,8 @@ class ApiClient {
   stopHeartbeat() {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
+    this.heartbeatTimer = null;
+    this.onAuthLost = null;
     }
   }
 }

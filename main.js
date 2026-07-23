@@ -4,7 +4,7 @@ const { createMainWindow, getMainWindow } = require('./src/main/window-manager')
 const { registerIpcHandlers } = require('./src/main/ipc-handler');
 const { registerConfigHandlers, loadSettings, applyProxySettings } = require('./src/main/config-handler');
 const { registerSoundHandlers } = require('./src/main/sound-handler');
-const { registerApiHandlers } = require('./src/main/api-client');
+const { registerApiHandlers, apiClient } = require('./src/main/api-client');
 const { setupCrypto, ensureDir } = require('./src/main/utils');
 
 // Setup global polyfills
@@ -35,6 +35,10 @@ async function initApp() {
   registerConfigHandlers(ipcMain);
   registerSoundHandlers(ipcMain);
   registerApiHandlers();
+
+  apiClient.onAuthLost = () => {
+    mainWindow?.webContents?.send('auth-lost');
+  };
   
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

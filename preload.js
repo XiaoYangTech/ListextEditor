@@ -151,5 +151,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   consumeExport: () => ipcRenderer.invoke('api-export-consume'),
   pasteFromClipboard: () => ipcRenderer.invoke('paste-from-clipboard'),
   getStatus: () => ipcRenderer.invoke('api-status'),
-  fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath)
+  fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
+
+  onAuthLost: (callback) => ipcRenderer.on('auth-lost', () => callback())
 });

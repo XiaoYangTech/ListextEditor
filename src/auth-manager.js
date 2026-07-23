@@ -19,6 +19,13 @@ class AuthManager {
     await window.entitlement?.refresh();
     this.updateAccountUI();
     this.bindEvents();
+
+    this.api?.onAuthLost?.(() => {
+      console.log('[AUTH] 服务端下线设备，自动刷新UI');
+      this._userCache = null;
+      this._entitlementCache = null;
+      this.updateAccountUI();
+    });
   }
 
   bindEvents() {
