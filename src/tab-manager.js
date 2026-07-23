@@ -608,6 +608,9 @@ class TabManager {
     tab.mode = this.editor.currentMode;
     tab.roles = this.editor.codeEditor?.projectRoles || tab.roles || [];
     tab.effects = this.editor.codeEditor?.projectEffects || tab.effects || [];
+    if (this.editor.codeEditor?.editor) {
+      tab.scrollPos = this.editor.codeEditor.editor.scrollTop || 0;
+    }
   }
 
   restoreEditorStateFromTab(tab) {
@@ -617,6 +620,13 @@ class TabManager {
     if (this.editor.codeEditor) {
       this.editor.codeEditor.projectRoles = tab.roles || [];
       this.editor.codeEditor.projectEffects = tab.effects || [];
+      if (tab.scrollPos && this.editor.codeEditor.editor) {
+        this.editor.codeEditor.editor.scrollTop = tab.scrollPos;
+      }
+    }
+    if (window.electronAPI) {
+      window.electronAPI.setProjectRoles(tab.roles || []).catch(() => {});
+      window.electronAPI.setProjectEffects(tab.effects || []).catch(() => {});
     }
   }
 

@@ -149,6 +149,16 @@ class ExportHandler {
     if (!api) { this._hideProgress(); window.app?.uiManager?.showInfoDialog?.('错误', '导出失败：当前环境不支持'); return; }
 
     this._showProgress();
+    this._updateProgress(1, '正在检查编码器...');
+
+    if (typeof api.checkFfmpeg === 'function') {
+      const ffCheck = await api.checkFfmpeg();
+      if (!ffCheck?.ok) {
+        this._hideProgress();
+        window.app?.uiManager?.showInfoDialog?.('错误', '导出失败：未找到 ffmpeg 编码器\n请确保程序安装目录完整');
+        return;
+      }
+    }
 
     try {
       const effectiveContent = window.app?.getContent?.() || '';
@@ -183,6 +193,7 @@ class ExportHandler {
       const builtinSounds = await api.listBuiltinSounds() || [];
 
       const segments = [];
+      const skipWarnings = [];
       const totalTasks = queue.length;
       this._updateProgress(5, `正在构建导出任务（${totalTasks}）...`);
 
@@ -203,16 +214,27 @@ class ExportHandler {
           }
           segments.push({ type: 'file', path: res.path });
         } else if (task.type === 'effect') {
-          const effect = projectEffects.find(e => e.id === task.effectId);
-          if (!effect) continue;
+          let effect = projectEffects.find(e => e.id === task.effectId);
+          let effectPath = null;
 
-          let effectPath = effect.path;
-          if (!effectPath && effect.source === 'builtin') {
-            const builtin = builtinSounds.find(b => b.filename === effect.filename);
-            if (builtin) effectPath = builtin.path;
+          if (!effect) {
+            const builtin = builtinSounds.find(b => (b.name || b.id) === task.effectId);
+            if (builtin) {
+              effect = { source: 'builtin', filename: builtin.filename };
+              if (builtin.path) effectPath = builtin.path;
+            }
+          } else {
+            effectPath = effect.path;
+            if (!effectPath && effect.source === 'builtin') {
+              const builtin = builtinSounds.find(b => b.filename === effect.filename);
+              if (builtin) effectPath = builtin.path;
+            }
           }
 
-          if (!effectPath) continue;
+          if (!effectPath) {
+            skipWarnings.push(`音效 "${task.effectId}" 文件缺失，已跳过`);
+            continue;
+          }
           segments.push({
             type: 'file',
             path: effectPath,
@@ -236,11 +258,17 @@ class ExportHandler {
       if (result?.success) {
         this._updateProgress(95, '正在保存...');
         await api.consumeExport?.().catch((e) => {
-          console.error('导出次数扣减失败:', e);
+          console.error('导出次数扣减:', e);
         });
         this._updateProgress(100, '导出完成');
         this.updateStatus('导出完成');
-        setTimeout(() => { this._hideProgress(); window.app?.updateStatus?.('就绪'); }, 1500);
+        if (skipWarnings.length) {
+          setTimeout(() => {
+            window.app?.uiManager?.showInfoDialog?.('提示',
+              '导出已完成，但以下音效缺失：\n' + skipWarnings.join('\n'));
+          }, 1800);
+        }
+        setTimeout(() => { this._hideProgress(); window.app?.updateStatus?.('就绪'); }, skipWarnings.length ? 100 : 1500);
       } else {
         this._hideProgress();
         window.app?.uiManager?.showInfoDialog?.('错误', '导出失败：' + (result?.error || '未知错误'));

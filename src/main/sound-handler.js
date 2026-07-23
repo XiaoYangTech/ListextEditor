@@ -46,11 +46,13 @@ function scanBuiltInSounds() {
         if (dedupe.has(dKey)) continue;
         dedupe.add(dKey);
 
+        const sndName = path.basename(file, path.extname(file));
         list.push({
+          id: sndName,
+          name: sndName,
           source: 'builtin',
           group: groupName,
           filename: file,
-          name: path.basename(file, path.extname(file)),
           path: path.join(dir, file)
         });
       }

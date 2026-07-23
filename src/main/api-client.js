@@ -300,7 +300,7 @@ class ApiClient {
     const result = await this.requestApp('client_heartbeat', 'POST').catch(() => null);
     if (result && result.ok) {
       await this.getStatus();
-    } else if (!result || !result.ok) {
+    } else if (result && !result.ok && result?.error?.code !== 0) {
       console.log('[AUTH] 心跳失败，清除登录态');
       this.token = null;
       this.userCache = null;

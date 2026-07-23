@@ -5,9 +5,6 @@ class AuthManager {
   }
 
   async init() {
-    const loggedIn = await this.api?.isLoggedIn();
-    console.log('[AUTH] init 登录状态:', loggedIn);
-
     this.api?.onAuthLost?.(() => {
       console.log('[AUTH] 服务端下线设备，自动刷新UI');
       this._userCache = null;
@@ -15,10 +12,17 @@ class AuthManager {
       this.updateAccountUI();
     });
 
+    const loggedIn = await this.api?.isLoggedIn();
+    console.log('[AUTH] init 登录状态:', loggedIn);
+
     if (loggedIn) {
       try {
         await this.refreshProfile();
-        await this.api?.getStatus();
+        const statusResult = await this.api?.getStatus();
+        if (!statusResult?.ok && statusResult?.error?.code === 401) {
+          this._userCache = null;
+          this._entitlementCache = null;
+        }
         console.log('[AUTH] init 个人资料刷新成功');
       } catch (e) {
         console.log('[AUTH] init 个人资料刷新失败:', e.message);

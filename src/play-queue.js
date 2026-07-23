@@ -35,8 +35,16 @@ class PlayQueue {
         const builtin = builtinSounds.find(b => b.filename === effect.filename);
         if (builtin) effectPath = builtin.path;
       }
-      if (effectPath) {
-        this.effectLibrary[effect.id] = effectPath;
+      const key = effect.id || effect.name;
+      if (effectPath && key) {
+        this.effectLibrary[key] = effectPath;
+      }
+    }
+
+    for (const builtin of builtinSounds) {
+      const key = builtin.name || builtin.id;
+      if (key && !this.effectLibrary[key] && builtin.path) {
+        this.effectLibrary[key] = builtin.path;
       }
     }
   }
@@ -221,7 +229,11 @@ class PlayQueue {
     return new Promise((resolve) => {
       if (!task.effectId) return resolve();
       const effectPath = this.effectLibrary[task.effectId];
-      if (!effectPath) return resolve();
+      if (!effectPath) {
+        console.warn(`音效 "${task.effectId}" 无法播放：文件路径无效`);
+        window.app?.updateStatus?.(`警告: 音效 "${task.effectId}" 文件未找到`);
+        return resolve();
+      }
 
       const audio = new Audio();
       audio.src = this.toFileUrl(effectPath);

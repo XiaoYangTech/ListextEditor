@@ -235,7 +235,10 @@ class UIManager {
           this.app.updateStatus('请先选择音效');
           return;
         }
-        this.app.renderer.addBlock('fx', { ...opts, effectId, duration, fade });
+        let attrs = `id="${effectId}"`;
+        if (duration) attrs += ` dur="${duration}"`;
+        if (fade) attrs += ` fade="${fade}"`;
+        editor.insertCodeAtCursor(`<fx ${attrs}>`);
       });
     } else if (type === 'say') {
       editor.insertCodeAtCursor('<say role=""></say>', -6);
@@ -301,6 +304,24 @@ class UIManager {
       if (!this._selectedEffectId) { this.app.updateStatus('请先选择音效'); return; }
       const dur = parseInt(document.getElementById('effectDialogDuration')?.value, 10) || null;
       const fade = parseInt(document.getElementById('effectDialogFade')?.value, 10) || null;
+
+      if (this._effectTab === 'builtin') {
+        const builtin = this._effectBuiltinSounds.find(b => (b.id || b.name) === this._selectedEffectId);
+        if (builtin) {
+          const tab = this.app?.tabManager?.getActiveTab();
+          if (tab && !(tab.effects || []).find(e => (e.id || e.name) === this._selectedEffectId)) {
+            tab.effects = [...(tab.effects || []), {
+              id: builtin.name || builtin.id,
+              name: builtin.name || builtin.id,
+              source: 'builtin',
+              filename: builtin.filename,
+              group: builtin.group
+            }];
+            if (window.electronAPI) window.electronAPI.setProjectEffects(tab.effects);
+          }
+        }
+      }
+
       if (this._effectCallback) this._effectCallback(this._selectedEffectId, dur, fade);
       this._stopPreview();
       dialog.classList.remove('active');

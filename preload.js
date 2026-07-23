@@ -106,6 +106,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   openSettingsWindow: () => ipcRenderer.invoke('open-settings-window'),
   composeMp3: (targetPath, segments, skipWatermark) => ipcRenderer.invoke('compose-mp3', targetPath, segments, skipWatermark),
+  checkFfmpeg: () => ipcRenderer.invoke('check-ffmpeg'),
 
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),

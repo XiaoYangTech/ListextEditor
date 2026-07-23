@@ -1282,7 +1282,7 @@ class BlockRenderer {
       try {
         const data = await window.electronAPI.getProjectData();
         return data?.roles || [];
-      } catch (e) { console.error('scrollToBlockId failed:', e); }
+      } catch (e) { console.error('getRoles failed:', e); }
     }
     return [];
   }

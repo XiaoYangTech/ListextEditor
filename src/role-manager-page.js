@@ -246,6 +246,11 @@ class RoleManagerPage {
 
     const roles = await this.getRoles();
     const payload = { id, name, type, voice, source: 'ui' };
+    const codeConflict = roles.find(r => r.id === id && r.source === 'code');
+    if (codeConflict) {
+      this._showError('角色ID与代码中定义的角色重复，请修改代码或使用其他ID');
+      return;
+    }
     const idx = roles.findIndex(r => r.id === id && r.source !== 'code');
 
     if (idx < 0) {

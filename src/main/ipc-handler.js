@@ -70,8 +70,10 @@ function saveProjectPackage(filePath, payload) {
   const usedFxIds = parseFxIds(content);
 
   zip.addFile('project.json', Buffer.from(JSON.stringify({
+    version: 1,
     title: tabTitle,
     content,
+    mode: payload?.mode || 'block',
     roles: mergedRoles,
     effects: projectEffects
   }, null, 2), 'utf-8'));
@@ -80,7 +82,7 @@ function saveProjectPackage(filePath, payload) {
     const effect = projectEffects.find(e => e.id === fxId);
     if (!effect) continue;
 
-    if (effect.source === 'builtin') continue; // built-in sounds are always available, skip embedding
+    if (effect.source === 'builtin') continue;
 
     let absPath = effect.path;
     if (absPath && fs.existsSync(absPath)) {
@@ -90,9 +92,18 @@ function saveProjectPackage(filePath, payload) {
     }
   }
 
+  const missingSounds = [];
+  for (const fxId of usedFxIds) {
+    const effect = projectEffects.find(e => e.id === fxId);
+    if (!effect || effect.source === 'builtin') continue;
+    if (!effect.path || !fs.existsSync(effect.path)) {
+      missingSounds.push(`音效 "${fxId}" 的文件 "${effect.filename || '未知'}" 在磁盘上不存在，保存后将无法播放`);
+    }
+  }
+
   ensureDir(path.dirname(safePath));
   zip.writeZip(safePath);
-  return { success: true, filePath: safePath };
+  return { success: true, filePath: safePath, warnings: missingSounds };
 }
 
 function openProjectPackage(filePath) {
@@ -146,12 +157,11 @@ function openProjectPackage(filePath) {
     }
 
     const existing = projectEffects.find(e => e.filename === filename);
-    if (existing && !existing.path) {
+    if (existing) {
       existing.path = out;
     }
   }
 
-  // Check for effects with missing sound files
   for (const fx of projectEffects) {
     if (!fx.id) continue;
     if (fx.filename && !fx.path) {
@@ -162,6 +172,7 @@ function openProjectPackage(filePath) {
   return {
     success: true,
     content: project.content || '',
+    mode: project.mode || 'block',
     roles: mergedRoles,
     effects: projectEffects,
     title: project.title || path.basename(filePath),
@@ -262,6 +273,15 @@ function registerIpcHandlers() {
       return openProjectPackage(filePath);
     }
     catch (error) { return { success: false, error: error.message }; }
+  });
+
+  ipcMain.handle('check-ffmpeg', async () => {
+    try {
+      await runFfmpeg(['-version']);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
   });
 
   ipcMain.handle('compose-mp3', async (event, targetPath, segments, skipWatermark) => {

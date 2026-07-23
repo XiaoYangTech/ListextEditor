@@ -10,6 +10,8 @@ class CodeEditor {
     this.updateScheduled = false;
     this.projectRoles = [];
     this.projectEffects = [];
+    this.builtinSoundNames = [];
+    this.builtinSoundsLoaded = false;
     this.edgeVoices = [];
     this.localVoices = [];
     this._lastKeyDown = null;
@@ -43,6 +45,17 @@ class CodeEditor {
     setTimeout(() => finish(speechSynthesis.getVoices()), 3000);
   }
 
+  async loadBuiltinSounds() {
+    if (this.builtinSoundsLoaded) return;
+    this.builtinSoundsLoaded = true;
+    if (window.electronAPI?.listBuiltinSounds) {
+      try {
+        const r = await window.electronAPI.listBuiltinSounds();
+        this.builtinSoundNames = (r || []).map(s => s.name || s.id).filter(Boolean);
+      } catch { this.builtinSoundNames = []; }
+    }
+  }
+
   async syncFromIPC() {
     if (!window.electronAPI) return;
     try {
@@ -56,7 +69,7 @@ class CodeEditor {
     this.refreshView();
     this.loadEdgeVoices();
     this.loadLocalVoices();
-    this.syncFromIPC();
+    this.loadBuiltinSounds();
     this.editor.addEventListener('input', () => {
       this.refreshView();
       if (this.callbacks.onInput) this.callbacks.onInput();
@@ -198,7 +211,10 @@ class CodeEditor {
         if (items.length) { this.suggestions.dataset.mode='value'; this.showSuggestionsAtCursor(items,input,caret-input.length,'角色'); return; }
       }
       if (attr === 'id' && this.isInsideTag(before,'fx')) {
-        const items = this.projectEffects.map(e=>e.id).filter(Boolean).filter(e=>e.toLowerCase().includes(input.toLowerCase()));
+        const projectIds = this.projectEffects.map(e=>e.id).filter(Boolean);
+        const builtinIds = this.builtinSoundNames;
+        const allIds = [...new Set([...projectIds, ...builtinIds])];
+        const items = allIds.filter(e=>e.toLowerCase().includes(input.toLowerCase()));
         if (items.length) { this.suggestions.dataset.mode='value'; this.showSuggestionsAtCursor(items,input,caret-input.length,'音效'); return; }
       }
       if (attr === 'voice' && this.isInsideTag(before,'role')) {
@@ -341,6 +357,7 @@ class CodeEditor {
     const errors=[], lines=code.split('\n');
     const rids=new Set(this.projectRoles.map(r=>r.id));
     const eids=new Set(this.projectEffects.map(e=>e.id));
+    for (const name of this.builtinSoundNames) eids.add(name);
     for (let i=0;i<lines.length;i++) {
       const l=lines[i], n=i+1;
       const rm=l.match(/<say\s+[^>]*role\s*=\s*"([^"]+)"/);

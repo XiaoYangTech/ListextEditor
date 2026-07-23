@@ -348,8 +348,6 @@ class ListextEditor {
   syncCodeRolesToProject(code) {
     if (!code) return;
     const codeRoles = this.parser.parseRoleDefsFromCode(code);
-    if (!codeRoles.length) return;
-
     const tab = this.tabManager?.getActiveTab();
     if (!tab) return;
 
@@ -381,7 +379,7 @@ class ListextEditor {
     let nextCode = code.replace(/<role\s+([^>]*)>/gi, (full, attrText) => {
       const id = attrText.match(/\bid\s*=\s*["']([^"']+)["']/i)?.[1];
       const role = id ? roleMap.get(id) : null;
-      if (!role) return full;
+      if (!role) return '';
       usedIds.add(id);
       return roleTag(role);
     });

@@ -180,6 +180,7 @@ class FileManager {
     const title = result.title || filePath.split(/[/\\]/).pop();
     if (this.app.tabManager) {
       this.app.tabManager.createNewTab(title, finalContent, filePath, true, {
+        mode: result.mode,
         roles: finalRoles,
         effects: effects
       });
@@ -224,6 +225,7 @@ class FileManager {
     const effects = tab.effects || [];
     const result = await this.api?.saveFile(filePath, content, {
       title: tab.title,
+      mode: this.app.currentMode,
       roles,
       effects
     });
@@ -241,6 +243,10 @@ class FileManager {
       this.updateStatusForTab(this.app.tabManager.getActiveTab());
       this.app.tabManager?.recordRecentProject(finalPath, fileName);
       this.app.updateStatus('已保存项目');
+      if (result?.warnings?.length) {
+        this.app.uiManager?.showInfoDialog?.('提示',
+          '项目已保存，但以下警告：\n' + result.warnings.join('\n'));
+      }
       return true;
     }
 
