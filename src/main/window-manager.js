@@ -69,8 +69,7 @@ function createMainWindow() {
       preload: path.join(__dirname, '../../preload.js'),
       sandbox: false,
       webviewTag: true
-    },
-    title: getAppTitle()
+    }
   });
 
   mainWindow.loadFile('pages/index.html');
