@@ -24,6 +24,7 @@ class ApiClient {
       if (fs.existsSync(authPath)) {
         const data = JSON.parse(fs.readFileSync(authPath, 'utf-8'));
         this.token = data.token || null;
+        if (this.token) this.startHeartbeat();
         this.deviceKey = data.deviceKey || this.generateDeviceKey();
         this.deviceName = data.deviceName || this.getDeviceName();
         this.userCache = data.user || null;
