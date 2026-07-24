@@ -216,6 +216,8 @@ function createMenu() {
         { id: 'help-author-bilibili', label: '关注作者B站', click: () => openExternal('https://space.bilibili.com/413043448') },
         { id: 'help-xuanli-bilibili', label: '关注玄离199', click: () => openExternal('https://space.bilibili.com/67079745') },
         { type: 'separator' },
+        { id: 'help-check-update', label: '检查更新', click: () => sendToMain('check-update') },
+        { type: 'separator' },
         { id: 'help-about', label: '关于',
           click: () => sendToMain('show-about')
         }

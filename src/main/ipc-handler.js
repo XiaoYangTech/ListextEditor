@@ -429,10 +429,20 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle('get-app-info', () => ({
+    name: app.getName(),
     version: app.getVersion(),
     platform: process.platform,
     arch: process.arch
   }));
+
+  ipcMain.handle('set-toolbar-align', async (event, align) => {
+    const { BrowserWindow } = require('electron');
+    const mainWin = BrowserWindow.getAllWindows().find(
+      w => !w.isDestroyed() && w.webContents.getURL().includes('index.html')
+    );
+    if (mainWin) mainWin.webContents.send('toolbar-align-changed', align);
+    return { success: true };
+  });
 }
 
 app.on('will-quit', () => { fileLocker.unlockAll(); });

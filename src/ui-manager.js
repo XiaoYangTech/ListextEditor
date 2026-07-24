@@ -13,6 +13,18 @@ class UIManager {
     this.initDialogs();
     this.initSplitDivider();
     this.loadShortcuts().then(() => this.initKeyboardShortcuts());
+
+    if (window.electronAPI?.onCheckUpdate) {
+      window.electronAPI.onCheckUpdate(() => this.checkForUpdates());
+    }
+
+    if (window.electronAPI?.onToolbarAlignChanged) {
+      window.electronAPI.onToolbarAlignChanged((align) => {
+        document.body.classList.toggle('toolbar-left', align === 'left');
+      });
+    }
+
+    setTimeout(() => this.checkForUpdates(), 3000);
   }
 
   async loadShortcuts() {
@@ -81,6 +93,15 @@ class UIManager {
     this.settingsSaveBtn = document.getElementById('settingsSave');
     this.settingsCancelBtn = document.getElementById('settingsCancel');
     this.settingsCloseTopBtn = document.getElementById('settingsCloseTop');
+
+    this.updateDialog = document.getElementById('updateDialog');
+    this.updateAppName = document.getElementById('updateAppName');
+    this.updateVersionOld = document.getElementById('updateVersionOld');
+    this.updateVersionNew = document.getElementById('updateVersionNew');
+    this.updateReleaseDate = document.getElementById('updateReleaseDate');
+    this.updateChangelog = document.getElementById('updateChangelog');
+    this.updateDownloadBtn = document.getElementById('updateDownloadBtn');
+    this.updateLaterBtn = document.getElementById('updateLaterBtn');
   }
 
   initModeSwitcher() {
@@ -259,6 +280,7 @@ class UIManager {
     this.initRoleManagerDialog();
     this.initSettingsDialog();
     this.initAboutDialog();
+    this.initUpdateDialog();
   }
 
   initSilenceDialog() {
@@ -581,6 +603,58 @@ class UIManager {
     dialog?.querySelector('.about-close-btn')?.addEventListener('click', () => dialog.classList.remove('active'));
   }
 
+  initUpdateDialog() {
+    if (!this.updateDialog) return;
+    this.updateDialog.querySelector('.update-close')?.addEventListener('click', () => this.updateDialog.classList.remove('active'));
+    this.updateLaterBtn?.addEventListener('click', () => this.updateDialog.classList.remove('active'));
+    this.updateDownloadBtn?.addEventListener('click', () => {
+      const url = this._updateDownloadUrl;
+      if (url && window.electronAPI?.openExternal) {
+        window.electronAPI.openExternal(url);
+      }
+      this.updateDialog.classList.remove('active');
+    });
+  }
+
+  showUpdateDialog(updateInfo, appInfo) {
+    if (!this.updateDialog) return;
+    const { latest_version, latest_download_url, latest_release_date, latest_changelog } = updateInfo;
+    this._updateDownloadUrl = latest_download_url;
+
+    if (this.updateAppName) this.updateAppName.textContent = appInfo?.name || '亿方听力大师';
+    if (this.updateVersionOld) this.updateVersionOld.textContent = `v${appInfo?.version || ''}`;
+    if (this.updateVersionNew) this.updateVersionNew.textContent = latest_version || '';
+    if (this.updateReleaseDate) this.updateReleaseDate.textContent = latest_release_date ? `发布日期: ${latest_release_date}` : '';
+    if (this.updateChangelog) this.updateChangelog.textContent = latest_changelog || '暂无更新说明';
+    this.updateDialog.classList.add('active');
+  }
+
+  isNewerVersion(latest, current) {
+    const a = (latest || '').replace(/^v/i, '').split('.').map(Number);
+    const b = (current || '').replace(/^v/i, '').split('.').map(Number);
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+      if ((a[i] || 0) > (b[i] || 0)) return true;
+      if ((a[i] || 0) < (b[i] || 0)) return false;
+    }
+    return false;
+  }
+
+  async checkForUpdates() {
+    if (!window.electronAPI?.checkUpdate || !window.electronAPI?.getAppInfo) return;
+    try {
+      const [updateInfo, appInfo] = await Promise.all([
+        window.electronAPI.checkUpdate(),
+        window.electronAPI.getAppInfo()
+      ]);
+      if (!updateInfo || !updateInfo.latest_version) return;
+      if (this.isNewerVersion(updateInfo.latest_version, appInfo?.version)) {
+        this.showUpdateDialog(updateInfo, appInfo);
+      }
+    } catch (e) {
+      console.error('检查更新失败:', e);
+    }
+  }
+
   showAboutDialog() {
     const dialog = document.getElementById('aboutDialog');
     if (!dialog) return;
@@ -610,6 +684,7 @@ class UIManager {
     }, { once: true });
 
     dialog.classList.add('active');
+    this.checkForUpdates();
   }
 
   async showSettingsDialog() {

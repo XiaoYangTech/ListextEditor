@@ -368,6 +368,33 @@
     </div>
   </div>
 
+  <div id="updateDialog" class="dialog">
+    <div class="dialog-content dialog-update">
+      <button class="dialog-close update-close">&times;</button>
+      <div class="update-hero">
+        <span class="material-icons update-hero-icon">system_update</span>
+      </div>
+      <div class="update-body">
+        <h2 class="update-headline">发现新版本</h2>
+        <p class="update-app-name" id="updateAppName"></p>
+        <div class="update-versions">
+          <span class="update-version-old" id="updateVersionOld"></span>
+          <span class="material-icons update-arrow">arrow_forward</span>
+          <span class="update-version-new" id="updateVersionNew"></span>
+        </div>
+        <p class="update-date" id="updateReleaseDate"></p>
+        <div class="update-changelog-box" id="updateChangelog"></div>
+      </div>
+      <div class="dialog-footer update-footer">
+        <button class="btn btn-cancel" id="updateLaterBtn">稍后提醒</button>
+        <button class="btn btn-primary" id="updateDownloadBtn">
+          <span class="material-icons" style="font-size:18px;vertical-align:-3px;">download</span>
+          前往下载
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="accountMenu" class="account-menu" style="display:none">
     <div id="accountMenuBody"></div>
   </div>

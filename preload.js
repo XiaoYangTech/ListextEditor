@@ -154,5 +154,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getStatus: () => ipcRenderer.invoke('api-status'),
   fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
 
-  onAuthLost: (callback) => ipcRenderer.on('auth-lost', () => callback())
+  onAuthLost: (callback) => ipcRenderer.on('auth-lost', () => callback()),
+
+  checkUpdate: () => ipcRenderer.invoke('check-update'),
+  onCheckUpdate: (callback) => ipcRenderer.on('check-update', () => callback()),
+
+  setToolbarAlign: (align) => ipcRenderer.invoke('set-toolbar-align', align),
+  onToolbarAlignChanged: (callback) => ipcRenderer.on('toolbar-align-changed', (e, align) => callback(align))
 });

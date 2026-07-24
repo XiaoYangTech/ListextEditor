@@ -295,6 +295,11 @@ class ApiClient {
     this.stopHeartbeat();
   }
 
+  async checkUpdate() {
+    const result = await this.requestNoAuthApp('app_info');
+    return result?.data || result;
+  }
+
   async heartbeat() {
     if (!this.token) return;
     const result = await this.requestApp('client_heartbeat', 'POST').catch(() => null);
@@ -377,6 +382,10 @@ function registerApiHandlers() {
 
   ipcMain.handle('paste-from-clipboard', () => {
     return require('electron').clipboard.readText();
+  });
+
+  ipcMain.handle('check-update', async () => {
+    return await apiClient.checkUpdate();
   });
 
   ipcMain.handle('api-is-logged-in', async () => {

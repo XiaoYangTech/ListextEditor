@@ -226,6 +226,9 @@ class SettingsManager {
       r.addEventListener('change', () => {
         if (r.checked) {
           localStorage.setItem('toolbarAlign', r.value);
+          if (window.electronAPI?.setToolbarAlign) {
+            window.electronAPI.setToolbarAlign(r.value);
+          }
         }
       });
     });
