@@ -25,32 +25,39 @@ class RoleReplaceDialog {
 
   _escapeRe(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
+  _escapeHtml(s) { return window.escapeHtml(s); }
+
   _render() {
-    const maxRoles = 3;
+    const maxRoles = window.LISTEXT_CONSTANTS?.MAX_FREE_ROLES || 3;
     const list = document.getElementById('roleReplaceList');
     if (!list) return;
 
-    let html = '';
-    this._roles.forEach((r, i) => {
-      if (r.source === 'code') return; // skip code-defined roles
+    // 仅非代码定义的角色参与保留/替换选择，按选择计数而非原始索引
+    const uiEntries = this._roles
+      .map((r, i) => ({ role: r, index: i }))
+      .filter(e => e.role.source !== 'code');
+    const keptEntries = uiEntries.slice(0, maxRoles);
 
+    let html = '';
+    uiEntries.forEach(({ role: r, index: i }, uiIdx) => {
       const refs = this._roleRefCounts[r.id] || 0;
       const refInfo = refs > 0 ? `<span style="color:#757575;font-size:11px">· ${refs}处引用</span>` : '';
+      const nameHtml = `<strong>${this._escapeHtml(r.name || r.id)}</strong> <span style="color:#757575;font-size:11px">(${this._escapeHtml(r.id)})</span>`;
 
-      if (i < maxRoles) {
+      if (uiIdx < maxRoles) {
         this._selectedIndices.add(i);
         html += `<label class="rr-item rr-keep">
           <input type="checkbox" checked data-index="${i}" class="rr-check">
-          <div class="rr-item-info"><strong>${r.name || r.id}</strong> <span style="color:#757575;font-size:11px">(${r.id})</span></div>
+          <div class="rr-item-info">${nameHtml}</div>
           <div class="rr-item-meta">${refInfo}</div>
         </label>`;
       } else {
-        const replaceOpts = this._roles.slice(0, maxRoles).filter(rp => rp.source !== 'code').map(rp =>
-          `<option value="${rp.id}"${rp.id === this._roles[0]?.id ? ' selected' : ''}>${rp.name || rp.id}</option>`
+        const replaceOpts = keptEntries.map(({ role: rp }, k) =>
+          `<option value="${this._escapeHtml(rp.id)}"${k === 0 ? ' selected' : ''}>${this._escapeHtml(rp.name || rp.id)}</option>`
         ).join('');
         html += `<label class="rr-item rr-remove">
           <input type="checkbox" data-index="${i}" class="rr-check">
-          <div class="rr-item-info"><strong>${r.name || r.id}</strong> <span style="color:#757575;font-size:11px">(${r.id})</span></div>
+          <div class="rr-item-info">${nameHtml}</div>
           <div class="rr-item-meta">${refInfo}</div>
           <div class="rr-replace" data-index="${i}">
             替换为: <select class="rr-select">${replaceOpts}</select>
@@ -71,16 +78,16 @@ class RoleReplaceDialog {
       });
     });
 
-    // Replace select change
+    // Replace select change；同时记录默认选中项，避免未触碰下拉框时替换映射缺失
     list.querySelectorAll('.rr-select').forEach(sel => {
+      const idx = parseInt(sel.closest('.rr-replace').dataset.index, 10);
+      this._replaceMap[idx] = sel.value;
       sel.addEventListener('change', () => {
-        const idx = parseInt(sel.closest('.rr-replace').dataset.index, 10);
         this._replaceMap[idx] = sel.value;
       });
     });
 
-    document.getElementById('roleReplaceConfirm').disabled = false;
-    document.getElementById('roleReplaceConfirm').textContent = '确认并导入';
+    this._updateButton();
 
     // Button handler
     document.getElementById('roleReplaceConfirm').onclick = () => {

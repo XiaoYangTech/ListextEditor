@@ -51,7 +51,7 @@ class CodeEditor {
     if (window.electronAPI?.listBuiltinSounds) {
       try {
         const r = await window.electronAPI.listBuiltinSounds();
-        this.builtinSoundNames = (r || []).map(s => s.name || s.id).filter(Boolean);
+        this.builtinSoundNames = (r || []).map(s => s.id).filter(Boolean);
       } catch { this.builtinSoundNames = []; }
     }
   }
@@ -89,8 +89,8 @@ class CodeEditor {
 
   insertTagTemplate(tag) {
     const t = {
-      say: '<say role="">|</say>', pause: '<pause dur="1">',
-      repeat: '<repeat count="2">\n  |\n</repeat>', section: '<section title="分节标题">\n  |\n</section>',
+      say: '<say role="">|</say>', pause: `<pause dur="${LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION}">`,
+      repeat: `<repeat count="${LISTEXT_CONSTANTS.DEFAULT_REPEAT_COUNT}">\n  |\n</repeat>`, section: '<section title="分节标题">\n  |\n</section>',
       fx: '<fx id="">', divider: '<divider>', role: '<role id="" name="" type="edge" voice=""/>'
     }[tag] || '';
     const p = t.indexOf('|');
@@ -161,7 +161,7 @@ class CodeEditor {
       });
   }
 
-  escapeHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
+  escapeHtml(t) { return window.escapeHtml(t); }
 
   handleKeydown(e) {
     this._lastKeyDown = e.key;
@@ -220,7 +220,7 @@ class CodeEditor {
       if (attr === 'voice' && this.isInsideTag(before,'role')) {
         const tagStart = before.lastIndexOf('<role');
         const tagContent = before.slice(tagStart);
-        const typeMatch = tagContent.match(/\btype\s*=\s*"([^"]*)"/);
+        const typeMatch = tagContent.match(/\btype\s*=\s*["']([^"']*)["']/);
         const roleType = typeMatch ? typeMatch[1] : 'edge';
         if (roleType === 'local') {
           const localItems = this.localVoices.filter(v=>v.toLowerCase().includes(input.toLowerCase()));
@@ -281,7 +281,7 @@ class CodeEditor {
   }
 
   renderSuggestions(items, pos, prefix, replaceStart, hint) {
-    this.suggestions.innerHTML = items.map((t,i) => `<div class="code-suggestion-item ${i===0?'active':''}" data-value="${t}"><span>${t}</span><span class="hint">${hint}</span></div>`).join('');
+    this.suggestions.innerHTML = items.map((t,i) => `<div class="code-suggestion-item ${i===0?'active':''}" data-value="${this.escapeHtml(t)}"><span>${this.escapeHtml(t)}</span><span class="hint">${hint}</span></div>`).join('');
     this.suggestions.style.display = 'block';
     this.suggestions.style.left = `${pos.left}px`;
     this.suggestions.style.top = `${Math.max(0, pos.top)}px`;
@@ -360,14 +360,14 @@ class CodeEditor {
     for (const name of this.builtinSoundNames) eids.add(name);
     for (let i=0;i<lines.length;i++) {
       const l=lines[i], n=i+1;
-      const rm=l.match(/<say\s+[^>]*role\s*=\s*"([^"]+)"/);
+      const rm=l.match(/<say\s+[^>]*role\s*=\s*["']([^"']+)["']/);
       if(rm&&rm[1]&&!rids.has(rm[1])) errors.push({line:n,message:`角色 "${rm[1]}" 未定义`});
-      const fm=l.match(/<fx\s+[^>]*id\s*=\s*"([^"]+)"/);
+      const fm=l.match(/<fx\s+[^>]*id\s*=\s*["']([^"']+)["']/);
       if(fm&&fm[1]&&!eids.has(fm[1])) errors.push({line:n,message:`音效 "${fm[1]}" 不存在于项目中`});
-      if(l.match(/<role\s+/)){const im=l.match(/\bid\s*=\s*"([^"]*)"/);if(im&&!im[1])errors.push({line:n,message:'角色定义缺少 id'});}
-      const rtm=l.match(/<say\s+[^>]*rate\s*=\s*"([^"]+)"/);
-      if(rtm&&rtm[1]){const r=parseFloat(rtm[1]);if(isNaN(r)||r<0.1||r>10)errors.push({line:n,message:`语速 ${rtm[1]} 不合理`});}
-      const dm=l.match(/<pause\s+[^>]*dur\s*=\s*"([^"]+)"/);
+      if(l.match(/<role\s+/)){const im=l.match(/\bid\s*=\s*["']([^"']*)["']/);if(im&&!im[1])errors.push({line:n,message:'角色定义缺少 id'});}
+      const rtm=l.match(/<say\s+[^>]*rate\s*=\s*["']([^"']+)["']/);
+      if(rtm&&rtm[1]){const r=parseFloat(rtm[1]);if(isNaN(r)||r<0.5||r>2)errors.push({line:n,message:`语速 ${rtm[1]} 超出范围（0.5-2.0）`});}
+      const dm=l.match(/<pause\s+[^>]*dur\s*=\s*["']([^"']+)["']/);
       if(dm&&dm[1]){const d=parseInt(dm[1],10);if(isNaN(d)||d<1)errors.push({line:n,message:`停顿时长 ${dm[1]} 无效`});}
     }
     return errors;

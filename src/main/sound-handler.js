@@ -49,7 +49,6 @@ function scanBuiltInSounds() {
         const sndName = path.basename(file, path.extname(file));
         list.push({
           id: sndName,
-          name: sndName,
           source: 'builtin',
           group: groupName,
           filename: file,
@@ -62,13 +61,8 @@ function scanBuiltInSounds() {
   return list;
 }
 
-function registerSoundHandlers(ipcMain) {
-  // IPC handlers for builtin sounds are registered in ipc-handler.js
-}
-
 module.exports = {
   scanBuiltInSounds,
-  registerSoundHandlers,
   getBuiltInDir,
   getBuiltInRoots,
   BUILTIN_GROUP_DIRS

@@ -23,18 +23,26 @@ class ExportHandler {
         document.getElementById('exportDir').value = dir;
       }
     });
+    document.getElementById('exportUpgradeLink')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.api?.openExternal?.(window.LISTEXT_CONSTANTS?.API_BASE_URL);
+    });
     confirmBtn?.addEventListener('click', () => {
       dialog.classList.remove('active');
-      const fileName = document.getElementById('exportFileName')?.value?.trim() || this._defaultFileName();
+      const fileName = (document.getElementById('exportFileName')?.value?.trim() || this._defaultFileName())
+        .replace(/[\/\\:*?"<>|]/g, '_');
       const dir = this.exportDir;
       if (!dir) {
         window.app?.uiManager?.showInfoDialog?.('提示', '请选择保存目录');
         return;
       }
-      const sep = this.api?.platform === 'win32' ? '\\' : '/';
-      const fullPath = dir + sep + fileName;
+      const fullPath = dir + this._sep() + fileName;
       this.doExport(fullPath);
     });
+  }
+
+  _sep() {
+    return this.api?.platform === 'win32' ? '\\' : '/';
   }
 
   _defaultFileName() {
@@ -44,12 +52,12 @@ class ExportHandler {
   }
 
   async _uniquePath(basePath) {
-    const sep = this.api?.platform === 'win32' ? '\\' : '/';
+    const sep = this._sep();
     const dir = basePath.substring(0, basePath.lastIndexOf(sep) + 1);
     const name = basePath.substring(dir.length);
     const extIdx = name.lastIndexOf('.');
     const stem = extIdx > 0 ? name.substring(0, extIdx) : name;
-    const ext = extIdx > 0 ? name.substring(extIdx) : '.mp3';
+    const ext = extIdx > 0 ? name.substring(extIdx) : '';
 
     if (!this.api?.fileExists) return basePath;
 
@@ -64,7 +72,7 @@ class ExportHandler {
 
   showExportDialog() {
     const dialog = document.getElementById('exportDialog');
-    if (!dialog) { this.doExport(null); return; }
+    if (!dialog) { this._ensureAuthForExport(() => this.doExport(null)); return; }
 
     this._ensureAuthForExport(async () => {
       const fileName = document.getElementById('exportFileName');
@@ -93,26 +101,22 @@ class ExportHandler {
     const isFreeDisplay = ent?.free_display?.enabled;
 
     if (!isPro && !isFreeDisplay) {
+      let quota = null;
       try {
-        const quota = await this.api?.getExportQuota();
-        console.log('EXPORT_QUOTA_CHECK:', JSON.stringify(quota));
+        quota = await this.api?.getExportQuota();
         if (quota && typeof quota.remaining === 'number' && quota.remaining > 0) {
           onSuccess();
           return;
         }
       } catch (e) {
-        console.error('QUOTA_CHECK_ERROR:', e);
+        console.error('导出配额查询失败:', e);
       }
-      window.app?.uiManager?.showInfoDialog?.('提示', '本月免费版3次带水印导出次数已用完，请前往 api.yfyw.top 购买会员后继续使用。');
+      const limitText = typeof quota?.limit === 'number' ? `${quota.limit}次` : '';
+      window.app?.uiManager?.showInfoDialog?.('提示', `本月免费版${limitText}带水印导出次数已用完，请购买会员后继续使用。`);
       return;
     }
 
-    if (isPro || isFreeDisplay) {
-      onSuccess();
-      return;
-    }
-
-    window.app?.uiManager?.showInfoDialog?.('提示', '请连接网络后使用导出功能');
+    onSuccess();
   }
 
   updateStatus(text) {
@@ -180,7 +184,11 @@ class ExportHandler {
         targetPath = await api.selectExportPath();
       }
       if (!targetPath) { this._hideProgress(); return this.updateStatus('已取消导出'); }
-      if (!/\.mp3$/i.test(targetPath)) targetPath = targetPath.replace(/\.[^\.]+$/, '') + '.mp3';
+      if (!/\.mp3$/i.test(targetPath)) {
+        targetPath = /\.[^.\/\\]+$/.test(targetPath)
+          ? targetPath.replace(/\.[^.\/\\]+$/, '.mp3')
+          : targetPath + '.mp3';
+      }
 
       targetPath = await this._uniquePath(targetPath);
 
@@ -203,12 +211,12 @@ class ExportHandler {
         this._updateProgress(taskPct, `正在处理任务 ${i + 1}/${totalTasks}...`);
 
         if (task.type === 'tts') {
-          const role = effectiveQueue.getRole(task.roleId || '');
-          const voice = task.voice || (role ? role.voice : null) || 'zh-CN-XiaoxiaoNeural';
+          const voice = effectiveQueue.resolveVoice(task) || LISTEXT_CONSTANTS.DEFAULT_EDGE_VOICE;
           const rate = effectiveQueue.convertRateToEdge(task.rate || 1.0);
           const res = await api.synthesizeTTS(task.text || '', voice, rate);
           if (!res?.success || !res.path) {
             this._hideProgress();
+            await api.cleanupTemp?.();
             window.app?.uiManager?.showInfoDialog?.('错误', '导出失败：TTS 合成失败');
             return;
           }
@@ -218,7 +226,7 @@ class ExportHandler {
           let effectPath = null;
 
           if (!effect) {
-            const builtin = builtinSounds.find(b => (b.name || b.id) === task.effectId);
+            const builtin = builtinSounds.find(b => b.id === task.effectId);
             if (builtin) {
               effect = { source: 'builtin', filename: builtin.filename };
               if (builtin.path) effectPath = builtin.path;
@@ -263,11 +271,13 @@ class ExportHandler {
         this._updateProgress(100, '导出完成');
         this.updateStatus('导出完成');
         if (skipWarnings.length) {
+          // 延迟弹出，等进度框关闭后再提示缺失音效
           setTimeout(() => {
             window.app?.uiManager?.showInfoDialog?.('提示',
               '导出已完成，但以下音效缺失：\n' + skipWarnings.join('\n'));
           }, 1800);
         }
+        // 停留片刻让用户看到 100% 进度
         setTimeout(() => { this._hideProgress(); window.app?.updateStatus?.('就绪'); }, skipWarnings.length ? 100 : 1500);
       } else {
         this._hideProgress();

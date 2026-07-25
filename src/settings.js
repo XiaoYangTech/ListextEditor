@@ -2,13 +2,7 @@ class SettingsManager {
   constructor() {
     this.currentPage = 'shortcuts';
     this.shortcuts = {};
-    this.defaultShortcuts = window.SHORTCUT_DEFAULTS || {
-      save: 'Ctrl+S', toggleMode: 'Ctrl+M', addBlock: 'Ctrl+N', deleteBlock: 'Delete',
-      openEffects: 'Ctrl+Shift+E', previewPlay: 'F5', undo: 'Ctrl+Z', redo: 'Ctrl+Shift+Z',
-      cut: 'Ctrl+X', copy: 'Ctrl+C', paste: 'Ctrl+V', selectAll: 'Ctrl+A',
-      insertSay: 'Ctrl+1', insertPause: 'Ctrl+2', insertRepeat: 'Ctrl+3',
-      insertSection: 'Ctrl+4', insertFx: 'Ctrl+5', insertDivider: 'Ctrl+6'
-    };
+    this.defaultShortcuts = window.SHORTCUT_DEFAULTS || {};
     this.init();
   }
 
@@ -77,6 +71,9 @@ class SettingsManager {
   }
 
   bindShortcutInput(input) {
+    if (input._shortcutBound) return;
+    input._shortcutBound = true;
+
     input.addEventListener('focus', () => {
       input.value = '';
       input.placeholder = '按下快捷键...';

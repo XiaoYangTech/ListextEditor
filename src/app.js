@@ -33,7 +33,10 @@ class ListextEditor {
     const platformMap = { win32: 'Windows', darwin: 'macOS' };
     const os = platformMap[api.platform] || 'Linux';
     const arch = api.arch || 'x64';
-    el.textContent = `v1.1.0 · ${os} ${arch}`;
+    el.textContent = `${os} ${arch}`;
+    api.getAppInfo?.().then(info => {
+      if (info?.version) el.textContent = `v${info.version} · ${os} ${arch}`;
+    }).catch(() => {});
   }
 
   initBlockRenderer() {
@@ -115,8 +118,9 @@ class ListextEditor {
     window.electronAPI.onProjectEffectsChanged((effects) => {
       const tab = this.tabManager?.getActiveTab();
       if (tab) {
+        const changed = JSON.stringify(tab.effects || []) !== JSON.stringify(effects || []);
         tab.effects = effects;
-        this.fileManager.markUnsaved();
+        if (changed) this.fileManager.markUnsaved();
       }
       if (this.codeEditor) {
         this.codeEditor.projectEffects = effects || [];
@@ -126,27 +130,15 @@ class ListextEditor {
     window.electronAPI.onProjectRolesChanged((roles) => {
       const tab = this.tabManager?.getActiveTab();
       if (tab) {
+        const changed = JSON.stringify(tab.roles || []) !== JSON.stringify(roles || []);
         tab.roles = roles;
-        this.fileManager.markUnsaved();
+        if (changed) this.fileManager.markUnsaved();
       }
       if (this.codeEditor) {
         this.codeEditor.projectRoles = roles || [];
         if (this.currentMode === 'code') {
-          const code = this.codeEditor.getValue();
-          const codeRoles = this.parser.parseRoleDefsFromCode(code);
-          const codeRoleIds = new Set(codeRoles.map(r => r.id));
-          const missingRoles = (roles || []).filter(r => !codeRoleIds.has(r.id));
-          if (missingRoles.length) {
-            const roleTags = missingRoles.map(r => {
-              const attrs = [`id="${r.id || ''}"`, `name="${r.name || r.id || ''}"`];
-              if (r.type) attrs.push(`type="${r.type}"`);
-              if (r.voice) attrs.push(`voice="${r.voice}"`);
-              return `<role ${attrs.join(' ')}>`;
-            }).join('\n');
-            this.codeEditor.setValue(roleTags + '\n' + code);
-          }
+          // 角色管理器修改后回写代码（仅更新/删除已有标签），再将代码结果同步回项目配置。
           this.syncRolesToCode(roles);
-          // 角色管理器修改后回写代码，再将代码结果同步回项目配置。
           this.syncCodeRolesToProject(this.codeEditor.getValue());
         }
       }
@@ -315,24 +307,7 @@ class ListextEditor {
 
   syncBlocksToCode() {
     const ast = this.renderer.collectAST();
-    let code = this.parser.stringify(ast).trim();
-
-    const tab = this.tabManager?.getActiveTab();
-    const projectRoles = tab?.roles || [];
-    const codeRoles = this.parser.parseRoleDefsFromCode(code);
-    const codeRoleIds = new Set(codeRoles.map(r => r.id));
-
-    const missingRoles = projectRoles.filter(r => !codeRoleIds.has(r.id));
-    if (missingRoles.length) {
-      const roleTags = missingRoles.map(r => {
-        const attrs = [`id="${r.id || ''}"`, `name="${r.name || r.id || ''}"`];
-        if (r.type) attrs.push(`type="${r.type}"`);
-        if (r.voice) attrs.push(`voice="${r.voice}"`);
-        return `<role ${attrs.join(' ')}>`;
-      }).join('\n');
-      code = roleTags + '\n' + code;
-    }
-
+    const code = this.parser.stringify(ast).trim();
     this.codeEditor.setValue(code);
   }
 
@@ -384,8 +359,6 @@ class ListextEditor {
       return roleTag(role);
     });
 
-    const missing = (roles || []).filter(role => role?.id && !usedIds.has(role.id));
-    if (missing.length) nextCode = missing.map(roleTag).join('\n') + (nextCode ? `\n${nextCode}` : '');
     if (nextCode !== code) this.codeEditor.setValue(nextCode);
   }
 
@@ -393,25 +366,7 @@ class ListextEditor {
     if (this.currentMode === 'split' || this.currentMode === 'code') {
       return this.codeEditor.getValue();
     }
-    let code = this.parser.stringify(this.renderer.collectAST()).trim();
-
-    const tab = this.tabManager?.getActiveTab();
-    const projectRoles = tab?.roles || [];
-    const codeRoles = this.parser.parseRoleDefsFromCode(code);
-    const codeRoleIds = new Set(codeRoles.map(r => r.id));
-
-    const missingRoles = projectRoles.filter(r => !codeRoleIds.has(r.id));
-    if (missingRoles.length) {
-      const roleTags = missingRoles.map(r => {
-        const attrs = [`id="${r.id || ''}"`, `name="${r.name || r.id || ''}"`];
-        if (r.type) attrs.push(`type="${r.type}"`);
-        if (r.voice) attrs.push(`voice="${r.voice}"`);
-        return `<role ${attrs.join(' ')}>`;
-      }).join('\n');
-      code = roleTags + '\n' + code;
-    }
-
-    return code;
+    return this.parser.stringify(this.renderer.collectAST()).trim();
   }
 
   setContent(content, mode = 'block') {
@@ -422,6 +377,7 @@ class ListextEditor {
     this.codeEditor.setValue(safeContent);
 
     if (safeMode === 'block') {
+      this.renderer.resetHistory();
       try {
         const ast = this.parser.parse(safeContent);
         this.renderer.render(ast);

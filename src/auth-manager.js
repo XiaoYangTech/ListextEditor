@@ -1,3 +1,5 @@
+const SITE_URL = window.LISTEXT_CONSTANTS?.API_BASE_URL || 'https://api.yfyw.top';
+
 class AuthManager {
   constructor() {
     this.api = window.electronAPI;
@@ -50,7 +52,7 @@ class AuthManager {
     document.getElementById('loginClose')?.addEventListener('click', () => this.hideLoginDialog());
     document.getElementById('loginSubmit')?.addEventListener('click', () => this.doLogin());
     document.getElementById('loginRegister')?.addEventListener('click', () => {
-      this.api?.openExternal?.('https://api.yfyw.top');
+      this.api?.openExternal?.(SITE_URL);
     });
 
     const loginEmail = document.getElementById('loginEmail');
@@ -77,10 +79,10 @@ class AuthManager {
 
     document.getElementById('btnLogout')?.addEventListener('click', () => this.doLogout());
     document.getElementById('btnAccountManage')?.addEventListener('click', () => {
-      this.api?.openExternal?.('https://api.yfyw.top');
+      this.api?.openExternal?.(SITE_URL);
     });
     document.getElementById('btnBuyPro')?.addEventListener('click', () => {
-      this.api?.openExternal?.('https://api.yfyw.top');
+      this.api?.openExternal?.(SITE_URL);
     });
   }
 
@@ -89,8 +91,6 @@ class AuthManager {
     try {
       const userData = await this.api.getUser();
       const entData = await this.api.getEntitlement();
-      console.log('REFRESH_PROFILE userData:', JSON.stringify(userData));
-      console.log('REFRESH_PROFILE entData:', JSON.stringify(entData));
       if (userData) this._userCache = userData;
       if (entData) this._entitlementCache = entData;
     } catch {}
@@ -118,13 +118,11 @@ class AuthManager {
 
     try {
       const result = await this.api.login(email, password, this._pendingDeviceName, this.api.platform || 'Windows');
-      console.log('LOGIN_RESULT:', JSON.stringify(result));
       document.getElementById('loginSubmit').disabled = false;
       document.getElementById('loginSubmit').textContent = '登录';
 
       if (result.data?.device_limit && result.data?.devices) {
         this._devicesCache = result.data.devices;
-        this._maxDevices = result.data.max_devices || 3;
         this.showDeviceLimitDialog();
         return;
       }
@@ -139,6 +137,8 @@ class AuthManager {
           document.getElementById('loginSubmit').textContent = '登录';
           return;
         }
+        this._loginEmail = null;
+        this._loginPassword = null;
         this.hideLoginDialog();
         await this.refreshProfile();
         this.updateAccountUI();
@@ -168,14 +168,15 @@ class AuthManager {
 
       if (result.data?.device_limit && result.data?.devices) {
         this._devicesCache = result.data.devices;
-        this._maxDevices = result.data.max_devices || 3;
+        this.showDeviceLimitDialog();
         document.getElementById('deviceLimitError').textContent = '仍然超限，请选择其他设备下线';
         document.getElementById('deviceLimitError').style.display = 'block';
-        this.showDeviceLimitDialog();
         return;
       }
 
       if (result.ok) {
+        this._loginEmail = null;
+        this._loginPassword = null;
         this.hideDeviceLimitDialog();
         this.hideLoginDialog();
         await this.refreshProfile();
@@ -197,6 +198,9 @@ class AuthManager {
     await this.api?.logout();
     this._userCache = null;
     this._entitlementCache = null;
+    this._loginEmail = null;
+    this._loginPassword = null;
+    await window.entitlement?.refresh();
     this.updateAccountUI();
   }
 
@@ -226,8 +230,8 @@ class AuthManager {
       `<label class="device-radio">
         <input type="radio" name="deviceRadio" value="${d.id}" ${i === 0 ? 'checked' : ''}>
         <div class="device-info">
-          <div class="device-name">${d.name || d.os}</div>
-          <div class="device-meta">${d.ip || ''} · 最后活跃: ${d.last_seen_at || ''}</div>
+          <div class="device-name">${window.escapeHtml(d.name || d.os)}</div>
+          <div class="device-meta">${window.escapeHtml(d.ip || '')} · 最后活跃: ${window.escapeHtml(d.last_seen_at || '')}</div>
         </div>
       </label>`
     ).join('');
@@ -274,12 +278,13 @@ class AuthManager {
         <button class="am-btn" id="am-btn-login">登录</button>
         <button class="am-btn" id="am-btn-register">注册账号</button>`;
       el.querySelector('#am-btn-login')?.addEventListener('click', () => { this.hideAccountMenu(); this.showLoginDialog(); });
-      el.querySelector('#am-btn-register')?.addEventListener('click', () => { this.api?.openExternal?.('https://api.yfyw.top'); });
+      el.querySelector('#am-btn-register')?.addEventListener('click', () => { this.api?.openExternal?.(SITE_URL); });
       return;
     }
 
     const user = this._userCache || {};
-    const avatar = user.avatar ? `<img src="${user.avatar}" class="am-avatar">` : '<span class="material-icons am-avatar-icon">account_circle</span>';
+    const esc = (s) => window.escapeHtml(s);
+    const avatar = user.avatar ? `<img src="${esc(user.avatar)}" class="am-avatar">` : '<span class="material-icons am-avatar-icon">account_circle</span>';
     const planLabel = ent.plan === 'pro' ? '专业版' : '免费版';
     const planColor = ent.plan === 'pro' ? '#4caf50' : '#757575';
 
@@ -288,7 +293,7 @@ class AuthManager {
       html += '<div class="am-banner">🎉 全服限免中</div>';
     }
     html += `
-      <div class="am-user">${avatar}<div><div class="am-username">${user.username || user.email}</div><div class="am-email">${user.email || ''}</div></div></div>
+      <div class="am-user">${avatar}<div><div class="am-username">${esc(user.username || user.email)}</div><div class="am-email">${esc(user.email || '')}</div></div></div>
       <div class="am-divider"></div>
       <div class="am-info">订阅计划: <span style="color:${planColor}">${planLabel}</span></div>`;
 
@@ -311,21 +316,19 @@ class AuthManager {
 
     el.innerHTML = html;
     if (ent.plan !== 'pro') this._loadQuotaDisplay();
-    el.querySelector('#am-btn-manage')?.addEventListener('click', () => this.api?.openExternal?.('https://api.yfyw.top'));
-    el.querySelector('#am-btn-buy')?.addEventListener('click', () => this.api?.openExternal?.('https://api.yfyw.top'));
+    el.querySelector('#am-btn-manage')?.addEventListener('click', () => this.api?.openExternal?.(SITE_URL));
+    el.querySelector('#am-btn-buy')?.addEventListener('click', () => this.api?.openExternal?.(SITE_URL));
     el.querySelector('#am-btn-logout')?.addEventListener('click', () => this.doLogout());
   }
 
   async _loadQuotaDisplay() {
     const el = document.getElementById('am-quota-text');
-    if (!el) { console.log('QUOTA_EL_NOT_FOUND', new Error().stack); return; }
-    console.log('QUOTA_START');
+    if (!el) return;
     try {
       const q = await Promise.race([
         this.api?.getExportQuota(),
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
       ]);
-      console.log('QUOTA_RESULT:', JSON.stringify(q));
       if (q?.ok !== false && typeof q?.used !== 'undefined') {
         if (!q?.limit || q.limit > 1000000) {
           el.textContent = `已用 ${q.used} 次（无限制）`;
@@ -336,7 +339,7 @@ class AuthManager {
         el.textContent = '需联网查询';
       }
     } catch (e) {
-      console.error('QUOTA_ERROR:', e);
+      console.error('获取导出配额失败:', e);
       el.textContent = '需联网查询';
     }
   }
@@ -348,9 +351,9 @@ class AuthManager {
     if (isLoggedIn) {
       const user = this._userCache;
       const avatarHtml = user.avatar
-        ? `<img src="${user.avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`
+        ? `<img src="${window.escapeHtml(user.avatar)}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`
         : '<span class="material-icons">account_circle</span>';
-      accountEl.innerHTML = `${avatarHtml}<span>${user.username || user.email}</span>`;
+      accountEl.innerHTML = `${avatarHtml}<span>${window.escapeHtml(user.username || user.email)}</span>`;
     } else {
       accountEl.innerHTML = '<span class="material-icons">account_circle</span><span>未登录</span>';
     }

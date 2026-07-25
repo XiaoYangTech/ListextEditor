@@ -48,7 +48,6 @@ class RoleManagerPage {
     if (this.disableLocalTts) {
       const localOption = this.roleType.querySelector('option[value="local"]');
       if (localOption) localOption.disabled = true;
-      this.roleType.value = 'edge';
     }
     this.roleType.value = 'edge';
     await this.populateVoices();
@@ -67,28 +66,12 @@ class RoleManagerPage {
     if (window.electronAPI) await window.electronAPI.setProjectRoles(roles);
   }
 
-  getRolesFromCode(content) {
-    const roles = [];
-    const regex = /<role\s+([^>]+)\/?>/gi;
-    let m;
-    while ((m = regex.exec(content)) !== null) {
-      const attrs = {};
-      const attrRegex = /(\w+)=["']([^"']*)["']/g;
-      let am;
-      while ((am = attrRegex.exec(m[1])) !== null) attrs[am[1]] = am[2];
-      if (attrs.id) {
-        roles.push({ id: attrs.id, name: attrs.name || attrs.id, type: attrs.type || 'edge', voice: attrs.voice || '', source: 'code' });
-      }
-    }
-    return roles;
-  }
-
   async getLocalVoices() {
     if (!('speechSynthesis' in window)) return [];
     try { speechSynthesis.getVoices(); } catch { /* ignored */ }
     return await new Promise(resolve => {
       let done = false;
-      const finish = (voices) => { if (done) return; done = true; resolve(Array.from(voices || [])); };
+      const finish = (voices) => { if (done) return; done = true; resolve(Array.from(voices || []).filter(v => v.localService)); };
       const immediate = speechSynthesis.getVoices();
       if (immediate.length) { finish(immediate); return; }
       const handler = () => { speechSynthesis.removeEventListener('voiceschanged', handler); finish(speechSynthesis.getVoices()); };
@@ -97,7 +80,7 @@ class RoleManagerPage {
     });
   }
 
-  async populateVoices() {
+  async populateVoices(preserveVoice = '') {
     const type = this.roleType.value;
     this.roleVoice.innerHTML = '<option value="">加载中...</option>';
 
@@ -111,8 +94,7 @@ class RoleManagerPage {
       let voices = res?.voices || [];
       const isUnlocked = window.entitlement?.isUnlocked();
       if (!isUnlocked) {
-        const currentVoice = this.roleVoice.value;
-        voices = voices.filter(v => v.startsWith('zh-CN') || v.startsWith('en-US') || v === currentVoice);
+        voices = voices.filter(v => v.startsWith('zh-CN') || v.startsWith('en-US') || v === preserveVoice);
       }
       let html = voices.length
         ? voices.map(v => `<option value="${v}">${v}</option>`).join('')
@@ -133,27 +115,27 @@ class RoleManagerPage {
   }
 
   async renderRoles() {
-    const uiRoles = (await this.getRoles()).filter(r => r.source !== 'code');
-
-    let codeContent = '';
-    try { const data = await window.electronAPI.getProjectData(); codeContent = data?.content || ''; } catch {}
-
-    const codeRoles = this.getRolesFromCode(codeContent);
+    // 代码定义角色由 syncCodeRolesToProject / 工程导入时打上 source:'code' 标记
+    const allRoles = await this.getRoles();
+    const uiRoles = allRoles.filter(r => r.source !== 'code');
+    const codeRoles = allRoles.filter(r => r.source === 'code');
     const isUnlocked = window.entitlement?.isUnlocked();
     const isFreeDisplay = window.entitlement?.isFreeDisplay;
     const uiCount = uiRoles.length;
     const totalRoles = uiCount + codeRoles.length;
-    const isOverLimit = !isUnlocked && uiCount > 3;
+    const maxRoles = window.LISTEXT_CONSTANTS?.MAX_FREE_ROLES || 3;
+    const siteUrl = window.LISTEXT_CONSTANTS?.API_BASE_URL || 'https://api.yfyw.top';
+    const isOverLimit = !isUnlocked && uiCount > maxRoles;
 
     let html = '';
 
     if (!isUnlocked) {
       html += `<div class="rm-vip-bar">
-        ${isFreeDisplay ? '🎉 全服限免中' : '📋 免费版'} · ${uiCount}/3 个角色已添加 · 共 ${totalRoles} 个
-        <a href="#" class="rm-upgrade-link" onclick="window.electronAPI?.openExternal?.('https://api.yfyw.top');return false">💎 升级专业版</a>
+        ${isFreeDisplay ? '🎉 全服限免中' : '📋 免费版'} · ${uiCount}/${maxRoles} 个角色已添加 · 共 ${totalRoles} 个
+        <a href="#" class="rm-upgrade-link" onclick="window.electronAPI?.openExternal?.('${siteUrl}');return false">💎 升级专业版</a>
       </div>`;
       if (isOverLimit) {
-        html += `<div class="rm-overlimit-warn">⚠️ 角色数(${uiCount})超过免费版限制(3个)。多余的角色仅可查看，无法编辑或添加新角色。</div>`;
+        html += `<div class="rm-overlimit-warn">⚠️ 角色数(${uiCount})超过免费版限制(${maxRoles}个)。多余的角色仅可查看，无法编辑或添加新角色。</div>`;
       }
     }
 
@@ -175,7 +157,7 @@ class RoleManagerPage {
       if (uiRoles.length) {
         if (codeRoles.length) html += '<div style="margin:12px 0 8px;font-size:12px;color:#757575;">手动添加的角色</div>';
         html += uiRoles.map((role, i) => {
-          const overLimit = isOverLimit && i >= 3;
+          const overLimit = isOverLimit && i >= maxRoles;
           return `<div class="rm-list-item${overLimit ? ' rm-overlimit' : ''}" data-id="${this.escapeHtml(role.id)}">
             <div>
               <div><strong>${this.escapeHtml(role.name)}</strong> (${this.escapeHtml(role.id)})<span class="rm-source-tag rm-source-ui">手动添加</span>${overLimit ? '<span class="rm-source-tag rm-source-lock">🔒 超限</span>' : ''}</div>
@@ -191,16 +173,6 @@ class RoleManagerPage {
 
     this.roleList.querySelectorAll('button[data-action="edit"]').forEach(btn => btn.addEventListener('click', async () => await this.editRole(btn.dataset.id)));
     this.roleList.querySelectorAll('button[data-action="delete"]').forEach(btn => btn.addEventListener('click', async () => await this.deleteRole(btn.dataset.id)));
-
-    if (isOverLimit) {
-      this.btnSave.disabled = true;
-      this.btnSave.style.opacity = '0.5';
-      this.btnSave.title = '角色数已达免费版上限';
-    } else {
-      this.btnSave.disabled = false;
-      this.btnSave.style.opacity = '';
-      this.btnSave.title = '';
-    }
   }
 
   async editRole(id) {
@@ -211,7 +183,7 @@ class RoleManagerPage {
     this.roleName.value = role.name || '';
     this.roleType.value = role.type || 'edge';
     if (this.disableLocalTts && this.roleType.value === 'local') this.roleType.value = 'edge';
-    await this.populateVoices();
+    await this.populateVoices(role.voice || '');
     this.roleVoice.value = role.voice || '';
   }
 
@@ -244,6 +216,12 @@ class RoleManagerPage {
       return;
     }
 
+    if (type === 'edge' && !window.entitlement?.isUnlocked()
+        && voice && !voice.startsWith('zh-CN') && !voice.startsWith('en-US')) {
+      window.entitlement?.showVipToast('小语种发音人');
+      return;
+    }
+
     const roles = await this.getRoles();
     const payload = { id, name, type, voice, source: 'ui' };
     const codeConflict = roles.find(r => r.id === id && r.source === 'code');
@@ -255,7 +233,8 @@ class RoleManagerPage {
 
     if (idx < 0) {
       const uiCount = roles.filter(r => r.source !== 'code').length;
-      if (!window.entitlement?.isUnlocked() && uiCount >= 3) {
+      const maxRoles = window.LISTEXT_CONSTANTS?.MAX_FREE_ROLES || 3;
+      if (!window.entitlement?.isUnlocked() && uiCount >= maxRoles) {
         window.entitlement?.showVipToast('无限角色个数');
         return;
       }
@@ -269,5 +248,5 @@ class RoleManagerPage {
     await this.renderRoles();
   }
 
-  escapeHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  escapeHtml(s) { return window.escapeHtml(s); }
 }

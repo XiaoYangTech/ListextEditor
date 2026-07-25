@@ -234,7 +234,7 @@
       <div class="dialog-body">
         <div id="exportWatermarkWarn" style="display:none;background:#fff3e0;border:1px solid #ffcc02;border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#e65100;">
           <span style="font-weight:600;">🛡️ 免费版水印提示</span><br>
-          导出的音频结尾将追加 <strong>25 秒</strong> 免费版水印，<a href="#" onclick="window.electronAPI?.openExternal?.('https://api.yfyw.top');return false" style="color:#1976d2;">💎 开通会员</a> 即可去除水印
+          导出的音频结尾将追加 <strong>25 秒</strong> 免费版水印，<a href="#" id="exportUpgradeLink" style="color:#1976d2;">💎 开通会员</a> 即可去除水印
         </div>
         <div class="form-group">
           <label>文件名</label>
@@ -343,11 +343,11 @@
       <button class="dialog-close about-close">&times;</button>
       <div class="about-header">
         <h1 class="about-title">亿方听力大师</h1>
-        <p class="about-version" id="aboutVersion">v1.1.0</p>
+        <p class="about-version" id="aboutVersion"></p>
         <p class="about-platform" id="aboutPlatform"></p>
       </div>
       <div class="about-body">
-        <p class="about-desc">跨平台听力材料编辑与合成工具。用搭积木的方式创作听力材料，支持 Win / Mac / 信创三端，采用微软高仿真语音引擎，发音准确自然。</p>
+        <p class="about-desc">跨平台听力材料编辑与合成工具。用搭积木的方式创作听力材料，支持 Win / Mac / 信创三端，采用微软高仿真语音引擎，发音准确自然无机械感，基础功能永久免费使用。</p>
         <p class="about-license">
           <span class="material-icons" style="font-size:14px;vertical-align:-2px;">description</span>
           GPL-3.0 License
@@ -401,6 +401,7 @@
 
   <div id="vipToast" class="vip-toast"><span class="vip-toast-text"></span></div>
 
+  <script src="../src/listext-constants.js"></script>
   <script src="../src/listext-parser.js"></script>
   <script src="../src/tts-engine.js"></script>
   <script src="../src/play-queue.js"></script>

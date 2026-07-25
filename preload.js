@@ -4,13 +4,14 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { ensureDir, isNetworkError, sleep } = require('./src/main/utils');
+const { DEFAULT_EDGE_VOICE } = require('./src/listext-constants');
 
 const tempDir = path.join(os.tmpdir(), 'listext-editor');
 
 async function synthesizeTTS(text, voice, rate = '+0%') {
   try {
     ensureDir(tempDir);
-    const rawVoice = voice || 'zh-CN-XiaoxiaoNeural';
+    const rawVoice = voice || DEFAULT_EDGE_VOICE;
 
     const ent = await ipcRenderer.invoke('api-get-entitlement');
     const isPro = ent?.plan === 'pro' && !ent?.expired;
@@ -59,7 +60,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listBuiltinSounds: () => ipcRenderer.invoke('list-builtin-sounds'),
   getBuiltInPaths: () => ipcRenderer.invoke('get-built-in-paths'),
 
-  getVoices: async () => [],
   synthesizeTTS,
   synthesizeBatch: async (items) => {
     const results = [];
@@ -115,9 +115,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getShortcuts: () => ipcRenderer.invoke('get-shortcuts'),
   saveShortcuts: (shortcuts) => ipcRenderer.invoke('save-shortcuts', shortcuts),
 
-  getStoragePaths: () => ipcRenderer.invoke('get-storage-paths'),
-  saveStoragePaths: (paths) => ipcRenderer.invoke('save-storage-paths', paths),
-  resetStoragePaths: () => ipcRenderer.invoke('reset-storage-paths'),
   selectDirectory: (defaultPath) => ipcRenderer.invoke('select-directory', defaultPath),
 
   selectAudioFile: () => ipcRenderer.invoke('select-audio-file'),
@@ -128,8 +125,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   getProjectData: () => ipcRenderer.invoke('get-project-data'),
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
-  setProjectEffects: (effects) => ipcRenderer.invoke('set-project-effects', effects),
-  setProjectRoles: (roles) => ipcRenderer.invoke('set-project-roles', roles),
+  setProjectEffects: (effects, opts) => ipcRenderer.invoke('set-project-effects', effects, opts),
+  setProjectRoles: (roles, opts) => ipcRenderer.invoke('set-project-roles', roles, opts),
   onProjectEffectsChanged: (callback) => ipcRenderer.on('project-effects-changed', (event, effects) => callback(effects)),
   onProjectRolesChanged: (callback) => ipcRenderer.on('project-roles-changed', (event, roles) => callback(roles)),
   releaseFileLock: (filePath) => ipcRenderer.invoke('release-file-lock', filePath),

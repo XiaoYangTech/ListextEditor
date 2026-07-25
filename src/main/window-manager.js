@@ -52,7 +52,7 @@ function sendToMain(channel, ...args) {
 function getAppTitle() {
   const meta = readPackageMeta();
   const osName = process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux';
-  return `亿方听力大师 v${meta.version} ${osName}`;
+  return `${meta.name} v${meta.version} ${osName}`;
 }
 
 function createMainWindow() {
@@ -112,8 +112,9 @@ function createMainWindow() {
     }, 5000);
 
     ipcMain.once('close-check-result', (event, shouldClose) => {
+      if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) return;
       clearTimeout(closeTimeout);
-      if (shouldClose && mainWindow && !mainWindow.isDestroyed()) {
+      if (shouldClose) {
         mainWindow.destroy();
       } else {
         isClosing = false;
@@ -230,13 +231,10 @@ function createMenu() {
 
   menuItems = {};
   for (const topLabel of menuTemplate) {
-    const topItem = menu.items.find(m => m.label === topLabel.label);
-    if (topItem && topItem.submenu) {
-      for (const sub of topLabel.submenu) {
-        if (!sub.id) continue;
-        const subItem = topItem.submenu.items.find(s => s.label === sub.label);
-        if (subItem) menuItems[sub.id] = subItem;
-      }
+    for (const sub of topLabel.submenu) {
+      if (!sub.id) continue;
+      const item = menu.getMenuItemById(sub.id);
+      if (item) menuItems[sub.id] = item;
     }
   }
 

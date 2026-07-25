@@ -19,7 +19,7 @@ function normalizeExt(filePath) {
 
 function parseFxIds(content) {
   const ids = new Set();
-  const regex = /<fx\s+[^>]*id\s*=\s*"([^"]+)"[^>]*>/gi;
+  const regex = /<fx\s+[^>]*id\s*=\s*["']([^"']+)["'][^>]*>/gi;
   let m;
   while ((m = regex.exec(content || '')) !== null) {
     if (m[1]) ids.add(m[1]);
@@ -43,7 +43,8 @@ function parseRoleDefs(content) {
         id: attrs.id,
         name: attrs.name || attrs.id,
         type: attrs.type || 'edge',
-        voice: attrs.voice || ''
+        voice: attrs.voice || '',
+        source: 'code'
       });
     }
   }
@@ -69,6 +70,26 @@ function saveProjectPackage(filePath, payload) {
   const builtInSounds = scanBuiltInSounds();
   const usedFxIds = parseFxIds(content);
 
+  // 代码中手写引用但未加入项目的内置音效，补录进工程配置，保证自包含
+  for (const fxId of usedFxIds) {
+    if (!projectEffects.find(e => e.id === fxId)) {
+      const builtin = builtInSounds.find(s => s.id === fxId);
+      if (builtin) {
+        projectEffects.push({ id: builtin.id, source: 'builtin', filename: builtin.filename, group: builtin.group });
+      }
+    }
+  }
+
+  const resolveEffectPath = (effect) => {
+    if (!effect) return null;
+    if (effect.path) return effect.path;
+    if (effect.source === 'builtin') {
+      const builtin = builtInSounds.find(s => s.id === effect.id || s.filename === effect.filename);
+      if (builtin) return builtin.path;
+    }
+    return null;
+  };
+
   zip.addFile('project.json', Buffer.from(JSON.stringify({
     version: 1,
     title: tabTitle,
@@ -78,25 +99,28 @@ function saveProjectPackage(filePath, payload) {
     effects: projectEffects
   }, null, 2), 'utf-8'));
 
+  // 引用的全部音效（含内置音效）都打入 sounds/<fxId>/，保证工程自包含
   for (const fxId of usedFxIds) {
     const effect = projectEffects.find(e => e.id === fxId);
     if (!effect) continue;
 
-    if (effect.source === 'builtin') continue;
-
-    let absPath = effect.path;
+    const absPath = resolveEffectPath(effect);
     if (absPath && fs.existsSync(absPath)) {
       const filename = path.basename(absPath);
       const buf = fs.readFileSync(absPath);
-      zip.addFile('sounds/' + filename, buf);
+      zip.addFile(`sounds/${fxId}/${filename}`, buf);
     }
   }
 
   const missingSounds = [];
   for (const fxId of usedFxIds) {
     const effect = projectEffects.find(e => e.id === fxId);
-    if (!effect || effect.source === 'builtin') continue;
-    if (!effect.path || !fs.existsSync(effect.path)) {
+    if (!effect) {
+      missingSounds.push(`音效 "${fxId}" 未在项目中配置，保存后将无法播放`);
+      continue;
+    }
+    const absPath = resolveEffectPath(effect);
+    if (!absPath || !fs.existsSync(absPath)) {
       missingSounds.push(`音效 "${fxId}" 的文件 "${effect.filename || '未知'}" 在磁盘上不存在，保存后将无法播放`);
     }
   }
@@ -142,21 +166,45 @@ function openProjectPackage(filePath) {
 
   const warnings = [];
   const projectEffects = Array.isArray(project.effects) ? project.effects : [];
+
+  // 清理 24 小时前的历史解压目录，避免临时目录膨胀
+  try {
+    if (fs.existsSync(tempDir)) {
+      const now = Date.now();
+      for (const d of fs.readdirSync(tempDir)) {
+        if (!d.startsWith('project_')) continue;
+        const p = path.join(tempDir, d);
+        try {
+          const st = fs.statSync(p);
+          if (now - st.mtimeMs > 24 * 3600 * 1000) fs.rmSync(p, { recursive: true, force: true });
+        } catch { /* 忽略单目录清理失败 */ }
+      }
+    }
+  } catch { /* 忽略清理失败 */ }
+
   const soundEntries = zip.getEntries().filter(e => e.entryName.startsWith('sounds/') && !e.isDirectory);
-  const tempDir = path.join(app.getPath('temp'), 'listext-editor', 'project_' + Date.now());
-  ensureDir(tempDir);
+  const projectTempDir = path.join(tempDir, 'project_' + Date.now());
+  ensureDir(projectTempDir);
 
   for (const entry of soundEntries) {
+    // 新版布局 sounds/<fxId>/<filename>，兼容旧版 sounds/<filename>
+    const parts = entry.entryName.split('/');
+    const fxId = parts.length >= 3 ? parts[1] : null;
     const filename = path.basename(entry.entryName);
-    const out = path.join(tempDir, filename);
+    const safeId = fxId ? fxId.replace(/[\/\\]/g, '_').replace(/\.\.+/g, '_') : null;
+    const outDir = safeId ? path.join(projectTempDir, safeId) : projectTempDir;
+    const out = path.join(outDir, filename);
     try {
+      ensureDir(outDir);
       fs.writeFileSync(out, entry.getData());
     } catch (e) {
       warnings.push(`音效文件「${filename}」解压失败，已跳过`);
       continue;
     }
 
-    const existing = projectEffects.find(e => e.filename === filename);
+    const existing = fxId
+      ? projectEffects.find(e => e.id === fxId)
+      : projectEffects.find(e => e.filename === filename);
     if (existing) {
       existing.path = out;
     }
@@ -294,7 +342,7 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle('open-external', async (event, url) => {
-    if (!url) return { success: false };
+    if (!url || !/^https?:\/\//i.test(url)) return { success: false };
     await shell.openExternal(url);
     return { success: true };
   });
@@ -408,8 +456,9 @@ function registerIpcHandlers() {
     return projectDataStore;
   });
 
-  ipcMain.handle('set-project-effects', async (event, effects) => {
+  ipcMain.handle('set-project-effects', async (event, effects, opts) => {
     projectDataStore.effects = effects || [];
+    if (opts?.silent) return { success: true };
     const { BrowserWindow } = require('electron');
     const mainWin = BrowserWindow.getAllWindows().find(w => !w.isDestroyed() && w.webContents.getURL().includes('index.html'));
     if (mainWin) {
@@ -418,8 +467,9 @@ function registerIpcHandlers() {
     return { success: true };
   });
 
-  ipcMain.handle('set-project-roles', async (event, roles) => {
+  ipcMain.handle('set-project-roles', async (event, roles, opts) => {
     projectDataStore.roles = roles || [];
+    if (opts?.silent) return { success: true };
     const { BrowserWindow } = require('electron');
     const mainWin = BrowserWindow.getAllWindows().find(w => !w.isDestroyed() && w.webContents.getURL().includes('index.html'));
     if (mainWin) {

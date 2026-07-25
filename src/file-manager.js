@@ -44,7 +44,7 @@ class FileManager {
 
       if (copy.type === 'edge') {
         if (!copy.voice || (edgeVoiceSet.size > 0 && !edgeVoiceSet.has(copy.voice))) {
-          const fallback = 'zh-CN-XiaoxiaoNeural';
+          const fallback = LISTEXT_CONSTANTS.DEFAULT_EDGE_VOICE;
           notes.push(`角色 ${copy.id || copy.name || 'unknown'} EdgeTTS语音缺失，已替换为 ${fallback}`);
           copy.voice = fallback;
         }
@@ -66,11 +66,11 @@ class FileManager {
           const i = parseInt(idx, 10);
           if (replacement === '__edge__') {
             normalized[i].type = 'edge';
-            normalized[i].voice = normalized[i].voice || 'zh-CN-XiaoxiaoNeural';
+            normalized[i].voice = LISTEXT_CONSTANTS.DEFAULT_EDGE_VOICE;
             notes.push(`角色 ${normalized[i].id} 系统TTS语音不可用，已切换为EdgeTTS`);
           } else if (replacement === '__remove__') {
             normalized[i].type = 'edge';
-            normalized[i].voice = 'zh-CN-XiaoxiaoNeural';
+            normalized[i].voice = LISTEXT_CONSTANTS.DEFAULT_EDGE_VOICE;
             notes.push(`角色 ${normalized[i].id} 系统TTS语音不可用，已切换为EdgeTTS默认语音`);
           } else if (replacement) {
             normalized[i].voice = replacement;
@@ -98,7 +98,7 @@ class FileManager {
 
   async showVoiceReplaceDialog(roles, edgeVoiceSet) {
     const edgeVoices = Array.from(edgeVoiceSet);
-    const fallbackVoice = 'zh-CN-XiaoxiaoNeural';
+    const fallbackVoice = LISTEXT_CONSTANTS.DEFAULT_EDGE_VOICE;
 
     return new Promise(resolve => {
       const overlay = document.createElement('div');

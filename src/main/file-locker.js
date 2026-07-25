@@ -19,10 +19,12 @@ class FileLocker {
 
     if (this._locks.has(filePath)) return true;
     if (!fs.existsSync(filePath)) return null;
-    if (!fsExt) return false;
+    // 原生模块不可用时降级为无锁模式，而不是误报"被占用"
+    if (!fsExt) return null;
 
+    let fd = null;
     try {
-      const fd = fs.openSync(filePath, 'r+');
+      fd = fs.openSync(filePath, 'r+');
       if (!fsExt.tryLock(fd)) {
         fs.closeSync(fd);
         return false;
@@ -30,6 +32,7 @@ class FileLocker {
       this._locks.set(filePath, fd);
       return true;
     } catch (e) {
+      if (fd != null) { try { fs.closeSync(fd); } catch {} }
       return false;
     }
   }

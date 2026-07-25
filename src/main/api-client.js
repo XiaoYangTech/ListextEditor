@@ -3,13 +3,14 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
+const { API_BASE_URL } = require('../listext-constants');
 
 const authPath = path.join(app.getPath('userData'), 'auth.json');
 
 class ApiClient {
   constructor() {
-    this.baseUrl = 'https://api.yfyw.top';
-    this.appBaseUrl = 'https://api.yfyw.top/apps/lstx';
+    this.baseUrl = API_BASE_URL;
+    this.appBaseUrl = `${API_BASE_URL}/apps/lstx`;
     this.token = null;
     this.deviceKey = null;
     this.deviceName = '';
@@ -99,91 +100,54 @@ class ApiClient {
     });
     const hmac = crypto.createHmac('sha256', this.deviceKey);
     hmac.update(payload + this.token);
-    return hmac.digest('hex') === cached.signature;
+    const expected = Buffer.from(hmac.digest('hex'), 'utf8');
+    const actual = Buffer.from(String(cached.signature), 'utf8');
+    return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+  }
+
+  async _request(baseUrl, route, method = 'GET', body = null) {
+    const url = `${baseUrl}/api.php?route=${route}`;
+    const headers = { 'Content-Type': 'application/json; charset=utf-8' };
+    if (this.token) headers['X-Device-Token'] = this.token;
+
+    const options = { method, headers };
+    if (body && method !== 'GET') options.body = JSON.stringify(body);
+
+    let response;
+    try {
+      response = await fetch(url, options);
+    } catch (e) {
+      return { ok: false, error: { code: 0, message: '网络连接失败' } };
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      return { ok: false, error: { code: response.status, message: '服务器响应异常' } };
+    }
+
+    if (data.ok === false) {
+      if (data.error?.code === 401 && this.token) {
+        console.log('[AUTH] 服务器返回 401，自动清除登录态 (route=' + route + ')');
+        this.token = null;
+        this.userCache = null;
+        this.entitlementCache = null;
+        this.saveState();
+        this.stopHeartbeat();
+        this.onAuthLost?.();
+      }
+    }
+
+    return data;
   }
 
   async request(route, method = 'GET', body = null) {
-    const url = `${this.baseUrl}/api.php?route=${route}`;
-    const headers = { 'Content-Type': 'application/json; charset=utf-8' };
-    if (this.token) headers['X-Device-Token'] = this.token;
-
-    const options = { method, headers };
-    if (body && method !== 'GET') options.body = JSON.stringify(body);
-
-    let response;
-    try {
-      response = await fetch(url, options);
-    } catch (e) {
-      return { ok: false, error: { code: 0, message: '网络连接失败' } };
-    }
-
-    let data;
-    try {
-      data = await response.json();
-    } catch {
-      return { ok: false, error: { code: response.status, message: '服务器响应异常' } };
-    }
-
-    if (data.ok === false) {
-      if (data.error?.code === 401 && this.token) {
-        console.log('[AUTH] 服务器返回 401，自动清除登录态 (route=' + route + ')');
-        this.token = null;
-        this.userCache = null;
-        this.entitlementCache = null;
-        this.saveState();
-        this.stopHeartbeat();
-        this.onAuthLost?.();
-      }
-    }
-
-    return data;
-  }
-
-  async requestNoAuth(route) {
-    const url = `${this.baseUrl}/api.php?route=${route}`;
-    try {
-      const response = await fetch(url);
-      return await response.json();
-    } catch {
-      return null;
-    }
+    return this._request(this.baseUrl, route, method, body);
   }
 
   async requestApp(route, method = 'GET', body = null) {
-    const url = `${this.appBaseUrl}/api.php?route=${route}`;
-    const headers = { 'Content-Type': 'application/json; charset=utf-8' };
-    if (this.token) headers['X-Device-Token'] = this.token;
-
-    const options = { method, headers };
-    if (body && method !== 'GET') options.body = JSON.stringify(body);
-
-    let response;
-    try {
-      response = await fetch(url, options);
-    } catch (e) {
-      return { ok: false, error: { code: 0, message: '网络连接失败' } };
-    }
-
-    let data;
-    try {
-      data = await response.json();
-    } catch {
-      return { ok: false, error: { code: response.status, message: '服务器响应异常' } };
-    }
-
-    if (data.ok === false) {
-      if (data.error?.code === 401 && this.token) {
-        console.log('[AUTH] 服务器返回 401，自动清除登录态 (route=' + route + ')');
-        this.token = null;
-        this.userCache = null;
-        this.entitlementCache = null;
-        this.saveState();
-        this.stopHeartbeat();
-        this.onAuthLost?.();
-      }
-    }
-
-    return data;
+    return this._request(this.appBaseUrl, route, method, body);
   }
 
   async requestNoAuthApp(route) {
@@ -326,8 +290,7 @@ class ApiClient {
   stopHeartbeat() {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
-    this.heartbeatTimer = null;
-    this.onAuthLost = null;
+      this.heartbeatTimer = null;
     }
   }
 }
@@ -399,10 +362,11 @@ function registerApiHandlers() {
   ipcMain.handle('api-get-user', async () => {
     const user = apiClient.userCache;
     if (!user) return null;
-    if (user.avatar && !/^https?:\/\//i.test(user.avatar)) {
-      user.avatar = apiClient.baseUrl + user.avatar;
+    const result = { ...user };
+    if (result.avatar && !/^https?:\/\//i.test(result.avatar)) {
+      result.avatar = apiClient.baseUrl + result.avatar;
     }
-    return user;
+    return result;
   });
 }
 

@@ -28,13 +28,7 @@ class UIManager {
   }
 
   async loadShortcuts() {
-    const defaults = window.SHORTCUT_DEFAULTS || {
-      save: 'Ctrl+S', toggleMode: 'Ctrl+M', addBlock: 'Ctrl+N', deleteBlock: 'Delete',
-      openEffects: 'Ctrl+Shift+E', previewPlay: 'F5', undo: 'Ctrl+Z', redo: 'Ctrl+Shift+Z',
-      cut: 'Ctrl+X', copy: 'Ctrl+C', paste: 'Ctrl+V', selectAll: 'Ctrl+A',
-      insertSay: 'Ctrl+1', insertPause: 'Ctrl+2', insertRepeat: 'Ctrl+3',
-      insertSection: 'Ctrl+4', insertFx: 'Ctrl+5', insertDivider: 'Ctrl+6'
-    };
+    const defaults = window.SHORTCUT_DEFAULTS || {};
     try {
       if (window.electronAPI?.getShortcuts) {
         const saved = await window.electronAPI.getShortcuts();
@@ -53,17 +47,26 @@ class UIManager {
       ctrl: parts.includes('Ctrl'),
       alt: parts.includes('Alt'),
       shift: parts.includes('Shift'),
+      meta: parts.includes('Meta'),
       key: parts[parts.length - 1].toLowerCase()
     };
   }
 
+  normalizeKeyName(key) {
+    if (key === ' ') return 'space';
+    if (key.startsWith('Arrow')) return key.slice(5).toLowerCase();
+    return key.toLowerCase();
+  }
+
   matchShortcut(e, shortcut) {
     const s = this.parseShortcut(shortcut);
-    const isMod = e.ctrlKey || e.metaKey;
-    return (isMod === s.ctrl) &&
+    const modPressed = e.ctrlKey || e.metaKey;
+    const ctrlOk = s.ctrl ? modPressed : !e.ctrlKey;
+    const metaOk = s.meta ? e.metaKey : (s.ctrl ? true : !e.metaKey);
+    return ctrlOk && metaOk &&
            (e.altKey === s.alt) &&
            (e.shiftKey === s.shift) &&
-           (e.key.toLowerCase() === s.key);
+           (this.normalizeKeyName(e.key) === s.key);
   }
 
   initElements() {
@@ -195,7 +198,7 @@ class UIManager {
     if (!keyword) return;
     const found = this.app.renderer.findBlockByKeyword(keyword);
     if (!found) {
-      this.app.uiManager?.showInfoDialog?.('提示', `未找到: ${keyword}`);
+      this.showInfoDialog?.('提示', `未找到: ${keyword}`);
       return;
     }
     this.app.renderer.scrollToBlockId(found.dataset.id);
@@ -207,7 +210,7 @@ class UIManager {
     if (!this.sectionJumpSelect || !this.app.renderer) return;
     const sections = this.app.renderer.getSections();
     this.sectionJumpSelect.innerHTML = '<option value="">跳转到分节...</option>' +
-      sections.map((s, i) => `<option value="${s.id}">${i + 1}. ${s.title}</option>`).join('');
+      sections.map((s, i) => `<option value="${this.escapeHtml(s.id)}">${i + 1}. ${this.escapeHtml(s.title)}</option>`).join('');
   }
 
   handleAddBlock(type, insertBefore = false) {
@@ -219,16 +222,26 @@ class UIManager {
 
     const opts = { insertBefore };
     if (type === 'pause') {
-      this.showSilenceDialog((duration) => this.app.renderer.addBlock('pause', { ...opts, duration }));
-    } else if (type === 'fx') {
+      this.showSilenceDialog((duration) => {
+        this.app.renderer.addBlock('pause', { ...opts, duration });
+        this.app.fileManager.markUnsaved();
+        this.refreshSectionJump();
+      });
+      return;
+    }
+    if (type === 'fx') {
       this.showEffectDialog((effectId, duration, fade) => {
         if (!effectId) {
           this.app.updateStatus('请先选择音效');
           return;
         }
         this.app.renderer.addBlock('fx', { ...opts, effectId, duration, fade });
+        this.app.fileManager.markUnsaved();
+        this.refreshSectionJump();
       });
-    } else if (type === 'repeat') {
+      return;
+    }
+    if (type === 'repeat') {
       this.app.renderer.addBlock('repeat', opts);
     } else if (type === 'section') {
       this.app.renderer.addBlock('section', { ...opts, title: `分节 ${Date.now().toString().slice(-4)}` });
@@ -295,7 +308,7 @@ class UIManager {
       const newConfirm = sConfirm.cloneNode(true);
       sConfirm.parentNode.replaceChild(newConfirm, sConfirm);
       newConfirm.addEventListener('click', () => {
-        const duration = parseInt(sDuration?.value, 10) || 1;
+        const duration = parseInt(sDuration?.value, 10) || LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION;
         if (this.silenceCallback) this.silenceCallback(duration);
         silenceDialog.classList.remove('active');
       });
@@ -304,7 +317,7 @@ class UIManager {
 
   showSilenceDialog(callback) {
     this.silenceCallback = callback;
-    document.getElementById('silenceDuration').value = 1;
+    document.getElementById('silenceDuration').value = LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION;
     document.getElementById('silenceDialog')?.classList.add('active');
   }
 
@@ -317,6 +330,7 @@ class UIManager {
     this._previewingPath = null;
     this._effectBuiltinSounds = [];
     this._effectCustomEffects = [];
+    this._effectProjectBuiltin = [];
     this._effectCallback = null;
     this._previewAudio = null;
 
@@ -328,19 +342,15 @@ class UIManager {
       const fade = parseInt(document.getElementById('effectDialogFade')?.value, 10) || null;
 
       if (this._effectTab === 'builtin') {
-        const builtin = this._effectBuiltinSounds.find(b => (b.id || b.name) === this._selectedEffectId);
-        if (builtin) {
-          const tab = this.app?.tabManager?.getActiveTab();
-          if (tab && !(tab.effects || []).find(e => (e.id || e.name) === this._selectedEffectId)) {
-            tab.effects = [...(tab.effects || []), {
-              id: builtin.name || builtin.id,
-              name: builtin.name || builtin.id,
-              source: 'builtin',
-              filename: builtin.filename,
-              group: builtin.group
-            }];
-            if (window.electronAPI) window.electronAPI.setProjectEffects(tab.effects);
-          }
+        const builtin = this._effectBuiltinSounds.find(b => b.id === this._selectedEffectId);
+        if (builtin && !(this._effectProjectBuiltin || []).find(e => e.id === this._selectedEffectId)) {
+          this._effectProjectBuiltin = [...(this._effectProjectBuiltin || []), {
+            id: builtin.id,
+            source: 'builtin',
+            filename: builtin.filename,
+            group: builtin.group
+          }];
+          this._commitEffects();
         }
       }
 
@@ -372,9 +382,9 @@ class UIManager {
     });
   }
 
-  async showEffectDialog(callback) {
+  async showEffectDialog(callback, preselectedId = null) {
     this._effectCallback = callback;
-    this._selectedEffectId = null;
+    this._selectedEffectId = preselectedId;
     this._previewingPath = null;
     this._stopPreview();
 
@@ -383,16 +393,18 @@ class UIManager {
     }
 
     this._effectCustomEffects = [];
+    this._effectProjectBuiltin = [];
     if (window.electronAPI?.getProjectData) {
       try {
         const data = await window.electronAPI.getProjectData();
+        this._effectProjectBuiltin = (data?.effects || []).filter(e => e.source === 'builtin');
         this._effectCustomEffects = (data?.effects || []).filter(e => e.source !== 'builtin');
-      } catch { this._effectCustomEffects = []; }
+      } catch { this._effectCustomEffects = []; this._effectProjectBuiltin = []; }
     }
 
     const groups = [...new Set(this._effectBuiltinSounds.map(s => s.group).filter(Boolean))];
     const filter = document.getElementById('effectGroupFilter');
-    filter.innerHTML = '<option value="">全部分类</option>' + groups.map(g => `<option value="${g}">${g}</option>`).join('');
+    filter.innerHTML = '<option value="">全部分类</option>' + groups.map(g => `<option value="${this.escapeHtml(g)}">${this.escapeHtml(g)}</option>`).join('');
     filter.value = '';
 
     this._effectTab = 'builtin';
@@ -406,6 +418,15 @@ class UIManager {
     this._renderEffectList();
     document.getElementById('effectDialog').classList.add('active');
   }
+
+  _commitEffects() {
+    // 提交全量音效列表，保留项目中已有的内置音效条目
+    if (window.electronAPI?.setProjectEffects) {
+      window.electronAPI.setProjectEffects([...(this._effectProjectBuiltin || []), ...this._effectCustomEffects]);
+    }
+  }
+
+  escapeHtml(s) { return window.escapeHtml(s); }
 
   _renderEffectList() {
     const el = document.getElementById('effectList');
@@ -430,17 +451,17 @@ class UIManager {
     let html = '';
     for (const [group, items] of Object.entries(groups)) {
       if (activeFilter && group !== activeFilter) continue;
-      html += `<div class="effect-group-card"><div class="effect-group-header">${group} (${items.length})</div>`;
+      html += `<div class="effect-group-card"><div class="effect-group-header">${this.escapeHtml(group)} (${items.length})</div>`;
       for (const item of items) {
-        const id = item.id || item.name;
-        const meta = item.filename ? ` · ${item.filename}` : '';
+        const id = item.id;
+        const meta = item.filename ? ` · ${this.escapeHtml(item.filename)}` : '';
         const selected = this._selectedEffectId === id ? ' selected' : '';
         const filePath = item.path || '';
         const isPlaying = this._previewingPath === filePath;
-        html += `<div class="effect-item${selected}" data-effect-id="${id}">
-          ${filePath ? `<button class="effect-item-preview${isPlaying ? ' playing' : ''}" data-play-path="${filePath.replace(/"/g, '&quot;')}" title="${isPlaying ? '停止' : '试听'}"><span class="material-icons" style="font-size:16px">${isPlaying ? 'stop' : 'play_arrow'}</span></button>` : '<span class="material-icons" style="font-size:16px;margin-left:6px">music_note</span>'}
-          <div class="effect-item-info"><div class="effect-item-name">${id}</div><div class="effect-item-meta">${group}${meta}</div></div>
-          ${isBuiltin ? `<button class="effect-item-action" data-use="${id}">使用</button>` : `<button class="effect-item-remove" data-remove="${id}" title="删除"><span class="material-icons" style="font-size:16px">remove_circle</span></button>`}
+        html += `<div class="effect-item${selected}" data-effect-id="${this.escapeHtml(id)}">
+          ${filePath ? `<button class="effect-item-preview${isPlaying ? ' playing' : ''}" data-play-path="${this.escapeHtml(filePath)}" title="${isPlaying ? '停止' : '试听'}"><span class="material-icons" style="font-size:16px">${isPlaying ? 'stop' : 'play_arrow'}</span></button>` : '<span class="material-icons" style="font-size:16px;margin-left:6px">music_note</span>'}
+          <div class="effect-item-info"><div class="effect-item-name">${this.escapeHtml(id)}</div><div class="effect-item-meta">${this.escapeHtml(group)}${meta}</div></div>
+          ${!isBuiltin ? `<button class="effect-item-remove" data-remove="${this.escapeHtml(id)}" title="删除"><span class="material-icons" style="font-size:16px">remove_circle</span></button>` : ''}
         </div>`;
       }
       html += '</div>';
@@ -449,7 +470,7 @@ class UIManager {
 
     el.querySelectorAll('.effect-item').forEach(item => {
       item.addEventListener('click', (e) => {
-        if (e.target.closest('[data-use]') || e.target.closest('[data-remove]') || e.target.closest('[data-play-path]')) return;
+        if (e.target.closest('[data-remove]') || e.target.closest('[data-play-path]')) return;
         this._selectedEffectId = item.dataset.effectId;
         this._renderEffectList();
       });
@@ -462,22 +483,12 @@ class UIManager {
       });
     });
 
-    el.querySelectorAll('[data-use]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this._selectedEffectId = btn.dataset.use;
-        this._renderEffectList();
-      });
-    });
-
     el.querySelectorAll('[data-remove]').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const id = btn.dataset.remove;
         this._effectCustomEffects = this._effectCustomEffects.filter(e => e.id !== id);
-        if (window.electronAPI?.setProjectEffects) {
-          await window.electronAPI.setProjectEffects(this._effectCustomEffects);
-        }
+        this._commitEffects();
         if (this._selectedEffectId === id) this._selectedEffectId = null;
         this._renderEffectList();
       });
@@ -491,7 +502,7 @@ class UIManager {
     this._stopPreview();
     try {
       const url = filePath.replace(/\\/g, '/');
-      const proto = url.startsWith('/') ? 'file://' + url : 'file:///' + url;
+      const proto = url.startsWith('/') ? 'file://' + encodeURI(url) : 'file:///' + encodeURI(url);
       this._previewAudio = new Audio(proto);
       this._previewAudio.addEventListener('ended', () => this._stopPreview());
       this._previewAudio.play();
@@ -512,11 +523,9 @@ class UIManager {
     const parts = filePath.replace(/\\/g, '/').split('/');
     const filename = parts[parts.length - 1];
     const name = filename.replace(/\.[^.]+$/, '');
-    if (this._effectCustomEffects.some(e => e.id === name)) { this.app.uiManager?.showInfoDialog?.('提示', '音效ID已存在'); return; }
+    if (this._effectCustomEffects.some(e => e.id === name)) { this.showInfoDialog?.('提示', '音效ID已存在'); return; }
     this._effectCustomEffects.push({ id: name, source: 'imported', filename, group: '用户音效', path: filePath });
-    if (window.electronAPI?.setProjectEffects) {
-      await window.electronAPI.setProjectEffects(this._effectCustomEffects);
-    }
+    this._commitEffects();
     this._renderEffectList();
     this.app.updateStatus('已导入本地音效');
   }
@@ -592,7 +601,7 @@ class UIManager {
         this.app.updateStatus('设置已保存');
         this.settingsDialog.classList.remove('active');
       } else {
-        this.app.uiManager?.showInfoDialog?.('错误', '设置保存失败');
+        this.showInfoDialog?.('错误', '设置保存失败');
       }
     });
   }
@@ -674,17 +683,19 @@ class UIManager {
       }).catch(() => {});
     }
 
-    dialog.querySelectorAll('.about-bili-link').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (window.electronAPI?.openExternal) {
-          window.electronAPI.openExternal(link.href);
-        }
+    if (!this._aboutLinksBound) {
+      this._aboutLinksBound = true;
+      dialog.querySelectorAll('.about-bili-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (window.electronAPI?.openExternal) {
+            window.electronAPI.openExternal(link.href);
+          }
+        });
       });
-    }, { once: true });
+    }
 
     dialog.classList.add('active');
-    this.checkForUpdates();
   }
 
   async showSettingsDialog() {
@@ -788,22 +799,25 @@ class UIManager {
 
       if (this.matchShortcut(e, this.shortcuts.undo)) {
         e.preventDefault();
-        this.app.renderer.undo();
-        this.app.fileManager.markUnsaved();
+        if (this.app.renderer.undo()) {
+          this.app.fileManager.markUnsaved();
+          this.refreshSectionJump();
+        }
         return;
       }
 
       if (this.matchShortcut(e, this.shortcuts.redo)) {
         e.preventDefault();
-        this.app.renderer.redo();
-        this.app.fileManager.markUnsaved();
+        if (this.app.renderer.redo()) {
+          this.app.fileManager.markUnsaved();
+          this.refreshSectionJump();
+        }
         return;
       }
 
       if (this.matchShortcut(e, this.shortcuts.cut)) {
         e.preventDefault();
         this.app.renderer.cutSelectedBlocks();
-        this.app.fileManager.markUnsaved();
         return;
       }
 
@@ -816,7 +830,6 @@ class UIManager {
       if (this.matchShortcut(e, this.shortcuts.paste)) {
         e.preventDefault();
         this.app.renderer.pasteClipboard();
-        this.app.fileManager.markUnsaved();
         return;
       }
 
@@ -857,13 +870,11 @@ class UIManager {
         return;
       }
 
-      if (textActive) return;
-
       if (e.key === 'ArrowDown' && !isMod) { e.preventDefault(); this.app.renderer.selectNextBlock(); return; }
       if (e.key === 'ArrowUp' && !isMod) { e.preventDefault(); this.app.renderer.selectPrevBlock(); return; }
 
-      if (isMod && e.key === 'ArrowDown') { e.preventDefault(); this.app.renderer.moveSelectedBlock(1); this.app.fileManager.markUnsaved(); return; }
-      if (isMod && e.key === 'ArrowUp') { e.preventDefault(); this.app.renderer.moveSelectedBlock(-1); this.app.fileManager.markUnsaved(); return; }
+      if (isMod && e.key === 'ArrowDown') { e.preventDefault(); this.app.renderer.moveSelectedBlock(1); return; }
+      if (isMod && e.key === 'ArrowUp') { e.preventDefault(); this.app.renderer.moveSelectedBlock(-1); return; }
 
       if (e.key === 'Enter') { e.preventDefault(); this.app.renderer.focusSelectedBlockEditor(); return; }
       if (e.key === ' ') { e.preventDefault(); this.app.ttsRenderer.previewPlay(); return; }
@@ -871,14 +882,12 @@ class UIManager {
       if (e.key === 'Backspace' && this.app.renderer.selectedBlocks?.size > 0) {
         e.preventDefault();
         this.app.renderer.deleteSelectedBlocks();
-        this.app.fileManager.markUnsaved();
         return;
       }
 
       if (this.matchShortcut(e, this.shortcuts.deleteBlock) && this.app.renderer.selectedBlocks?.size > 0) {
         e.preventDefault();
         this.app.renderer.deleteSelectedBlocks();
-        this.app.fileManager.markUnsaved();
       }
     });
   }

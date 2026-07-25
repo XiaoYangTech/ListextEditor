@@ -2,12 +2,11 @@ class BlockRenderer {
   constructor(container, parser) {
     this.container = container;
     this.parser = parser;
-    this.blocks = [];
-    this.effectLibrary = {};
     this.selectedBlocks = new Set();
     this.clipboard = null;
     this.history = [];
     this.historyIndex = -1;
+    this.maxHistory = 100;
     this.isRestoring = false;
     this.lastSnapshot = '';
     this.draggingBlock = null;
@@ -18,7 +17,6 @@ class BlockRenderer {
   }
 
   init() {
-    this.loadEffectLibrary();
     this.createEditDialog();
     this.createContextMenu();
 
@@ -44,19 +42,6 @@ class BlockRenderer {
     }
   }
 
-  async loadEffectLibrary() {
-    if (window.electronAPI) {
-      try {
-        const data = await window.electronAPI.getProjectData();
-        const effects = data?.effects || [];
-        this.effectLibrary = {};
-        for (const e of effects) {
-          if (e.id) this.effectLibrary[e.id] = e;
-        }
-      } catch (e) { console.error('加载音效库失败:', e); this.effectLibrary = {}; }
-    }
-  }
-
   createEditDialog() {
     const dialog = document.createElement('div');
     dialog.id = 'blockEditDialog';
@@ -76,9 +61,37 @@ class BlockRenderer {
     `;
     document.body.appendChild(dialog);
     this.editDialog = dialog;
+    this._editDialogHandler = null;
 
-    dialog.querySelector('.dialog-close').addEventListener('click', () => dialog.classList.remove('active'));
-    dialog.querySelector('.btn-cancel').addEventListener('click', () => dialog.classList.remove('active'));
+    const closeDialog = () => {
+      dialog.classList.remove('active');
+      if (this._editDialogHandler) {
+        dialog.querySelector('#editDialogConfirm').removeEventListener('click', this._editDialogHandler);
+        this._editDialogHandler = null;
+      }
+    };
+    dialog.querySelector('.dialog-close').addEventListener('click', closeDialog);
+    dialog.querySelector('.btn-cancel').addEventListener('click', closeDialog);
+  }
+
+  openEditDialog(title, bodyHtml, onConfirm) {
+    const dialog = this.editDialog;
+    dialog.querySelector('#editDialogTitle').textContent = title;
+    dialog.querySelector('#editDialogBody').innerHTML = bodyHtml;
+
+    const confirmBtn = dialog.querySelector('#editDialogConfirm');
+    if (this._editDialogHandler) {
+      confirmBtn.removeEventListener('click', this._editDialogHandler);
+    }
+    const handler = () => {
+      confirmBtn.removeEventListener('click', handler);
+      this._editDialogHandler = null;
+      dialog.classList.remove('active');
+      onConfirm();
+    };
+    this._editDialogHandler = handler;
+    confirmBtn.addEventListener('click', handler);
+    dialog.classList.add('active');
   }
 
   createContextMenu() {
@@ -201,16 +214,13 @@ class BlockRenderer {
     const newBlock = this.renderNode(clone);
     if (!newBlock) return;
     block.after(newBlock);
-    this.blocks.push(newBlock);
     this.syncNestedRepeatControl(newBlock);
     this.selectSingleBlock(newBlock);
     this.onBlockChange();
-    window.app?.uiManager?.refreshSectionJump?.();
   }
 
   render(ast) {
     this.container.innerHTML = '';
-    this.blocks = [];
     this.clearSelection();
 
     if (!ast || ast.length === 0) {
@@ -223,7 +233,6 @@ class BlockRenderer {
       const block = this.renderNode(node);
       if (block) {
         this.container.appendChild(block);
-        this.blocks.push(block);
       }
     }
 
@@ -232,7 +241,6 @@ class BlockRenderer {
 
   clear() {
     this.container.innerHTML = '';
-    this.blocks = [];
     this.showEmptyState();
   }
 
@@ -333,7 +341,7 @@ class BlockRenderer {
   renderPauseBlock(node) {
     const block = this.createBaseBlock('pause', node);
     const header = this.createBlockHeader('pause', '停顿', 'timer', true);
-    const duration = parseInt(node.attrs?.dur || '10', 10) || 10;
+    const duration = parseInt(node.attrs?.dur || String(LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION), 10) || LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION;
     block._duration = duration;
 
     const content = document.createElement('div');
@@ -386,7 +394,7 @@ class BlockRenderer {
   renderSectionBlock(node) {
     const block = this.createBaseBlock('section', node);
     const header = this.createBlockHeader('section', '分节', 'bookmark', true);
-    const title = node.attrs?.title || '未命名分节';
+    const title = node.attrs?.title || LISTEXT_CONSTANTS.DEFAULT_SECTION_TITLE;
     block._sectionTitle = title;
     const content = document.createElement('div');
     content.className = 'block-content';
@@ -401,7 +409,7 @@ class BlockRenderer {
 
   renderRepeatBlock(node) {
     const block = this.createBaseBlock('repeat', node);
-    const count = parseInt(node.attrs?.count || '2', 10) || 2;
+    const count = parseInt(node.attrs?.count || String(LISTEXT_CONSTANTS.DEFAULT_REPEAT_COUNT), 10) || LISTEXT_CONSTANTS.DEFAULT_REPEAT_COUNT;
     block._repeatCount = count;
     const header = this.createBlockHeader('repeat', `重复（${count} 次）`, 'repeat', true);
     const content = document.createElement('div');
@@ -607,7 +615,6 @@ class BlockRenderer {
       this.draggingBlock = null;
       this.draggingMultiBlocks = null;
       this.onBlockChange();
-      window.app?.uiManager?.refreshSectionJump?.();
     });
   }
 
@@ -653,7 +660,6 @@ class BlockRenderer {
       this.syncNestedRepeatControl(block);
       this.ensureRepeatEmptyState(repeatContent);
       this.onBlockChange();
-      window.app?.uiManager?.refreshSectionJump?.();
     });
 
     actions.insertBefore(btn, actions.firstChild);
@@ -675,112 +681,55 @@ class BlockRenderer {
   }
 
   showPauseEditor(block) {
-    const dialog = this.editDialog;
-    dialog.querySelector('#editDialogTitle').textContent = '设置停顿时长';
-    dialog.querySelector('#editDialogBody').innerHTML = `
-      <div class="form-group"><label>秒数</label><input id="editPauseDuration" type="number" min="1" max="300" value="${block._duration || 10}" /></div>
-    `;
-
-    const confirmBtn = dialog.querySelector('#editDialogConfirm');
-    const handler = () => {
-      block._duration = parseInt(document.getElementById('editPauseDuration').value, 10) || 10;
+    this.openEditDialog('设置停顿时长', `
+      <div class="form-group"><label>秒数</label><input id="editPauseDuration" type="number" min="1" max="300" value="${block._duration || LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION}" /></div>
+    `, () => {
+      block._duration = parseInt(document.getElementById('editPauseDuration').value, 10) || LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION;
       block.querySelector('.silence-display').textContent = `停顿 ${block._duration} 秒`;
-      dialog.classList.remove('active');
-      confirmBtn.removeEventListener('click', handler);
       this.onBlockChange();
-    };
-    confirmBtn.addEventListener('click', handler);
-    dialog.classList.add('active');
+    });
   }
 
   async showFxEditor(block) {
-    await this.loadEffectLibrary();
-    const ids = Object.keys(this.effectLibrary);
-
-    const dialog = this.editDialog;
-    dialog.querySelector('#editDialogTitle').textContent = '设置音效';
-    dialog.querySelector('#editDialogBody').innerHTML = `
-      <div class="form-group"><label>音效ID</label><select id="editFxId">${ids.length ? ids.map(id => `<option value="${id}" ${id === block._effectId ? 'selected' : ''}>${id}</option>`).join('') : '<option value="">（暂无音效，请先导入）</option>'}</select></div>
-      <div class="form-group"><label>持续秒数（可选）</label><input id="editFxDur" type="number" min="1" max="300" value="${block._effectDuration || ''}" /></div>
-      <div class="form-group"><label>淡出秒数（可选）</label><input id="editFxFade" type="number" min="1" max="60" value="${block._effectFade || ''}" /></div>
-    `;
-
-    const confirmBtn = dialog.querySelector('#editDialogConfirm');
-    const handler = () => {
-      block._effectId = document.getElementById('editFxId').value || '';
-      if (!block._effectId) {
-        window.app?.updateStatus?.('请先选择音效');
-        return;
-      }
-      block._effectDuration = parseInt(document.getElementById('editFxDur').value, 10) || null;
-      block._effectFade = parseInt(document.getElementById('editFxFade').value, 10) || null;
+    window.app?.uiManager?.showEffectDialog((effectId, duration, fade) => {
+      block._effectId = effectId;
+      block._effectDuration = duration;
+      block._effectFade = fade;
       block.querySelector('.effect-text').textContent = this.describeFx(block);
-      dialog.classList.remove('active');
-      confirmBtn.removeEventListener('click', handler);
       this.onBlockChange();
-    };
-    confirmBtn.addEventListener('click', handler);
-    dialog.classList.add('active');
+    }, block._effectId);
   }
 
   showRepeatEditor(block) {
-    const dialog = this.editDialog;
-    dialog.querySelector('#editDialogTitle').textContent = '设置重复次数';
-    dialog.querySelector('#editDialogBody').innerHTML = `
-      <div class="form-group"><label>次数</label><input id="editRepeatCount" type="number" min="1" max="20" value="${block._repeatCount || 2}" /></div>
-    `;
-
-    const confirmBtn = dialog.querySelector('#editDialogConfirm');
-    const handler = () => {
-      block._repeatCount = parseInt(document.getElementById('editRepeatCount').value, 10) || 2;
+    this.openEditDialog('设置重复次数', `
+      <div class="form-group"><label>次数</label><input id="editRepeatCount" type="number" min="1" max="20" value="${block._repeatCount || LISTEXT_CONSTANTS.DEFAULT_REPEAT_COUNT}" /></div>
+    `, () => {
+      block._repeatCount = parseInt(document.getElementById('editRepeatCount').value, 10) || LISTEXT_CONSTANTS.DEFAULT_REPEAT_COUNT;
       block.querySelector('.block-title').textContent = `重复（${block._repeatCount} 次）`;
-      dialog.classList.remove('active');
-      confirmBtn.removeEventListener('click', handler);
       this.onBlockChange();
-    };
-    confirmBtn.addEventListener('click', handler);
-    dialog.classList.add('active');
+    });
   }
 
   showSectionEditor(block) {
-    const dialog = this.editDialog;
-    dialog.querySelector('#editDialogTitle').textContent = '设置分节标题';
-    dialog.querySelector('#editDialogBody').innerHTML = `
-      <div class="form-group"><label>标题</label><input id="editSectionTitle" type="text" value="${this.escapeHtml(block._sectionTitle || '未命名分节')}" /></div>
-    `;
-
-    const confirmBtn = dialog.querySelector('#editDialogConfirm');
-    const handler = () => {
-      block._sectionTitle = document.getElementById('editSectionTitle').value.trim() || '未命名分节';
+    this.openEditDialog('设置分节标题', `
+      <div class="form-group"><label>标题</label><input id="editSectionTitle" type="text" value="${this.escapeHtml(block._sectionTitle || LISTEXT_CONSTANTS.DEFAULT_SECTION_TITLE)}" /></div>
+    `, () => {
+      block._sectionTitle = document.getElementById('editSectionTitle').value.trim() || LISTEXT_CONSTANTS.DEFAULT_SECTION_TITLE;
       block.querySelector('.section-display').textContent = `📌 ${block._sectionTitle}`;
-      dialog.classList.remove('active');
-      confirmBtn.removeEventListener('click', handler);
       this.onBlockChange();
-      window.app?.uiManager?.refreshSectionJump?.();
-    };
-    confirmBtn.addEventListener('click', handler);
-    dialog.classList.add('active');
+    });
   }
 
   async showSayEditor(block) {
     const roles = await this.getRoles();
-    const dialog = this.editDialog;
-    dialog.querySelector('#editDialogTitle').textContent = '设置朗读属性';
-    dialog.querySelector('#editDialogBody').innerHTML = `
+    this.openEditDialog('设置朗读属性', `
       <div class="form-group"><label>角色ID（可选）</label><select id="editSayRole"><option value="">不使用角色</option>${roles.map(r => `<option value="${this.escapeHtml(r.id)}" ${r.id === (block._roleId || '') ? 'selected' : ''}>${this.escapeHtml(r.name)} (${this.escapeHtml(r.id)})</option>`).join('')}</select></div>
       <div class="form-group"><label>语速（0.5 - 2.0）</label><input id="editSayRate" type="number" min="0.5" max="2" step="0.1" value="${block._rate || 1.0}" /></div>
-    `;
-
-    const confirmBtn = dialog.querySelector('#editDialogConfirm');
-    const handler = () => {
+    `, () => {
       block._roleId = document.getElementById('editSayRole').value || '';
       block._rate = parseFloat(document.getElementById('editSayRate').value) || 1.0;
-      dialog.classList.remove('active');
-      confirmBtn.removeEventListener('click', handler);
       this.onBlockChange();
-    };
-    confirmBtn.addEventListener('click', handler);
-    dialog.classList.add('active');
+    });
   }
 
   describeFx(block) {
@@ -795,6 +744,12 @@ class BlockRenderer {
     if (this.onChangeCallback) this.onChangeCallback();
   }
 
+  resetHistory() {
+    this.history = [];
+    this.historyIndex = -1;
+    this.lastSnapshot = '';
+  }
+
   recordHistory() {
     if (this.isRestoring) return;
     const snapshot = this.parser.stringify(this.collectAST()).trim();
@@ -804,19 +759,22 @@ class BlockRenderer {
       this.history = this.history.slice(0, this.historyIndex + 1);
     }
     this.history.push(snapshot);
+    if (this.history.length > this.maxHistory) this.history.shift();
     this.historyIndex = this.history.length - 1;
   }
 
   undo() {
-    if (this.historyIndex <= 0) return;
+    if (this.historyIndex <= 0) return false;
     this.historyIndex -= 1;
     this.restoreFromHistory();
+    return true;
   }
 
   redo() {
-    if (this.historyIndex >= this.history.length - 1) return;
+    if (this.historyIndex >= this.history.length - 1) return false;
     this.historyIndex += 1;
     this.restoreFromHistory();
+    return true;
   }
 
   restoreFromHistory() {
@@ -862,6 +820,7 @@ class BlockRenderer {
   selectAllBlocks() {
     this.clearSelection();
     this.container.querySelectorAll(':scope > .block').forEach(block => {
+      if (block.style.display === 'none') return;
       block.classList.add('selected');
       this.selectedBlocks.add(block);
     });
@@ -908,11 +867,7 @@ class BlockRenderer {
 
       this.multiGroupEl.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (e.ctrlKey || e.metaKey) {
-          this.clearSelection();
-        } else {
-          this.clearSelection();
-        }
+        this.clearSelection();
       });
     }
 
@@ -964,7 +919,6 @@ class BlockRenderer {
     });
     this.clearSelection();
     this.onBlockChange();
-    window.app?.uiManager?.refreshSectionJump?.();
   }
 
   pasteClipboard() {
@@ -982,14 +936,12 @@ class BlockRenderer {
       if (!block) return;
       if (insertAfter && insertAfter.parentElement === container) insertAfter.after(block);
       else container.appendChild(block);
-      this.blocks.push(block);
       this.syncNestedRepeatControl(block);
       insertAfter = block;
     });
 
     if (insertAfter) this.selectSingleBlock(insertAfter);
     this.onBlockChange();
-    window.app?.uiManager?.refreshSectionJump?.();
   }
 
   getPasteTarget() {
@@ -1050,7 +1002,7 @@ class BlockRenderer {
 
     if (tagName === 'pause') {
       return {
-        type: 'element', tagName: 'pause', attrs: { dur: String(block._duration || 10) }, children: [], content: '',
+        type: 'element', tagName: 'pause', attrs: { dur: String(block._duration || LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION) }, children: [], content: '',
         definition: this.parser.tagDefinitions.pause, uiId: block.dataset.id
       };
     }
@@ -1075,7 +1027,7 @@ class BlockRenderer {
 
     if (tagName === 'section') {
       return {
-        type: 'element', tagName: 'section', attrs: { title: block._sectionTitle || '未命名分节' }, children: [], content: '',
+        type: 'element', tagName: 'section', attrs: { title: block._sectionTitle || LISTEXT_CONSTANTS.DEFAULT_SECTION_TITLE }, children: [], content: '',
         definition: this.parser.tagDefinitions.section, uiId: block.dataset.id
       };
     }
@@ -1106,7 +1058,7 @@ class BlockRenderer {
     };
 
     if (tagName === 'pause') {
-      node.attrs = { dur: String(options.duration || 10) };
+      node.attrs = { dur: String(options.duration || LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION) };
     } else if (tagName === 'fx') {
       node.attrs = {};
       if (options.effectId) node.attrs.id = options.effectId;
@@ -1118,7 +1070,7 @@ class BlockRenderer {
       if (options.roleId) node.attrs.role = options.roleId;
       if (options.rate) node.attrs.rate = String(options.rate);
     } else if (tagName === 'section') {
-      node.attrs = { title: options.title || '未命名分节' };
+      node.attrs = { title: options.title || LISTEXT_CONSTANTS.DEFAULT_SECTION_TITLE };
     }
 
     const block = this.renderNode(node);
@@ -1132,7 +1084,6 @@ class BlockRenderer {
       } else {
         this.container.appendChild(block);
       }
-      this.blocks.push(block);
 
       const textarea = block.querySelector('textarea');
       if (textarea) textarea.focus();
@@ -1140,7 +1091,6 @@ class BlockRenderer {
       this.selectSingleBlock(block);
       block.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       this.onBlockChange();
-      window.app?.uiManager?.refreshSectionJump?.();
     }
 
     return block;
@@ -1214,7 +1164,6 @@ class BlockRenderer {
       this.draggingBlock = null;
       this.draggingMultiBlocks = null;
       this.onBlockChange();
-      window.app?.uiManager?.refreshSectionJump?.();
     });
   }
 
@@ -1290,7 +1239,7 @@ class BlockRenderer {
   getSections() {
     const list = [];
     this.container.querySelectorAll('.block[data-tag-name="section"]').forEach(block => {
-      list.push({ id: block.dataset.id, title: block._sectionTitle || '未命名分节' });
+      list.push({ id: block.dataset.id, title: block._sectionTitle || LISTEXT_CONSTANTS.DEFAULT_SECTION_TITLE });
     });
     return list;
   }
@@ -1320,7 +1269,9 @@ class BlockRenderer {
       const tag = block.dataset.tagName || '';
       if (tag === 'section' && (block._sectionTitle || '').toLowerCase().includes(q)) return block;
       if (tag === 'fx' && (block._effectId || '').toLowerCase().includes(q)) return block;
-      const text = block.querySelector('textarea')?.value || block.textContent || '';
+      const textarea = block.querySelector('textarea');
+      // 无 textarea 的块仅匹配标题，避免按钮/图标的 textContent 噪声
+      const text = textarea ? (textarea.value || '') : (block.querySelector('.block-title')?.textContent || '');
       if (text.toLowerCase().includes(q)) return block;
     }
     return null;
@@ -1381,7 +1332,6 @@ class BlockRenderer {
 
     this.selectSingleBlock(block);
     this.onBlockChange();
-    window.app?.uiManager?.refreshSectionJump?.();
   }
 
   focusSelectedBlockEditor() {
@@ -1405,12 +1355,7 @@ class BlockRenderer {
   }
 
   escapeHtml(text) {
-    return String(text || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+    return window.escapeHtml(text);
   }
 }
 

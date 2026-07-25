@@ -11,22 +11,12 @@ function getDefaultSettings() {
     proxyMode: 'system',
     proxyUrl: '',
 
-    shortcuts: getDefaultShortcuts(),
-    storagePaths: getDefaultStoragePaths()
+    shortcuts: getDefaultShortcuts()
   };
 }
 
 function getDefaultShortcuts() {
   return { ...SHORTCUT_DEFAULTS };
-}
-
-function getDefaultStoragePaths() {
-  return {
-    projects: path.join(app.getPath('documents'), 'ListextEditor', 'Projects'),
-    sounds: path.join(app.getPath('userData'), 'sounds-user'),
-    cache: path.join(app.getPath('temp'), 'listext-editor'),
-    roles: path.join(app.getPath('userData'), 'roles')
-  };
 }
 
 function loadSettings() {
@@ -81,23 +71,6 @@ function saveShortcuts(shortcuts) {
   return saveSettings(settings);
 }
 
-function getStoragePaths() {
-  const settings = loadSettings();
-  return { ...getDefaultStoragePaths(), ...(settings.storagePaths || {}) };
-}
-
-function saveStoragePaths(paths) {
-  const settings = loadSettings();
-  settings.storagePaths = { ...getDefaultStoragePaths(), ...paths };
-  return saveSettings(settings);
-}
-
-function resetStoragePaths() {
-  const settings = loadSettings();
-  settings.storagePaths = getDefaultStoragePaths();
-  return saveSettings(settings);
-}
-
 function registerConfigHandlers(ipcMain) {
   ipcMain.handle('get-settings', async () => loadSettings());
 
@@ -113,15 +86,6 @@ function registerConfigHandlers(ipcMain) {
   ipcMain.handle('save-shortcuts', async (event, shortcuts) => {
     return { success: saveShortcuts(shortcuts) };
   });
-
-  // 存储路径相关
-  ipcMain.handle('get-storage-paths', async () => getStoragePaths());
-  ipcMain.handle('save-storage-paths', async (event, paths) => {
-    return { success: saveStoragePaths(paths) };
-  });
-  ipcMain.handle('reset-storage-paths', async () => {
-    return { success: resetStoragePaths() };
-  });
 }
 
 module.exports = {
@@ -131,9 +95,5 @@ module.exports = {
   registerConfigHandlers,
   getShortcuts,
   saveShortcuts,
-  getStoragePaths,
-  saveStoragePaths,
-  resetStoragePaths,
-  getDefaultShortcuts,
-  getDefaultStoragePaths
+  getDefaultShortcuts
 };

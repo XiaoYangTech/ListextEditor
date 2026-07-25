@@ -223,8 +223,8 @@ class TabManager {
       if (this._announceObserver) { this._announceObserver.disconnect(); this._announceObserver = null; }
       el.style.overflow = '';
       el.style.padding = '';
-      el.innerHTML = `<div style="font-size:14px;font-weight:600;margin-bottom:12px">${a.title}</div>
-        <p style="white-space:pre-wrap;color:#555">${a.content || ''}</p>`;
+      el.innerHTML = `<div style="font-size:14px;font-weight:600;margin-bottom:12px">${this.escapeHtml(a.title)}</div>
+        <p style="white-space:pre-wrap;color:#555">${this.escapeHtml(a.content || '')}</p>`;
     }
   }
 
@@ -275,8 +275,8 @@ class TabManager {
     const downloadBtn = r.download_url
       ? `<a class="home-action-btn primary" style="display:inline-flex;margin-top:12px" href="#" onclick="window.electronAPI?.openExternal?.('${r.download_url.replace(/'/g, '\\\'')}');return false"><span class="material-icons" style="font-size:16px">download</span>下载</a>`
       : '';
-    el.innerHTML = `<div style="font-size:14px;font-weight:600;margin-bottom:12px">${r.title}</div>
-      <p style="white-space:pre-wrap;color:#555">${(r.content || '').replace(/\n/g, '<br>')}</p>
+    el.innerHTML = `<div style="font-size:14px;font-weight:600;margin-bottom:12px">${this.escapeHtml(r.title)}</div>
+      <p style="white-space:pre-wrap;color:#555">${this.escapeHtml(r.content || '').replace(/\n/g, '<br>')}</p>
       ${downloadBtn}`;
   }
 
@@ -399,7 +399,7 @@ class TabManager {
     return `${Math.floor(diff / 86400000)} 天前`;
   }
 
-  escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  escapeHtml(s) { return window.escapeHtml(s); }
 
   generateId() {
     return `tab_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
@@ -625,8 +625,8 @@ class TabManager {
       }
     }
     if (window.electronAPI) {
-      window.electronAPI.setProjectRoles(tab.roles || []).catch(() => {});
-      window.electronAPI.setProjectEffects(tab.effects || []).catch(() => {});
+      window.electronAPI.setProjectRoles(tab.roles || [], { silent: true }).catch(() => {});
+      window.electronAPI.setProjectEffects(tab.effects || [], { silent: true }).catch(() => {});
     }
   }
 

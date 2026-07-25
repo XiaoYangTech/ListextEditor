@@ -18,7 +18,9 @@ class ListextParser {
     while (pos < text.length) {
       const result = this.parseNode(text, pos);
       if (result) {
-        ast.push(result.node);
+        if (result.node && (result.node.type !== 'text' || result.node.content)) {
+          ast.push(result.node);
+        }
         pos = result.pos;
       } else {
         pos++;
@@ -173,18 +175,13 @@ class ListextParser {
     const regex = /<role\b([^>]*)\/?>/gi;
     let m;
     while ((m = regex.exec(text || '')) !== null) {
-      const attrs = {};
-      const attrRegex = /(\w+)=["']([^"']*)["']/g;
-      let am;
-      while ((am = attrRegex.exec(m[1])) !== null) {
-        attrs[am[1]] = am[2];
-      }
-      if (attrs.id) {
+      const attrs = this.parseAttributes(m[1]);
+      if (attrs.id && attrs.id !== true) {
         roles.push({
           id: attrs.id,
-          name: attrs.name || attrs.id,
-          type: attrs.type || 'edge',
-          voice: attrs.voice || '',
+          name: attrs.name && attrs.name !== true ? attrs.name : attrs.id,
+          type: attrs.type && attrs.type !== true ? attrs.type : 'edge',
+          voice: attrs.voice && attrs.voice !== true ? attrs.voice : '',
           source: 'code'
         });
       }
@@ -196,14 +193,16 @@ class ListextParser {
     if (text == null) return [];
     const errors = [];
     const stack = [];
+    // 剥离注释内容（保留换行以维持行号），避免注释中的标签被误检
+    const stripped = (text || '').replace(/<!--[\s\S]*?-->/g, m => m.replace(/[^\n]/g, ' '));
     const tagRegex = /<\/?([a-zA-Z]+)([^>]*)>/g;
     let match;
 
-    while ((match = tagRegex.exec(text)) !== null) {
+    while ((match = tagRegex.exec(stripped)) !== null) {
       const fullTag = match[0];
       const tagName = match[1].toLowerCase();
       const isClosing = fullTag.startsWith('</');
-      const line = text.slice(0, match.index).split('\n').length;
+      const line = stripped.slice(0, match.index).split('\n').length;
 
       if (!this.tagDefinitions[tagName]) {
         errors.push({ line, message: `未知标签: <${tagName}>` });
@@ -212,18 +211,18 @@ class ListextParser {
 
       if (isClosing) {
         if (this.isSelfClosing(tagName)) continue;
-        if (stack.length === 0 || stack[stack.length - 1] !== tagName) {
+        if (stack.length === 0 || stack[stack.length - 1].tag !== tagName) {
           errors.push({ line, message: `不匹配的闭合标签: </${tagName}>` });
         } else {
           stack.pop();
         }
       } else if (!this.isSelfClosing(tagName)) {
-        stack.push(tagName);
+        stack.push({ tag: tagName, line });
       }
     }
 
     if (stack.length > 0) {
-      errors.push({ line: (text || '').split('\n').length, message: `未闭合的标签: <${stack.join('>, <')}>` });
+      errors.push({ line: stack[0].line, message: `未闭合的标签: <${stack.map(s => s.tag).join('>, <')}>` });
     }
 
     return errors;
