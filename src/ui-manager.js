@@ -683,18 +683,6 @@ class UIManager {
       }).catch(() => {});
     }
 
-    if (!this._aboutLinksBound) {
-      this._aboutLinksBound = true;
-      dialog.querySelectorAll('.about-bili-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-          e.preventDefault();
-          if (window.electronAPI?.openExternal) {
-            window.electronAPI.openExternal(link.href);
-          }
-        });
-      });
-    }
-
     dialog.classList.add('active');
   }
 
