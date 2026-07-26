@@ -38,13 +38,12 @@ function parseRoleDefs(content) {
     while ((am = attrRegex.exec(m[1])) !== null) {
       attrs[am[1]] = am[2];
     }
-    if (attrs.id) {
+    if (attrs.id && !roles.some(r => r.id === attrs.id)) {
       roles.push({
         id: attrs.id,
         name: attrs.name || attrs.id,
         type: attrs.type || 'edge',
-        voice: attrs.voice || '',
-        source: 'code'
+        voice: attrs.voice || ''
       });
     }
   }
@@ -126,16 +125,24 @@ function saveProjectPackage(filePath, payload) {
   }
 
   ensureDir(path.dirname(safePath));
-  zip.writeZip(safePath);
+  if (fileLocker.isLocked(safePath)) {
+    // 本进程持有排他锁：经锁 fd 写入（Windows 排他锁会拒绝经其他句柄写入）
+    if (!fileLocker.writeLocked(safePath, zip.toBuffer())) {
+      throw new Error('文件写入失败：文件处于锁定状态');
+    }
+  } else {
+    zip.writeZip(safePath);
+  }
   return { success: true, filePath: safePath, warnings: missingSounds };
 }
 
-function openProjectPackage(filePath) {
-  if (!fs.existsSync(filePath)) return { success: false, error: '文件不存在' };
+// buffer：本进程持有文件锁时经锁 fd 读出的内容（Windows 排他锁会拒绝经其他句柄读取）
+function openProjectPackage(filePath, buffer) {
+  if (!buffer && !fs.existsSync(filePath)) return { success: false, error: '文件不存在' };
 
   let zip;
   try {
-    zip = new AdmZip(filePath);
+    zip = buffer ? new AdmZip(buffer) : new AdmZip(filePath);
   } catch (e) {
     return { success: false, error: '文件已损坏，无法读取：' + (e.message || '未知错误') };
   }
@@ -318,7 +325,11 @@ function registerIpcHandlers() {
       if (lockResult === false) {
         return { success: false, error: '文件正在被其他程序占用，无法打开' };
       }
-      return openProjectPackage(filePath);
+      const lockedBuf = lockResult === true ? fileLocker.readLocked(filePath) : null;
+      const result = openProjectPackage(filePath, lockedBuf);
+      // 打开失败时释放文件锁，避免同一文件后续被误报"已在其他标签页中打开"
+      if (!result?.success && lockResult === true) fileLocker.unlock(filePath);
+      return result;
     }
     catch (error) { return { success: false, error: error.message }; }
   });

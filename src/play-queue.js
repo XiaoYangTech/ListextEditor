@@ -130,6 +130,12 @@ class PlayQueue {
       return;
     }
 
+    // 角色专项前置检查（重复定义/免费超限）：拒绝播放
+    if (window.app) {
+      const roleIssue = window.app.preflightRoles?.();
+      if (roleIssue) { window.app.uiManager?.showInfoDialog?.('无法播放', roleIssue); return; }
+    }
+
     if (this.isPlaying) this.stop();
 
     await this.loadEffects();

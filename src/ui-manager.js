@@ -614,7 +614,6 @@ class UIManager {
 
   initUpdateDialog() {
     if (!this.updateDialog) return;
-    this.updateDialog.querySelector('.update-close')?.addEventListener('click', () => this.updateDialog.classList.remove('active'));
     this.updateLaterBtn?.addEventListener('click', () => this.updateDialog.classList.remove('active'));
     this.updateDownloadBtn?.addEventListener('click', () => {
       const url = this._updateDownloadUrl;

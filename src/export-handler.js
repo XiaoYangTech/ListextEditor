@@ -166,6 +166,8 @@ class ExportHandler {
 
     try {
       const effectiveContent = window.app?.getContent?.() || '';
+      // 导出前全量体检：语法/语义/角色问题，弹窗列出并拒绝导出
+      if (window.app?.preflightCheck && !window.app.preflightCheck()) { this._hideProgress(); return; }
       const effectiveParser = window.app?.parser;
       const effectiveQueue = window.app?.playQueue;
       if (!effectiveParser || !effectiveQueue) {

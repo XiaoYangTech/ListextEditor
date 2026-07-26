@@ -41,6 +41,8 @@ class TTSRenderer {
   }
 
   previewPlay() {
+    // 全文播放前全量体检：语法/语义/角色问题，弹窗列出并中止
+    if (this.app.preflightCheck && !this.app.preflightCheck()) return;
     // 积木模式直接使用带有 uiId 的 AST，避免重新解析代码后丢失块映射。
     const ast = this.app.currentMode === 'block'
       ? this.app.renderer.collectAST()

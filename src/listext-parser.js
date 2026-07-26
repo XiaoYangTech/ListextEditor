@@ -176,13 +176,12 @@ class ListextParser {
     let m;
     while ((m = regex.exec(text || '')) !== null) {
       const attrs = this.parseAttributes(m[1]);
-      if (attrs.id && attrs.id !== true) {
+      if (attrs.id && attrs.id !== true && !roles.some(r => r.id === attrs.id)) {
         roles.push({
           id: attrs.id,
           name: attrs.name && attrs.name !== true ? attrs.name : attrs.id,
           type: attrs.type && attrs.type !== true ? attrs.type : 'edge',
-          voice: attrs.voice && attrs.voice !== true ? attrs.voice : '',
-          source: 'code'
+          voice: attrs.voice && attrs.voice !== true ? attrs.voice : ''
         });
       }
     }

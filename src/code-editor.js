@@ -107,7 +107,8 @@ class CodeEditor {
   }
 
   getValue() { return this.editor.value; }
-  setValue(v) { this.editor.value = v; this.updateScheduled = false; this.updateLineNumbers(); this.updateCodeHighlight(); this.validateCode(); this.syncScroll(); if (this.callbacks.onInput) this.callbacks.onInput(); }
+  // 程序化写入：只刷新视图，不触发 onInput（避免新建/切换标签页、切模式等被误标为未保存）
+  setValue(v) { this.editor.value = v; this.updateScheduled = false; this.updateLineNumbers(); this.updateCodeHighlight(); this.validateCode(); this.syncScroll(); }
   focus() { this.editor.focus(); }
 
   insertCodeAtCursor(code, cursorOffset) {
@@ -339,14 +340,20 @@ class CodeEditor {
 
   hideSuggestions() { if(this.suggestions){this.suggestions.style.display='none';this.suggestions.innerHTML='';} }
 
-  validateCode() {
-    if (!this.errorContainer) return;
+  // 组装全部校验错误（语法+语义+额外规则），纯计算不碰 DOM，供实时校验与播放/导出前体检复用
+  collectErrors(code) {
     let errors = [];
     try {
-      errors = this.parser.validate(this.editor.value);
-      errors = errors.concat(this.validateSemantics(this.editor.value));
-      if (this.callbacks.validateExtra) { const ex = this.callbacks.validateExtra(this.editor.value); if(ex?.length) errors=errors.concat(ex); }
+      errors = this.parser.validate(code);
+      errors = errors.concat(this.validateSemantics(code));
+      if (this.callbacks.validateExtra) { const ex = this.callbacks.validateExtra(code); if(ex?.length) errors=errors.concat(ex); }
     } catch { errors = [{line:1,message:'代码校验失败'}]; }
+    return errors;
+  }
+
+  validateCode() {
+    if (!this.errorContainer) return;
+    const errors = this.collectErrors(this.editor.value);
     if (errors.length) {
       this.errorContainer.style.display='block';
       this.errorContainer.innerHTML=errors.map(e=>`<div>第${e.line}行: ${e.message}</div>`).join('');
@@ -357,6 +364,7 @@ class CodeEditor {
     const errors=[], lines=code.split('\n');
     const rids=new Set(this.projectRoles.map(r=>r.id));
     const eids=new Set(this.projectEffects.map(e=>e.id));
+    const seenRoleIds=new Set();
     for (const name of this.builtinSoundNames) eids.add(name);
     for (let i=0;i<lines.length;i++) {
       const l=lines[i], n=i+1;
@@ -364,7 +372,7 @@ class CodeEditor {
       if(rm&&rm[1]&&!rids.has(rm[1])) errors.push({line:n,message:`角色 "${rm[1]}" 未定义`});
       const fm=l.match(/<fx\s+[^>]*id\s*=\s*["']([^"']+)["']/);
       if(fm&&fm[1]&&!eids.has(fm[1])) errors.push({line:n,message:`音效 "${fm[1]}" 不存在于项目中`});
-      if(l.match(/<role\s+/)){const im=l.match(/\bid\s*=\s*["']([^"']*)["']/);if(im&&!im[1])errors.push({line:n,message:'角色定义缺少 id'});}
+      if(l.match(/<role\s+/)){const im=l.match(/\bid\s*=\s*["']([^"']*)["']/);if(im&&!im[1])errors.push({line:n,message:'角色定义缺少 id'});else if(im){if(seenRoleIds.has(im[1]))errors.push({line:n,message:`角色 "${im[1]}" 重复定义`});else seenRoleIds.add(im[1]);}}
       const rtm=l.match(/<say\s+[^>]*rate\s*=\s*["']([^"']+)["']/);
       if(rtm&&rtm[1]){const r=parseFloat(rtm[1]);if(isNaN(r)||r<0.5||r>2)errors.push({line:n,message:`语速 ${rtm[1]} 超出范围（0.5-2.0）`});}
       const dm=l.match(/<pause\s+[^>]*dur\s*=\s*["']([^"']+)["']/);

@@ -15,7 +15,6 @@ class RoleReplaceDialog {
   _countRefs() {
     const counts = {};
     for (const r of this._roles) {
-      if (r.source === 'code') continue;
       const regex = new RegExp(`<say\\s+[^>]*role\\s*=\\s*["']${this._escapeRe(r.id)}["'][^>]*>`, 'gi');
       const matches = this._content.match(regex);
       counts[r.id] = matches ? matches.length : 0;
@@ -32,10 +31,9 @@ class RoleReplaceDialog {
     const list = document.getElementById('roleReplaceList');
     if (!list) return;
 
-    // 仅非代码定义的角色参与保留/替换选择，按选择计数而非原始索引
+    // 全部角色参与保留/替换选择（角色与代码全镜像，不再区分来源），按选择计数而非原始索引
     const uiEntries = this._roles
-      .map((r, i) => ({ role: r, index: i }))
-      .filter(e => e.role.source !== 'code');
+      .map((r, i) => ({ role: r, index: i }));
     const keptEntries = uiEntries.slice(0, maxRoles);
 
     let html = '';
@@ -123,10 +121,6 @@ class RoleReplaceDialog {
     const removedIds = new Set();
 
     this._roles.forEach((r, i) => {
-      if (r.source === 'code') {
-        keptRoles.push(r);
-        return;
-      }
       if (this._selectedIndices.has(i)) {
         keptRoles.push(r);
       } else {

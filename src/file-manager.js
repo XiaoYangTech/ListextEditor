@@ -36,6 +36,7 @@ class FileManager {
     const needsPrompt = [];
     const normalized = list.map(role => {
       const copy = { ...role };
+      delete copy.source; // 旧版工程文件的来源标记已废弃（角色与代码全镜像，不再区分来源）
 
       if ((platform === 'linux' || platform === 'darwin') && copy.type === 'local') {
         copy.type = 'edge';
@@ -164,8 +165,7 @@ class FileManager {
     let finalRoles = normalized.roles;
 
     const isUnlocked = window.entitlement?.isUnlocked();
-    const uiRoles = finalRoles.filter(r => r.source !== 'code');
-    if (!isUnlocked && uiRoles.length > 3) {
+    if (!isUnlocked && finalRoles.length > 3) {
       const choice = await new Promise(resolve => {
         window._roleReplaceDialog?.show(finalRoles, finalContent, resolve);
       });

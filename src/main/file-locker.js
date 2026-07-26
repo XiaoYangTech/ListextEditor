@@ -58,6 +58,37 @@ class FileLocker {
     this._locks.delete(filePath);
   }
 
+  // 通过持有锁的 fd 读取文件内容（Windows 排他锁会拒绝经其他句柄读写，包括本进程）
+  readLocked(filePath) {
+    if (!filePath) return null;
+    const fd = this._locks.get(path.resolve(filePath));
+    if (fd == null) return null;
+    try {
+      const size = fs.fstatSync(fd).size;
+      const buf = Buffer.alloc(size);
+      fs.readSync(fd, buf, 0, size, 0);
+      return buf;
+    } catch (e) {
+      console.error('读取锁定文件失败:', filePath, e);
+      return null;
+    }
+  }
+
+  // 通过持有锁的 fd 覆盖写入文件内容
+  writeLocked(filePath, buf) {
+    if (!filePath || !Buffer.isBuffer(buf)) return false;
+    const fd = this._locks.get(path.resolve(filePath));
+    if (fd == null) return false;
+    try {
+      fs.ftruncateSync(fd, 0);
+      fs.writeSync(fd, buf, 0, buf.length, 0);
+      return true;
+    } catch (e) {
+      console.error('写入锁定文件失败:', filePath, e);
+      return false;
+    }
+  }
+
   isLocked(filePath) {
     if (!filePath) return false;
     return this._locks.has(path.resolve(filePath));
