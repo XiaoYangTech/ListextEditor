@@ -35,16 +35,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload ${{ github.ref_name }} dist/*.exe --clobber
-      - name: Upload to CNB Release
-        env:
-          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
-        run: |
-          for file in dist/*.exe; do
-            curl -X POST \
-              -H "Authorization: Bearer $CNB_TOKEN" \
-              -F "file=@$file" \
-              https://api.cnb.cool/${{ github.repository }}/releases/${{ github.ref_name }}/attachments
-          done
 
   build-linux:
     needs: create-release
@@ -79,16 +69,6 @@ jobs:
           for file in dist/*.AppImage dist/*.deb; do
             [ -f "$file" ] && gh release upload ${{ github.ref_name }} "$file" --clobber
           done
-      - name: Upload to CNB Release
-        env:
-          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
-        run: |
-          for file in dist/*.AppImage dist/*.deb; do
-            [ -f "$file" ] && curl -X POST \
-              -H "Authorization: Bearer $CNB_TOKEN" \
-              -F "file=@$file" \
-              https://api.cnb.cool/${{ github.repository }}/releases/${{ github.ref_name }}/attachments
-          done
 
   build-macos:
     needs: create-release
@@ -106,13 +86,37 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload ${{ github.ref_name }} dist/*.dmg --clobber
-      - name: Upload to CNB Release
+
+  # 三个平台全部传完 GitHub 后，用 CNB 官方 gsync 工具把整条 Release（元数据+附件）
+  # 一次性同步到 CNB，避免手写 CNB 两段式上传 API（asset-upload-url + PUT + confirm）
+  # 注意：CNB 仓库路径与 GitHub 不同（InspireWorks/ListextEditor）
+  sync-cnb:
+    needs: [build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install gsync
+        run: |
+          curl -sSL https://cnb.cool/zhiqiangwang/gsync/-/git/raw/main/install.sh | bash
+          export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
+          gsync --version
+      - name: Create CNB Release (skip if exists)
         env:
           CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
         run: |
-          for file in dist/*.dmg; do
-            curl -X POST \
-              -H "Authorization: Bearer $CNB_TOKEN" \
-              -F "file=@$file" \
-              https://api.cnb.cool/${{ github.repository }}/releases/${{ github.ref_name }}/attachments
-          done
+          export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
+          gsync releases create \
+            --source-repo https://cnb.cool/InspireWorks/ListextEditor.git \
+            --source-token "$CNB_TOKEN" \
+            --tags ${{ github.ref_name }}
+      - name: Sync Release + attachments to CNB
+        env:
+          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
+          gsync releases sync \
+            --source-repo https://github.com/XiaoYangTech/ListextEditor.git \
+            --source-token "$GITHUB_TOKEN" \
+            --target-repo https://cnb.cool/InspireWorks/ListextEditor.git \
+            --target-token "$CNB_TOKEN" \
+            --tags ${{ github.ref_name }}
