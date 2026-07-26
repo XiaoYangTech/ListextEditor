@@ -12,7 +12,8 @@
     "build:linux:arm64": "electron-builder --linux AppImage deb --arm64",
     "build:xinchuang": "npm run build:linux:x64 && npm run build:linux:arm64",
     "build:mac": "electron-builder --mac",
-    "build:all": "npm run build:win:x64 && npm run build:xinchuang && npm run build:mac"
+    "build:all": "npm run build:win:x64 && npm run build:xinchuang && npm run build:mac",
+    "license:headers": "node scripts/add-license-header.js"
   },
   "keywords": ["electron", "tts", "EdgeTTS", "Blockly", "AI", "listening", "education"],
   "author": "The InspireWorks Development Team",
