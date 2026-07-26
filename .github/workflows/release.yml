@@ -10,7 +10,17 @@ permissions:
   packages: write
 
 jobs:
+  # gh release upload 要求 Release 已存在，先统一创建，各构建 job 只负责上传
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create ${{ github.ref_name }} --generate-notes || true
+
   build-windows:
+    needs: create-release
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,10 +47,12 @@ jobs:
           done
 
   build-linux:
+    needs: create-release
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        arch: [x64, arm64, loong64]
+        arch: [x64, arm64]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -48,9 +60,6 @@ jobs:
           node-version: 18
           cache: npm
       - run: npm ci
-      - name: Setup cross-compile for loong64
-        if: matrix.arch == 'loong64'
-        uses: maikebing/loongarch64-cross-compile@main
       - name: Install ARM64 tools (if needed)
         if: matrix.arch == 'arm64'
         run: |
@@ -61,15 +70,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ruby ruby-dev rubygems build-essential
           sudo gem install --no-document fpm
-      - name: Build for loong64 (special)
-        if: matrix.arch == 'loong64'
-        run: |
-          npm config set registry https://registry.loongnix.cn:5873
-          ELECTRON_MIRROR="https://github.com/darkyzhou/electron-loong64/releases/download/" \
-          electron_use_remote_checksums=1 npm install electron@43.0.0 --save-dev --force
-          npm run build:linux:loong64
-      - name: Build for other Linux arches
-        if: matrix.arch != 'loong64'
+      - name: Build for Linux ${{ matrix.arch }}
         run: npm run build:linux:${{ matrix.arch }}
       - name: Upload to GitHub Release
         env:
@@ -90,6 +91,7 @@ jobs:
           done
 
   build-macos:
+    needs: create-release
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4

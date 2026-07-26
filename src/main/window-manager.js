@@ -63,6 +63,7 @@ function createMainWindow() {
     height: 900,
     minWidth: 1000,
     minHeight: 700,
+    icon: path.join(__dirname, '../../assets/icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -247,6 +248,7 @@ ipcMain.on('tab-context-changed', (event, isHome) => {
 function buildChildWindow(options) {
   return new BrowserWindow({
     autoHideMenuBar: true,
+    icon: path.join(__dirname, '../../assets/icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
