@@ -76,7 +76,7 @@
     },
     "linux": {
       "category": "Utility",
-      "icon": "build/icon-512.png",
+      "icon": "build/linux-icons",
       "maintainer": "The InspireWorks Development Team <https://github.com/XiaoYangTech/ListextEditor>",
       "artifactName": "ListextEditor-${version}-${arch}.${ext}",
       "target": [
