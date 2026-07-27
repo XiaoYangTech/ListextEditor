@@ -75,6 +75,7 @@
     "linux": {
       "category": "Utility",
       "icon": "assets/icon.png",
+      "maintainer": "The InspireWorks Development Team <https://github.com/XiaoYangTech/ListextEditor>",
       "target": [
         {
           "target": "AppImage",
