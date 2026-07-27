@@ -94,11 +94,14 @@ jobs:
     needs: [build-windows, build-linux, build-macos]
     runs-on: ubuntu-latest
     steps:
-      - name: Install gsync
+      # gsync 官方仓库已无二进制 release，install.sh 失效，改为源码构建（ubuntu 镜像自带 Go）
+      - name: Install gsync (build from source)
         run: |
-          curl -sSL https://cnb.cool/zhiqiangwang/gsync/-/git/raw/main/install.sh | bash
-          export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
-          gsync --version
+          git clone --depth 1 https://cnb.cool/5.5/CNB/sync/gsync.git /tmp/gsync-src
+          cd /tmp/gsync-src
+          mkdir -p "$HOME/.local/bin"
+          go build -o "$HOME/.local/bin/gsync" .
+          "$HOME/.local/bin/gsync" --help | head -5
       - name: Create CNB Release (skip if exists)
         env:
           CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
