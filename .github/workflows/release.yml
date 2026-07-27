@@ -109,6 +109,7 @@ jobs:
           export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
           gsync releases create \
             --source-repo https://cnb.cool/InspireWorks/ListextEditor.git \
+            --source-username cnb \
             --source-token "$CNB_TOKEN" \
             --tags ${{ github.ref_name }}
       - name: Sync Release + attachments to CNB
@@ -119,7 +120,9 @@ jobs:
           export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
           gsync releases sync \
             --source-repo https://github.com/XiaoYangTech/ListextEditor.git \
+            --source-username github-actions \
             --source-token "$GITHUB_TOKEN" \
             --target-repo https://cnb.cool/InspireWorks/ListextEditor.git \
+            --target-username cnb \
             --target-token "$CNB_TOKEN" \
             --tags ${{ github.ref_name }}

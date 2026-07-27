@@ -54,6 +54,7 @@
     ],
     "win": {
       "icon": "build/icon.ico",
+      "artifactName": "ListextEditor-${version}-Setup.${ext}",
       "target": [
         {
           "target": "nsis",
@@ -76,6 +77,7 @@
       "category": "Utility",
       "icon": "assets/icon.png",
       "maintainer": "The InspireWorks Development Team <https://github.com/XiaoYangTech/ListextEditor>",
+      "artifactName": "ListextEditor-${version}-${arch}.${ext}",
       "target": [
         {
           "target": "AppImage",
@@ -90,6 +92,7 @@
     "mac": {
       "category": "public.app-category.utilities",
       "icon": "assets/icon.png",
+      "artifactName": "ListextEditor-${version}-${arch}.${ext}",
       "target": [
         {
           "target": "dmg",
