@@ -6,12 +6,12 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder",
-    "build:win:x64": "electron-builder --win nsis --x64",
-    "build:linux:x64": "electron-builder --linux AppImage deb --x64",
-    "build:linux:arm64": "electron-builder --linux AppImage deb --arm64",
+    "build": "electron-builder --publish never",
+    "build:win:x64": "electron-builder --win nsis --x64 --publish never",
+    "build:linux:x64": "electron-builder --linux AppImage deb --x64 --publish never",
+    "build:linux:arm64": "electron-builder --linux AppImage deb --arm64 --publish never",
     "build:xinchuang": "npm run build:linux:x64 && npm run build:linux:arm64",
-    "build:mac": "electron-builder --mac",
+    "build:mac": "electron-builder --mac --publish never",
     "build:all": "npm run build:win:x64 && npm run build:xinchuang && npm run build:mac",
     "license:headers": "node scripts/add-license-header.js"
   },
