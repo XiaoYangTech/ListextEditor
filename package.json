@@ -17,6 +17,7 @@
   },
   "keywords": ["electron", "tts", "EdgeTTS", "Blockly", "AI", "listening", "education"],
   "author": "The InspireWorks Development Team",
+  "homepage": "https://www.yfyw.top/",
   "license": "GPL-3.0",
   "devDependencies": {
     "electron": "^43.0.0",
@@ -75,7 +76,7 @@
     },
     "linux": {
       "category": "Utility",
-      "icon": "assets/icon.png",
+      "icon": "build/icon-512.png",
       "maintainer": "The InspireWorks Development Team <https://github.com/XiaoYangTech/ListextEditor>",
       "artifactName": "ListextEditor-${version}-${arch}.${ext}",
       "target": [
