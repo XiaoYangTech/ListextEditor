@@ -159,10 +159,11 @@ jobs:
         run: |
           TAG=${{ github.ref_name }}
           INFO=$(gh release view "$TAG" --json name,body)
-          RID=$(curl -sf -H "Authorization: token $CNB_TOKEN" \
+          # 注意：CNB API 必须带 Accept: application/json，否则一律 406
+          RID=$(curl -sf -H "Authorization: token $CNB_TOKEN" -H "Accept: application/json" \
             "https://api.cnb.cool/InspireWorks/ListextEditor/-/releases/tags/$TAG" | jq -r .id)
           echo "$INFO" | jq -c '{name: .name, body: .body}' | curl -sf -X PATCH \
-            -H "Authorization: token $CNB_TOKEN" -H "Content-Type: application/json" \
+            -H "Authorization: token $CNB_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
             --data-binary @- \
             "https://api.cnb.cool/InspireWorks/ListextEditor/-/releases/$RID"
           echo "CNB Release 标题与正文已同步"
