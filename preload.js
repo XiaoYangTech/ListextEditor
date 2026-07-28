@@ -58,7 +58,7 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
     if (fs.existsSync(outputPath)) return { success: true, path: outputPath };
     return { success: false, error: '音频文件生成失败' };
   } catch (error) {
-    if (isNetworkError(error)) return { success: false, error: 'EdgeTTS 网络不可用' };
+    if (isNetworkError(error)) return { success: false, network: true, error: 'EdgeTTS 网络不可用，请检查网络连接后重试' };
     console.error('EdgeTTS 合成失败:', error);
     return { success: false, error: error.message || 'EdgeTTS 合成失败' };
   }

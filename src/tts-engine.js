@@ -21,6 +21,8 @@
  */
 class TTSEngine {
   stop() { if ('speechSynthesis' in window) speechSynthesis.cancel(); }
+  pause() { if ('speechSynthesis' in window) speechSynthesis.pause(); }
+  resume() { if ('speechSynthesis' in window) speechSynthesis.resume(); }
 }
 
 if (typeof module !== 'undefined' && module.exports) {

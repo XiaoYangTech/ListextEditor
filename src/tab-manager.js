@@ -486,8 +486,20 @@ class TabManager {
     }
   }
 
+  // 播放器是全局单例，切/关标签时若仍在播放则整队终止，避免声音残留、状态栏卡住、按新标签角色表串味
+  _stopGlobalPlayback() {
+    const app = window.app;
+    const pq = app?.playQueue;
+    if (!pq?.isPlaying) return;
+    pq.stop();
+    app?.updateStatus?.('就绪');
+    document.querySelectorAll('.block.playing').forEach(el => el.classList.remove('playing'));
+  }
+
   activateTab(id) {
     if (this.activeTabId === id) return;
+
+    this._stopGlobalPlayback();
 
     if (this.activeTabId) {
       const currentTab = this.tabs.find(t => t.id === this.activeTabId);
@@ -536,6 +548,7 @@ class TabManager {
     }
 
     const index = this.tabs.indexOf(tab);
+    if (this.activeTabId === id) this._stopGlobalPlayback();
     this.tabs.splice(index, 1);
 
     if (tab.filePath && window.electronAPI?.releaseFileLock) {

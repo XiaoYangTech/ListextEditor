@@ -381,6 +381,8 @@ class CodeEditor {
   validateSemantics(code) {
     const errors=[], lines=code.split('\n');
     const rids=new Set(this.projectRoles.map(r=>r.id));
+    // 与 preflightRoles 同口径：代码文本内联的 <role id="..."> 定义也计入，避免粘贴当次误报"角色未定义"
+    for (const m of code.matchAll(/<role\s+[^>]*\bid\s*=\s*["']([^"']+)["']/g)) rids.add(m[1]);
     const eids=new Set(this.projectEffects.map(e=>e.id));
     const seenRoleIds=new Set();
     for (const name of this.builtinSoundNames) eids.add(name);

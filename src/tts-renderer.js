@@ -53,8 +53,8 @@ class TTSRenderer {
       this.app.uiManager?.showInfoDialog?.('错误', message || 'TTS 调用失败');
     };
 
-    this.playQueue.onBlockHighlight = (node, highlight) => {
-      this.highlightCurrentBlock(node, highlight);
+    this.playQueue.onBlockHighlight = (node, highlight, task) => {
+      this.highlightCurrentBlock(node, highlight, task);
     };
   }
 
@@ -82,12 +82,21 @@ class TTSRenderer {
     document.querySelectorAll('.block.playing').forEach(el => el.classList.remove('playing'));
   }
 
-  highlightCurrentBlock(node, highlight) {
+  highlightCurrentBlock(node, highlight, task) {
     if (this.app.currentMode !== 'block') return;
-    if (!node.uiId) return;
 
     const container = this.app.renderer?.container || document.getElementById('blockContainer');
-    const block = container?.querySelector(`.block[data-id="${node.uiId}"]`);
+    if (!container) return;
+
+    // 优先按结构路径定位（跨重渲染稳定），失败回退易失的 data-id
+    let block = null;
+    const path = task?.path || node?.path;
+    if (path && typeof this.app.renderer?.getBlockByPath === 'function') {
+      block = this.app.renderer.getBlockByPath(path);
+    }
+    if (!block && node?.uiId) {
+      block = container.querySelector(`.block[data-id="${node.uiId}"]`);
+    }
     if (!block) return;
 
     if (highlight) {

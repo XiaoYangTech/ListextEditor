@@ -27,7 +27,11 @@ function ensureDir(dir) {
 
 function isNetworkError(error) {
   const code = error?.code || error?.cause?.code;
-  return code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'ENOTFOUND';
+  const NETWORK_CODES = ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'EAI_AGAIN', 'EPIPE', 'EHOSTUNREACH', 'ENETUNREACH', 'ECONNABORTED'];
+  if (NETWORK_CODES.includes(code)) return true;
+  // msedge-tts 经 WebSocket 包装后的错误常无 code，用 message 兜底
+  const msg = String(error?.message || error || '');
+  return /network|socket|getaddrinfo|fetch failed|unexpected server response|stream closed|econn|timed? ?out/i.test(msg);
 }
 
 function sleep(ms) {

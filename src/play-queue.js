@@ -37,6 +37,8 @@ class PlayQueue {
     this.onTtsError = null;
     this.currentEffectAudio = null;
     this.effectFadeTimer = null;
+    this.activeAudios = new Set(); // 所有在响音频，stop/pause 遍历处理，避免单槽引用被覆盖后失控
+    this._playGen = 0; // 播放代际号：每次 play/stop 自增，挂起的旧会话据此作废
   }
 
   async loadEffects() {
@@ -72,35 +74,56 @@ class PlayQueue {
     return this.queue;
   }
 
+  // 与 BlockRenderer.renderNode 同口径：该节点是否会渲染出一个 .block（文本块/隐藏注释块也占序位）
+  _rendersAsBlock(node) {
+    if (node.type === 'comment') return true;
+    if (node.type === 'text') return !!(node.content && node.content.trim());
+    return ['say', 'pause', 'repeat', 'fx', 'divider', 'section'].includes((node.tagName || '').toLowerCase());
+  }
+
   buildQueueFromNodes(nodes) {
+    let uiIndex = 0;
     for (const node of nodes) {
-      if (node.type === 'text') continue;
+      if (!this._rendersAsBlock(node)) continue;
+      // 结构路径：与积木渲染的 .block 序数一一对应，跨重渲染稳定；调用方可预设 node.path（单块/从某处播放）
+      const path = node.path != null ? String(node.path) : String(uiIndex);
+      uiIndex++;
       const task = this.createTaskForNode(node);
 
       if (node.tagName === 'repeat') {
         const childTasks = [];
-        this.collectChildTasks(node.children || [], childTasks);
+        this.collectChildTasks(node.children || [], childTasks, path);
         const count = node.attrs?.count ? parseInt(node.attrs.count, 10) : LISTEXT_CONSTANTS.DEFAULT_REPEAT_COUNT;
         for (let i = 0; i < count; i++) this.queue.push(...childTasks);
       } else if (task) {
+        task.path = path;
         this.queue.push(task);
       }
     }
   }
 
-  collectChildTasks(children, tasks) {
+  collectChildTasks(children, tasks, basePath) {
+    let uiIndex = 0;
     for (const node of children) {
-      if (node.type === 'text') continue;
+      let path = null;
+      if (this._rendersAsBlock(node)) {
+        path = node.path != null ? String(node.path) : (basePath != null ? `${basePath}.${uiIndex}` : null);
+        uiIndex++;
+      }
       if (node.tagName === 'repeat') {
         const inner = [];
-        this.collectChildTasks(node.children || [], inner);
+        this.collectChildTasks(node.children || [], inner, path);
         const count = node.attrs?.count ? parseInt(node.attrs.count, 10) : LISTEXT_CONSTANTS.DEFAULT_REPEAT_COUNT;
         for (let i = 0; i < count; i++) tasks.push(...inner);
         continue;
       }
       const task = this.createTaskForNode(node);
-      if (task) tasks.push(task);
-      if (node.children?.length) this.collectChildTasks(node.children, tasks);
+      if (task) {
+        if (path != null) task.path = path;
+        tasks.push(task);
+      }
+      // 非 repeat 节点的子节点不渲染为独立积木，不分配路径
+      if (node.children?.length) this.collectChildTasks(node.children, tasks, null);
     }
   }
 
@@ -156,29 +179,32 @@ class PlayQueue {
 
     if (this.isPlaying) this.stop();
 
+    const gen = ++this._playGen;
     await this.loadEffects();
+    if (gen !== this._playGen) return; // 等待期间已被新的播放/停止取代
     this.buildQueue(ast);
     this.isPlaying = true;
     this.isPaused = false;
 
-    this.executeQueue();
+    this.executeQueue(gen);
   }
 
-  async executeQueue() {
+  async executeQueue(gen) {
     while (this.currentIndex < this.queue.length && this.isPlaying) {
+      if (gen !== this._playGen) return; // 旧队列立即退出，不触发 onComplete
       if (this.isPaused) await this.waitForResume();
       const task = this.queue[this.currentIndex];
 
       if (this.onProgress) this.onProgress({ current: this.currentIndex, total: this.queue.length, task });
-      if (this.onBlockHighlight) this.onBlockHighlight(task.node, true);
+      if (this.onBlockHighlight) this.onBlockHighlight(task.node, true, task);
 
       try {
-        await this.executeTask(task);
+        await this.executeTask(task, gen);
       } catch (error) {
         if (this.onError) this.onError(error, task);
       }
 
-      if (this.onBlockHighlight) this.onBlockHighlight(task.node, false);
+      if (this.onBlockHighlight) this.onBlockHighlight(task.node, false, task);
       this.currentIndex++;
     }
 
@@ -186,29 +212,32 @@ class PlayQueue {
     if (this.onComplete) this.onComplete();
   }
 
-  async executeTask(task) {
-    if (task.type === 'tts') await this.playTTS(task);
+  async executeTask(task, gen) {
+    if (task.type === 'tts') await this.playTTS(task, gen);
     else if (task.type === 'silence') await this.playSilence(task);
     else if (task.type === 'effect') await this.playEffect(task);
   }
 
-  async playTTS(task) {
+  async playTTS(task, gen) {
     if (task.ttsType === 'edge' && window.electronAPI) {
       const ratePercent = this.convertRateToEdge(task.rate || 1.0);
       const voiceName = this.resolveVoice(task);
       try {
         const res = await window.electronAPI.synthesizeTTS(task.text, voiceName, ratePercent);
+        if (gen !== this._playGen || !this.isPlaying) return; // 停止/新播放后丢弃迟到结果，不再开播
         if (res?.success && res.path) {
           await new Promise((resolve, reject) => {
             const audio = new Audio();
             this.currentAudio = audio;
+            this.activeAudios.add(audio);
             audio.src = this.toFileUrl(res.path);
             let settled = false;
             const finish = (isError, e) => {
               if (settled) return;
               settled = true;
               if (this._ttsSettle === onStop) this._ttsSettle = null;
-              this.currentAudio = null;
+              if (this.currentAudio === audio) this.currentAudio = null;
+              this.activeAudios.delete(audio);
               if (!isError || !this.isPlaying) resolve();
               else reject(e);
             };
@@ -221,10 +250,17 @@ class PlayQueue {
           });
           return;
         }
-        throw new Error(res?.error || 'EdgeTTS 合成失败');
+        const err = new Error(res?.error || 'EdgeTTS 合成失败');
+        if (res?.network) err.network = true;
+        throw err;
       } catch (error) {
         if (!this.isPlaying) return;
-        if (this.onTtsError) this.onTtsError('EdgeTTS 合成失败: ' + (error.message || error));
+        const msg = error?.message || String(error);
+        if (error.network || /网络/.test(msg)) {
+          if (this.onTtsError) this.onTtsError('网络连接失败：EdgeTTS 无法连接服务器，请检查网络后稍后重试');
+        } else if (this.onTtsError) {
+          this.onTtsError('EdgeTTS 合成失败: ' + msg);
+        }
       }
       return;
     }
@@ -276,11 +312,13 @@ class PlayQueue {
       }
 
       const audio = new Audio();
+      this.activeAudios.add(audio);
       audio.src = this.toFileUrl(effectPath);
       let resolved = false;
       const done = () => {
         if (!resolved) {
           resolved = true;
+          this.activeAudios.delete(audio);
           if (this.currentEffectAudio === audio) {
             this.currentEffectAudio = null;
           }
@@ -349,26 +387,22 @@ class PlayQueue {
     if (this.isPlaying) {
       this.isPaused = true;
       this.ttsEngine.pause();
-      if (this.currentAudio) this.currentAudio.pause();
-      if (this.currentEffectAudio) this.currentEffectAudio.pause();
+      for (const audio of this.activeAudios) { try { audio.pause(); } catch {} }
     }
   }
 
   stop() {
+    this._playGen++; // 使所有挂起的播放会话（await 中的 TTS 等）作废
     this.isPlaying = false;
     this.isPaused = false;
     this.currentIndex = 0;
     this.ttsEngine.stop();
-    if (this.currentAudio) {
-      this.currentAudio.pause();
-      this.currentAudio.currentTime = 0;
-      this.currentAudio = null;
+    for (const audio of this.activeAudios) {
+      try { audio.pause(); audio.currentTime = 0; } catch {}
     }
-    if (this.currentEffectAudio) {
-      this.currentEffectAudio.pause();
-      this.currentEffectAudio.currentTime = 0;
-      this.currentEffectAudio = null;
-    }
+    this.activeAudios.clear();
+    this.currentAudio = null;
+    this.currentEffectAudio = null;
     if (this.effectFadeTimer) {
       clearInterval(this.effectFadeTimer);
       this.effectFadeTimer = null;
@@ -385,8 +419,7 @@ class PlayQueue {
     if (this.isPaused && this.isPlaying) {
       this.isPaused = false;
       this.ttsEngine.resume();
-      if (this.currentAudio) this.currentAudio.play();
-      if (this.currentEffectAudio) this.currentEffectAudio.play().catch(() => {});
+      for (const audio of this.activeAudios) audio.play().catch(() => {});
     }
   }
 

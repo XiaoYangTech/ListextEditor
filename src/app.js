@@ -267,6 +267,11 @@ class ListextEditor {
     if (mode === 'block') {
       this.codeEditor.hideSuggestions();
       this.uiManager.refreshSectionJump();
+      // 播放中切回积木模式：DOM 已整树重建，立即按结构路径恢复当前块高亮
+      if (this.playQueue?.isPlaying) {
+        const task = this.playQueue.queue[this.playQueue.currentIndex];
+        if (task?.node) this.ttsRenderer?.highlightCurrentBlock(task.node, true, task);
+      }
     } else if (mode === 'split') {
       this.codeEditor.hideSuggestions();
       this.uiManager.refreshSectionJump();

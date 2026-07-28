@@ -149,7 +149,23 @@ class ExportHandler {
     document.getElementById('exportProgressText').textContent = '准备中...';
     document.getElementById('exportProgressFill').style.width = '0%';
     document.getElementById('exportProgressPercent').textContent = '0%';
+    const log = document.getElementById('exportProgressLog');
+    if (log) log.innerHTML = '';
     dlg.classList.add('active');
+  }
+
+  _logProgress(msg) {
+    const log = document.getElementById('exportProgressLog');
+    if (!log) return;
+    const line = document.createElement('div');
+    line.textContent = msg;
+    log.appendChild(line);
+    while (log.children.length > 50) log.removeChild(log.firstChild);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  _sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   _updateProgress(percent, text) {
@@ -233,11 +249,29 @@ class ExportHandler {
         if (task.type === 'tts') {
           const voice = effectiveQueue.resolveVoice(task) || LISTEXT_CONSTANTS.DEFAULT_EDGE_VOICE;
           const rate = effectiveQueue.convertRateToEdge(task.rate || 1.0);
-          const res = await api.synthesizeTTS(task.text || '', voice, rate);
-          if (!res?.success || !res.path) {
+          const preview = (task.text || '').slice(0, 10);
+          this._logProgress(`[${i + 1}/${totalTasks}] 合成中："${preview}…"`);
+          let res = null;
+          const maxAttempts = 3;
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            if (attempt > 1) {
+              this._updateProgress(taskPct, `正在处理任务 ${i + 1}/${totalTasks}（第 ${attempt}/${maxAttempts} 次重试）...`);
+            }
+            res = await api.synthesizeTTS(task.text || '', voice, rate);
+            if (res?.success && res.path) break;
+            const reason = res?.error || '未知原因';
+            const isNetwork = !!res?.network || /网络/.test(reason);
+            this._logProgress(`[${i + 1}/${totalTasks}] 第 ${attempt} 次尝试失败：${reason}`);
+            if (attempt < maxAttempts && isNetwork) {
+              this._logProgress(`[${i + 1}/${totalTasks}] 2 秒后重试…`);
+              await this._sleep(2000);
+              continue;
+            }
+            // 非网络错误或重试已用尽：立即中止整个导出
             this._hideProgress();
             await api.cleanupTemp?.();
-            window.app?.uiManager?.showInfoDialog?.('错误', '导出失败：TTS 合成失败');
+            window.app?.uiManager?.showInfoDialog?.('错误',
+              `第 ${i + 1} 条语音（"${preview}…"）合成失败：${reason}，导出已取消`);
             return;
           }
           segments.push({ type: 'file', path: res.path });

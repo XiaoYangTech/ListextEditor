@@ -257,6 +257,23 @@ class BlockRenderer {
     this.recordHistory();
   }
 
+  // 按结构路径（如 "2.0.1"）定位积木：顶层 .block 按序数取，嵌套逐层下钻 .repeat-drop-zone
+  getBlockByPath(path) {
+    if (path == null || !this.container) return null;
+    const parts = String(path).split('.');
+    let scope = this.container;
+    let block = null;
+    for (let i = 0; i < parts.length; i++) {
+      const idx = parseInt(parts[i], 10);
+      if (Number.isNaN(idx) || !scope) return null;
+      const blocks = Array.from(scope.children).filter(el => el.classList?.contains('block'));
+      block = blocks[idx] || null;
+      if (!block) return null;
+      if (i < parts.length - 1) scope = block.querySelector(':scope > .repeat-drop-zone');
+    }
+    return block;
+  }
+
   clear() {
     this.container.innerHTML = '';
     this.showEmptyState();
@@ -453,6 +470,22 @@ class BlockRenderer {
     return block;
   }
 
+  // 计算积木当前的结构路径（与 getBlockByPath 互逆），供单块/从某处播放预设 node.path
+  getBlockPath(block) {
+    const parts = [];
+    let el = block;
+    while (el?.classList?.contains('block')) {
+      const scope = el.parentElement;
+      if (!scope) return null;
+      const blocks = Array.from(scope.children).filter(c => c.classList?.contains('block'));
+      const idx = blocks.indexOf(el);
+      if (idx < 0) return null;
+      parts.unshift(String(idx));
+      el = scope.classList?.contains('repeat-drop-zone') ? scope.closest('.block') : null;
+    }
+    return parts.join('.');
+  }
+
   attachBlockEvents(block, textarea = null, editType = null) {
     block.setAttribute('draggable', 'false');
 
@@ -487,6 +520,7 @@ class BlockRenderer {
         if (app && app.ttsRenderer) {
           const nodeData = this.blockToNode(block);
           if (nodeData) {
+            nodeData.path = this.getBlockPath(block);
             const ast = [nodeData];
             app.playQueue.stop();
             app.playQueue.play(ast);
@@ -505,7 +539,11 @@ class BlockRenderer {
           const allBlocks = this.collectAllBlocks();
           const idx = allBlocks.indexOf(block);
           if (idx >= 0) {
-            const nodes = allBlocks.slice(idx).map(b => this.blockToNode(b)).filter(Boolean);
+            const nodes = allBlocks.slice(idx).map(b => {
+              const n = this.blockToNode(b);
+              if (n) n.path = this.getBlockPath(b);
+              return n;
+            }).filter(Boolean);
             if (nodes.length) {
               app.playQueue.stop();
               app.playQueue.play(nodes);
@@ -668,7 +706,7 @@ class BlockRenderer {
     const btn = document.createElement('button');
     btn.className = 'block-action-btn btn-move-out';
     btn.title = '移出重复块';
-    btn.innerHTML = '<span class="material-icons">outdent</span>';
+    btn.innerHTML = '<span class="material-icons">format_indent_decrease</span>';
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const repeatContent = block.parentElement;
