@@ -103,7 +103,7 @@ class ExportHandler {
       }
       if (dirInput) dirInput.value = this.exportDir || '';
       if (info) info.textContent = '';
-      if (warn) warn.style.display = window.entitlement?.isUnlocked() ? 'none' : 'block';
+      if (warn) warn.style.display = window.entitlement?.isPro ? 'none' : 'block';
       dialog.classList.add('active');
     });
   }
@@ -313,7 +313,10 @@ class ExportHandler {
       if (typeof api.composeMp3 !== 'function') { this._hideProgress(); window.app?.uiManager?.showInfoDialog?.('错误', '导出失败：composeMp3 不可用'); return; }
 
       this._updateProgress(80, '正在合成 MP3...');
-      const skipWatermark = window.entitlement?.isUnlocked();
+      // 仅真正的付费会员去水印；free_display 等免费体验仍带水印。
+      // 先刷新一次权益，避免云端刚降级后本地仍按旧缓存跳过水印
+      await window.entitlement?.refresh();
+      const skipWatermark = window.entitlement?.isPro === true;
       const result = await api.composeMp3(targetPath, segments, skipWatermark);
       await api.cleanupTemp?.();
 

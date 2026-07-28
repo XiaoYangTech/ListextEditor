@@ -51,6 +51,18 @@ class AuthManager {
     await window.entitlement?.refresh();
     this.updateAccountUI();
     this.bindEvents();
+
+    // 云端改订阅后客户端要及时跟进：窗口聚焦 + 每 2 分钟刷新权益与账户 UI
+    window.addEventListener('focus', () => this.refreshEntitlementUI());
+    this._entTimer = setInterval(() => this.refreshEntitlementUI(), 2 * 60 * 1000);
+  }
+
+  async refreshEntitlementUI() {
+    try {
+      await window.entitlement?.refresh();
+      await this.refreshProfile();
+      this.updateAccountUI();
+    } catch {}
   }
 
   bindEvents() {
