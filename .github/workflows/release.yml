@@ -17,6 +17,8 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          # 本 job 不 checkout，gh 没有 git 仓库可推断，必须显式指定仓库
+          GH_REPO: ${{ github.repository }}
         # 打 tag 即自动建同名 Release，标题就是版本号（vx.x.x）；已存在则跳过
         run: gh release create ${{ github.ref_name }} --title ${{ github.ref_name }} --generate-notes || gh release view ${{ github.ref_name }} > /dev/null
 
