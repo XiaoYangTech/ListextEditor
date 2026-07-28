@@ -137,7 +137,7 @@ jobs:
               --target-username cnb \
               --target-token "$CNB_TOKEN" \
               --tag "$TAG" \
-              --file "$f"; do
+              --files "$f"; do
               n=$((n+1))
               if [ "$n" -ge 3 ]; then
                 echo "::error::上传 $f 到 CNB 失败（已重试 3 次）"
