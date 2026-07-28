@@ -87,8 +87,9 @@ jobs:
         run: |
           gh release upload ${{ github.ref_name }} dist/*.dmg --clobber
 
-  # 三个平台全部传完 GitHub 后，用 CNB 官方 gsync 工具把整条 Release（元数据+附件）
-  # 一次性同步到 CNB，避免手写 CNB 两段式上传 API（asset-upload-url + PUT + confirm）
+  # 三个平台全部传完 GitHub 后，用 CNB 官方 gsync 工具同步 Release 到 CNB：
+  # 先 create 建 Release，再 download 拉回附件、逐文件 upload（一次整批上传会被 CNB
+  # 限制导致附件同步不全，故单文件上传并带重试）
   # 注意：CNB 仓库路径与 GitHub 不同（InspireWorks/ListextEditor）
   sync-cnb:
     needs: [build-windows, build-linux, build-macos]
@@ -117,12 +118,32 @@ jobs:
           CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
+          set -e
           export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
-          gsync releases sync \
+          TAG=${{ github.ref_name }}
+          DL_DIR=/tmp/release-assets
+          rm -rf "$DL_DIR" && mkdir -p "$DL_DIR" && cd "$DL_DIR"
+          # 先把 GitHub Release 的附件整体下载到本地
+          gsync releases download \
             --source-repo https://github.com/XiaoYangTech/ListextEditor.git \
             --source-username github-actions \
             --source-token "$GITHUB_TOKEN" \
-            --target-repo https://cnb.cool/InspireWorks/ListextEditor.git \
-            --target-username cnb \
-            --target-token "$CNB_TOKEN" \
-            --tags ${{ github.ref_name }}
+            --tag "$TAG"
+          # 逐文件上传到 CNB：一次一批会被 CNB 限制导致同步不全，单文件上传并失败重试 3 次
+          find . -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" \) | while read -r f; do
+            n=0
+            until gsync releases upload \
+              --target-repo https://cnb.cool/InspireWorks/ListextEditor.git \
+              --target-username cnb \
+              --target-token "$CNB_TOKEN" \
+              --tag "$TAG" \
+              --file "$f"; do
+              n=$((n+1))
+              if [ "$n" -ge 3 ]; then
+                echo "::error::上传 $f 到 CNB 失败（已重试 3 次）"
+                exit 1
+              fi
+              echo "上传 $f 失败，10 秒后重试（第 $n 次）"
+              sleep 10
+            done
+          done
