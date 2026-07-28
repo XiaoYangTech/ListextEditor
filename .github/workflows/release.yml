@@ -17,7 +17,7 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create ${{ github.ref_name }} --generate-notes || true
+        run: gh release create ${{ github.ref_name }} --generate-notes || gh release view ${{ github.ref_name }} > /dev/null
 
   build-windows:
     needs: create-release
@@ -147,3 +147,19 @@ jobs:
               sleep 10
             done
           done
+      # gsync 只在创建 Release 时写入描述，Release 已存在时不会更新，
+      # 所以标题/正文单独走 CNB API（PATCH /-/releases/{id}）同步
+      - name: Sync Release description to CNB
+        env:
+          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=${{ github.ref_name }}
+          INFO=$(gh release view "$TAG" --json name,body)
+          RID=$(curl -sf -H "Authorization: token $CNB_TOKEN" \
+            "https://api.cnb.cool/InspireWorks/ListextEditor/-/releases/tags/$TAG" | jq -r .id)
+          echo "$INFO" | jq -c '{name: .name, body: .body}' | curl -sf -X PATCH \
+            -H "Authorization: token $CNB_TOKEN" -H "Content-Type: application/json" \
+            --data-binary @- \
+            "https://api.cnb.cool/InspireWorks/ListextEditor/-/releases/$RID"
+          echo "CNB Release 标题与正文已同步"
