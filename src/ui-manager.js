@@ -33,7 +33,7 @@ class UIManager {
     this.loadShortcuts().then(() => this.initKeyboardShortcuts());
 
     if (window.electronAPI?.onCheckUpdate) {
-      window.electronAPI.onCheckUpdate(() => this.checkForUpdates());
+      window.electronAPI.onCheckUpdate(() => this.checkForUpdates(true));
     }
 
     if (window.electronAPI?.onToolbarAlignChanged) {
@@ -665,19 +665,26 @@ class UIManager {
     return false;
   }
 
-  async checkForUpdates() {
+  async checkForUpdates(manual = false) {
     if (!window.electronAPI?.checkUpdate || !window.electronAPI?.getAppInfo) return;
     try {
       const [updateInfo, appInfo] = await Promise.all([
         window.electronAPI.checkUpdate(),
         window.electronAPI.getAppInfo()
       ]);
-      if (!updateInfo || !updateInfo.latest_version) return;
+      const current = appInfo?.version ? `v${appInfo.version}` : '';
+      if (!updateInfo || !updateInfo.latest_version) {
+        if (manual) this.showInfoDialog('检查更新', `当前已是最新版本${current ? `（${current}）` : ''}`);
+        return;
+      }
       if (this.isNewerVersion(updateInfo.latest_version, appInfo?.version)) {
         this.showUpdateDialog(updateInfo, appInfo);
+      } else if (manual) {
+        this.showInfoDialog('检查更新', `当前已是最新版本${current ? `（${current}）` : ''}`);
       }
     } catch (e) {
       console.error('检查更新失败:', e);
+      if (manual) this.showInfoDialog('检查更新', '检查更新失败，请检查网络连接后重试');
     }
   }
 
