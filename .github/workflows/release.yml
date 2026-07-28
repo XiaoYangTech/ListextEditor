@@ -156,6 +156,8 @@ jobs:
         env:
           CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
           GH_TOKEN: ${{ github.token }}
+          # 本 job 不 checkout，gh 需要显式指定仓库
+          GH_REPO: ${{ github.repository }}
         run: |
           TAG=${{ github.ref_name }}
           INFO=$(gh release view "$TAG" --json name,body)
