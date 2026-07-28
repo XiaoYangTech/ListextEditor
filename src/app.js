@@ -60,6 +60,8 @@ class ListextEditor {
   initBlockRenderer() {
     this.renderer = new BlockRenderer(this.uiManager.blockContainer, this.parser);
     this._baseBlockChangeHandler = () => {
+      // 播放中积木被编辑/移动/删除 → 停止播放，避免按旧结构继续出声
+      if (this.playQueue?.isPlaying) this.ttsRenderer?.stopPlay();
       this.fileManager.markUnsaved();
       this.uiManager.refreshSectionJump();
     };
