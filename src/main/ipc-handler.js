@@ -230,6 +230,21 @@ function openProjectPackage(filePath, buffer) {
     }
   } catch { /* 忽略清理失败 */ }
 
+  // 清理 30 天未使用的工程音效解压目录（重开工程会重新解压，自愈合）
+  try {
+    const psRoot = path.join(app.getPath('userData'), 'project-sounds');
+    if (fs.existsSync(psRoot)) {
+      const now = Date.now();
+      for (const d of fs.readdirSync(psRoot)) {
+        const p = path.join(psRoot, d);
+        try {
+          const st = fs.statSync(p);
+          if (now - st.mtimeMs > 30 * 24 * 3600 * 1000) fs.rmSync(p, { recursive: true, force: true });
+        } catch { /* 忽略单目录清理失败 */ }
+      }
+    }
+  } catch { /* 忽略清理失败 */ }
+
   const soundEntries = zip.getEntries().filter(e => e.entryName.startsWith('sounds/') && !e.isDirectory);
   // 解压到 userData/project-sounds/<工程路径哈希>/：稳定目录，不受 24h 临时清理影响；
   // 同工程重复打开=清空重建，无残留泄漏
