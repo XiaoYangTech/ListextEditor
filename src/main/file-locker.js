@@ -31,11 +31,19 @@ class FileLocker {
     this._locks = new Map();
   }
 
+  // 锁 key 规范化：resolve + NFC，win32/darwin 忽略大小写，
+  // 同一文件的不同路径形式（大小写/分隔符/NFC-NFD）映射到同一把锁
+  _key(filePath) {
+    let k = path.resolve(filePath).normalize('NFC');
+    if (process.platform === 'win32' || process.platform === 'darwin') k = k.toLowerCase();
+    return k;
+  }
+
   lock(filePath) {
     if (!filePath || typeof filePath !== 'string') return null;
-    filePath = path.resolve(filePath);
+    const key = this._key(filePath);
 
-    if (this._locks.has(filePath)) return true;
+    if (this._locks.has(key)) return true;
     if (!fs.existsSync(filePath)) return null;
     // 原生模块不可用时降级为无锁模式，而不是误报"被占用"
     if (!fsExt) return null;
@@ -45,20 +53,21 @@ class FileLocker {
       fd = fs.openSync(filePath, 'r+');
       if (!fsExt.tryLock(fd)) {
         fs.closeSync(fd);
-        return false;
+        return false; // 只有明确被别的进程/句柄锁住才报"被占用"
       }
-      this._locks.set(filePath, fd);
+      this._locks.set(key, fd);
       return true;
     } catch (e) {
+      // EPERM/EACCES 等异常不能伪装成"被占用"，降级为无锁模式让后续报出真实错误
+      console.warn('文件锁定失败，降级为无锁模式:', filePath, e.message);
       if (fd != null) { try { fs.closeSync(fd); } catch {} }
-      return false;
+      return null;
     }
   }
 
   unlock(filePath) {
     if (!filePath) return;
-    filePath = path.resolve(filePath);
-    const fd = this._locks.get(filePath);
+    const fd = this._locks.get(this._key(filePath));
     if (fd == null) return;
 
     try {
@@ -73,13 +82,13 @@ class FileLocker {
       console.error('关闭文件描述符失败:', filePath, e);
     }
 
-    this._locks.delete(filePath);
+    this._locks.delete(this._key(filePath));
   }
 
   // 通过持有锁的 fd 读取文件内容（Windows 排他锁会拒绝经其他句柄读写，包括本进程）
   readLocked(filePath) {
     if (!filePath) return null;
-    const fd = this._locks.get(path.resolve(filePath));
+    const fd = this._locks.get(this._key(filePath));
     if (fd == null) return null;
     try {
       const size = fs.fstatSync(fd).size;
@@ -95,7 +104,7 @@ class FileLocker {
   // 通过持有锁的 fd 覆盖写入文件内容
   writeLocked(filePath, buf) {
     if (!filePath || !Buffer.isBuffer(buf)) return false;
-    const fd = this._locks.get(path.resolve(filePath));
+    const fd = this._locks.get(this._key(filePath));
     if (fd == null) return false;
     try {
       fs.ftruncateSync(fd, 0);
@@ -109,7 +118,7 @@ class FileLocker {
 
   isLocked(filePath) {
     if (!filePath) return false;
-    return this._locks.has(path.resolve(filePath));
+    return this._locks.has(this._key(filePath));
   }
 
   unlockAll() {

@@ -170,6 +170,24 @@ class FileManager {
 
   async openProjectByPath(filePath) {
     if (!filePath || !this.api?.openProjectFile) return false;
+    const tm = this.app.tabManager;
+    const key = tm?.pathKey?.(filePath) || filePath;
+    // 已在标签中打开则直接切换；同路径打开在飞则忽略，防双击/连点造成双开竞态
+    if (tm) {
+      const existing = tm.tabs.find(t => t.filePath && tm.pathKey(t.filePath) === key);
+      if (existing) { tm.activateTab(existing.id); return true; }
+    }
+    if (!this._openingPaths) this._openingPaths = new Set();
+    if (this._openingPaths.has(key)) return false;
+    this._openingPaths.add(key);
+    try {
+      return await this._openProjectByPathInner(filePath);
+    } finally {
+      this._openingPaths.delete(key);
+    }
+  }
+
+  async _openProjectByPathInner(filePath) {
     const result = await this.api.openProjectFile(filePath);
 
     if (!result?.success) {

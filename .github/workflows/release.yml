@@ -53,6 +53,13 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # ffmpeg-static 按安装时架构下载二进制，x64 runner 上需要换成 arm64 版再打包
+      - name: Reinstall ffmpeg-static for arm64
+        if: matrix.arch == 'arm64'
+        run: |
+          cd node_modules/ffmpeg-static
+          npm_config_arch=arm64 npm_config_platform=linux node install.js
+          file ffmpeg
       - name: Install ARM64 tools (if needed)
         if: matrix.arch == 'arm64'
         run: |
@@ -73,6 +80,7 @@ jobs:
             [ -f "$file" ] && gh release upload ${{ github.ref_name }} "$file" --clobber
           done
 
+  # 只出 Apple Silicon 包（arm64），不再提供 Intel 版
   build-macos:
     needs: create-release
     runs-on: macos-latest
@@ -83,7 +91,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run build:mac
+      - run: npm run build:mac:arm64
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

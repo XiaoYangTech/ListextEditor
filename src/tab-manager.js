@@ -298,11 +298,22 @@ class TabManager {
       ${downloadBtn}`;
   }
 
+  // 路径规范化 key：统一分隔符、去尾斜杠、NFC，win32/darwin 忽略大小写
+  // （macOS 对话框可能给 NFC/NFD 不同形式，肉眼一样字节不同，精确匹配去重拦不住）
+  pathKey(p) {
+    if (!p) return '';
+    let k = String(p).replace(/\\/g, '/').normalize('NFC').replace(/\/+$/, '');
+    const platform = window.electronAPI?.platform;
+    if (platform === 'win32' || platform === 'darwin') k = k.toLowerCase();
+    return k;
+  }
+
   recordRecentProject(filePath, title) {
     if (!filePath) return;
     try {
+      const key = this.pathKey(filePath);
       let list = JSON.parse(localStorage.getItem('recentProjects') || '[]');
-      list = list.filter(p => p.path !== filePath);
+      list = list.filter(p => this.pathKey(p.path) !== key);
       list.unshift({ path: filePath, title: title || filePath.split(/[/\\]/).pop(), time: Date.now() });
       if (list.length > 20) list = list.slice(0, 20);
       localStorage.setItem('recentProjects', JSON.stringify(list));
@@ -314,7 +325,20 @@ class TabManager {
     const el = document.getElementById('homeRecentList');
     if (!el) return;
     try {
-      const list = JSON.parse(localStorage.getItem('recentProjects') || '[]');
+      let list = JSON.parse(localStorage.getItem('recentProjects') || '[]');
+      // 渲染时按 key 再压一遍重复，清掉旧版本写入的存量重复项
+      const seen = new Set();
+      const deduped = [];
+      for (const p of list) {
+        const k = this.pathKey(p.path);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        deduped.push(p);
+      }
+      if (deduped.length !== list.length) {
+        list = deduped;
+        localStorage.setItem('recentProjects', JSON.stringify(list));
+      }
       if (!list.length) {
         el.innerHTML = '<div class="home-empty-hint">暂无最近工程，点击「新建工程」开始创作</div>';
         return;
@@ -351,8 +375,9 @@ class TabManager {
   }
 
   openRecentProject(filePath) {
-    // If already open, switch to its tab
-    const existing = this.tabs.find(t => t.filePath === filePath);
+    // If already open, switch to its tab（按规范化 key 匹配，容忍路径形式差异）
+    const key = this.pathKey(filePath);
+    const existing = this.tabs.find(t => t.filePath && this.pathKey(t.filePath) === key);
     if (existing) {
       this.activateTab(existing.id);
       return;
@@ -386,8 +411,9 @@ class TabManager {
       if (!action || action === 'cancel') { cleanup(); return; }
 
       try {
+        const key = this.pathKey(filePath);
         let list = JSON.parse(localStorage.getItem('recentProjects') || '[]');
-        list = list.filter(p => p.path !== filePath);
+        list = list.filter(p => this.pathKey(p.path) !== key);
         localStorage.setItem('recentProjects', JSON.stringify(list));
       } catch (e) { console.error('读取最近工程失败:', e); }
 
@@ -395,7 +421,8 @@ class TabManager {
         if (window.electronAPI?.deleteFile) {
           await window.electronAPI.deleteFile(filePath);
         }
-        const tab = this.tabs.find(t => t.filePath === filePath);
+        const key = this.pathKey(filePath);
+        const tab = this.tabs.find(t => t.filePath && this.pathKey(t.filePath) === key);
         if (tab) {
           tab.isDirty = false;
           this.closeTab(tab.id);

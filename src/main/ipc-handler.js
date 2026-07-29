@@ -258,10 +258,30 @@ function runFfmpeg(args) {
   return new Promise((resolve, reject) => {
     const ffmpegBin = ffmpegStatic || 'ffmpeg';
     execFile(ffmpegBin, args, { windowsHide: true }, (error, stdout, stderr) => {
-      if (error) reject(new Error(stderr || error.message));
-      else resolve({ stdout, stderr });
+      if (error) {
+        // ffmpeg 报错会把版本 banner 和编译配置全喷出来，只留最后几行有用信息
+        const lines = String(stderr || error.message || '').split('\n')
+          .map(l => l.trim()).filter(Boolean);
+        reject(new Error(lines.slice(-5).join('\n')));
+      } else {
+        resolve({ stdout, stderr });
+      }
     });
   });
+}
+
+// ffmpeg 是外部进程，读不了 asar 虚拟路径；asar 内的文件先落临时目录
+function stageIfInAsar(filePath, jobDir, index) {
+  if (!filePath || !filePath.includes('.asar')) return filePath;
+  try {
+    const data = fs.readFileSync(filePath);
+    const staged = path.join(jobDir, `staged_${index}${path.extname(filePath) || '.mp3'}`);
+    fs.writeFileSync(staged, data);
+    return staged;
+  } catch (e) {
+    console.warn('[导出] asar 内文件落盘失败，按原路径尝试:', filePath, e.message);
+    return filePath;
+  }
 }
 
 async function composeMp3(targetPath, segments, skipWatermark = false) {
@@ -285,7 +305,8 @@ async function composeMp3(targetPath, segments, skipWatermark = false) {
     }
 
     if (seg.type === 'file') {
-      const args = ['-y', '-i', seg.path];
+      const inputPath = stageIfInAsar(seg.path, jobDir, i);
+      const args = ['-y', '-i', inputPath];
       if (seg.maxDuration && Number(seg.maxDuration) > 0) args.push('-t', String(Number(seg.maxDuration)));
       if (seg.fadeDuration && Number(seg.fadeDuration) > 0 && seg.maxDuration && Number(seg.maxDuration) > 0) {
         const st = Math.max(0, Number(seg.maxDuration) - Number(seg.fadeDuration));
