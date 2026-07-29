@@ -535,14 +535,21 @@ class UIManager {
   }
 
   async _importLocalEffect() {
-    if (!window.electronAPI?.selectAudioFile) return;
+    if (!window.electronAPI?.selectAudioFile || !window.electronAPI?.importAudioFile) return;
     const filePath = await window.electronAPI.selectAudioFile();
     if (!filePath) return;
-    const parts = filePath.replace(/\\/g, '/').split('/');
+    // 复制到应用受控目录，源文件被删除/移动不影响工程
+    const res = await window.electronAPI.importAudioFile(filePath);
+    if (!res?.success) {
+      this.showInfoDialog?.('错误', '导入音效失败: ' + (res?.error || '未知错误'));
+      return;
+    }
+    const finalPath = res.path;
+    const parts = finalPath.replace(/\\/g, '/').split('/');
     const filename = parts[parts.length - 1];
-    const name = filename.replace(/\.[^.]+$/, '');
+    const name = filePath.replace(/\\/g, '/').split('/').pop().replace(/\.[^.]+$/, '');
     if (this._effectCustomEffects.some(e => e.id === name)) { this.showInfoDialog?.('提示', '音效ID已存在'); return; }
-    this._effectCustomEffects.push({ id: name, source: 'imported', filename, group: '用户音效', path: filePath });
+    this._effectCustomEffects.push({ id: name, source: 'imported', filename, group: '用户音效', path: finalPath });
     this._commitEffects();
     this._renderEffectList();
     this.app.updateStatus('已导入本地音效');

@@ -27,6 +27,7 @@ const { ensureDir } = require('./utils');
 const { openSettingsWindow } = require('./window-manager');
 const { getBuiltInDir, getBuiltInRoots, scanBuiltInSounds } = require('./sound-handler');
 const fileLocker = require('./file-locker');
+const crypto = require('crypto');
 
 const tempDir = path.join(app.getPath('temp'), 'listext-editor');
 
@@ -116,7 +117,22 @@ function saveProjectPackage(filePath, payload) {
     effects: projectEffects
   }, null, 2), 'utf-8'));
 
-  // 引用的全部音效（含内置音效）都打入 sounds/<fxId>/，保证工程自包含
+  // 引用的全部音效（含内置音效）都打入 sounds/<fxId>/，保证工程自包含。
+  // 旧工程包内已有副本而本次源文件缺失的，沿用旧副本，避免"保存即丢音效"
+  const oldSoundEntries = new Map();
+  if (fs.existsSync(safePath)) {
+    try {
+      const oldZip = new AdmZip(fileLocker.isLocked(safePath) ? fileLocker.readLocked(safePath) : safePath);
+      for (const e of oldZip.getEntries()) {
+        if (e.entryName.startsWith('sounds/') && !e.isDirectory) {
+          const parts = e.entryName.split('/');
+          const fxId = parts.length >= 3 ? parts[1] : null;
+          if (fxId && !oldSoundEntries.has(fxId)) oldSoundEntries.set(fxId, e);
+        }
+      }
+    } catch { /* 旧包读取失败则按无旧副本处理 */ }
+  }
+
   for (const fxId of usedFxIds) {
     const effect = projectEffects.find(e => e.id === fxId);
     if (!effect) continue;
@@ -126,6 +142,9 @@ function saveProjectPackage(filePath, payload) {
       const filename = path.basename(absPath);
       const buf = fs.readFileSync(absPath);
       zip.addFile(`sounds/${fxId}/${filename}`, buf);
+    } else if (oldSoundEntries.has(fxId)) {
+      const old = oldSoundEntries.get(fxId);
+      zip.addFile(old.entryName, old.getData());
     }
   }
 
@@ -138,7 +157,11 @@ function saveProjectPackage(filePath, payload) {
     }
     const absPath = resolveEffectPath(effect);
     if (!absPath || !fs.existsSync(absPath)) {
-      missingSounds.push(`音效 "${fxId}" 的文件 "${effect.filename || '未知'}" 在磁盘上不存在，保存后将无法播放`);
+      if (oldSoundEntries.has(fxId)) {
+        missingSounds.push(`音效 "${fxId}" 的源文件 "${effect.filename || '未知'}" 在磁盘上不存在，已保留工程内旧副本`);
+      } else {
+        missingSounds.push(`音效 "${fxId}" 的文件 "${effect.filename || '未知'}" 在磁盘上不存在，保存后将无法播放`);
+      }
     }
   }
 
@@ -208,7 +231,11 @@ function openProjectPackage(filePath, buffer) {
   } catch { /* 忽略清理失败 */ }
 
   const soundEntries = zip.getEntries().filter(e => e.entryName.startsWith('sounds/') && !e.isDirectory);
-  const projectTempDir = path.join(tempDir, 'project_' + Date.now());
+  // 解压到 userData/project-sounds/<工程路径哈希>/：稳定目录，不受 24h 临时清理影响；
+  // 同工程重复打开=清空重建，无残留泄漏
+  const projKey = crypto.createHash('sha1').update(String(filePath)).digest('hex').slice(0, 16);
+  const projectTempDir = path.join(app.getPath('userData'), 'project-sounds', projKey);
+  try { fs.rmSync(projectTempDir, { recursive: true, force: true }); } catch {}
   ensureDir(projectTempDir);
 
   for (const entry of soundEntries) {
@@ -507,6 +534,35 @@ function registerIpcHandlers() {
       properties: ['openFile']
     });
     return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0];
+  });
+
+  // 导入音效：复制到应用受控目录（userData/imported-sounds），源文件删/移不再影响工程
+  ipcMain.handle('import-audio-file', async (event, srcPath) => {
+    try {
+      if (!srcPath || typeof srcPath !== 'string' || !fs.existsSync(srcPath)) {
+        return { success: false, error: '文件不存在' };
+      }
+      const dir = path.join(app.getPath('userData'), 'imported-sounds');
+      ensureDir(dir);
+      const ext = path.extname(srcPath);
+      const base = path.basename(srcPath, ext);
+      let candidate = path.join(dir, base + ext);
+      // 内容一致的同名文件直接复用，否则加序号
+      let n = 1;
+      while (fs.existsSync(candidate)) {
+        try {
+          if (fs.readFileSync(candidate).equals(fs.readFileSync(srcPath))) {
+            return { success: true, path: candidate };
+          }
+        } catch {}
+        candidate = path.join(dir, `${base}-${n}${ext}`);
+        n++;
+      }
+      fs.copyFileSync(srcPath, candidate);
+      return { success: true, path: candidate };
+    } catch (e) {
+      return { success: false, error: e.message || '导入失败' };
+    }
   });
 
   const projectDataStore = { effects: [], roles: [] };
