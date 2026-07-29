@@ -230,7 +230,7 @@ function openProjectPackage(filePath, buffer) {
     }
   } catch { /* 忽略清理失败 */ }
 
-  // 清理 30 天未使用的工程音效解压目录（重开工程会重新解压，自愈合）
+  // 清理 7 天未使用的工程音效解压目录（重开工程会重新解压，自愈合）
   try {
     const psRoot = path.join(app.getPath('userData'), 'project-sounds');
     if (fs.existsSync(psRoot)) {
@@ -239,7 +239,7 @@ function openProjectPackage(filePath, buffer) {
         const p = path.join(psRoot, d);
         try {
           const st = fs.statSync(p);
-          if (now - st.mtimeMs > 30 * 24 * 3600 * 1000) fs.rmSync(p, { recursive: true, force: true });
+          if (now - st.mtimeMs > 7 * 24 * 3600 * 1000) fs.rmSync(p, { recursive: true, force: true });
         } catch { /* 忽略单目录清理失败 */ }
       }
     }
