@@ -26,6 +26,33 @@ const { DEFAULT_EDGE_VOICE } = require('./src/listext-constants');
 
 const tempDir = path.join(os.tmpdir(), 'listext-editor');
 
+// 手动代理时 EdgeTTS 的 WebSocket 也要走代理。
+// 注意一：LISTEXT_PROXY 设在主进程渲染进程读不到，须经 IPC 取设置。
+// 注意二：preload 里 window/document 存在，MsEdgeTTS 会把自己误判为浏览器环境
+// （_isBrowser=true 时它内部会丢弃 agent），必须把该标志拨回 false 才能让 agent 生效。
+function createMsEdgeTTS(agent) {
+  if (agent) {
+    const tts = new MsEdgeTTS({ agent });
+    tts._isBrowser = false; // 见上方注意二
+    return tts;
+  }
+  return new MsEdgeTTS();
+}
+
+async function getProxyAgent() {
+  try {
+    const settings = await ipcRenderer.invoke('get-settings');
+    const url = settings?.proxyMode === 'manual' ? (settings?.proxyUrl || '').trim() : '';
+    if (url) {
+      const { HttpsProxyAgent } = require('https-proxy-agent');
+      return new HttpsProxyAgent(url);
+    }
+  } catch (e) {
+    console.error('获取代理设置失败，按直连处理:', e.message);
+  }
+  return undefined;
+}
+
 async function synthesizeTTS(text, voice, rate = '+0%') {
   try {
     ensureDir(tempDir);
@@ -42,7 +69,7 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
 
     const outputPath = path.join(tempDir, `tts_${Date.now()}.mp3`);
 
-    const tts = new MsEdgeTTS();
+    const tts = createMsEdgeTTS(await getProxyAgent());
     await tts.setMetadata(rawVoice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
 
     const writeStream = fs.createWriteStream(outputPath);
@@ -91,9 +118,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   cleanupTemp: () => ipcRenderer.invoke('cleanup-temp'),
   listEdgeVoices: async () => {
     const maxRetries = 3;
+    const agent = await getProxyAgent();
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const tts = new MsEdgeTTS();
+        const tts = createMsEdgeTTS(agent);
         const voices = await tts.getVoices();
         const voiceList = voices.map(v => v.ShortName || v.Name).filter(Boolean);
         return { success: true, voices: voiceList };

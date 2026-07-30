@@ -194,7 +194,7 @@ class UIManager {
 
   initToolbar() {
     document.querySelectorAll('.add-block-btn[data-type]').forEach(btn => {
-      btn.addEventListener('click', (e) => this.handleAddBlock(btn.dataset.type, e.shiftKey));
+      btn.addEventListener('click', (e) => this.handleAddBlock(btn.dataset.type, e.shiftKey, e.altKey));
     });
 
     document.getElementById('btnRoleManager')?.addEventListener('click', () => this.openRoleManager());
@@ -231,7 +231,7 @@ class UIManager {
       sections.map((s, i) => `<option value="${this.escapeHtml(s.id)}">${i + 1}. ${this.escapeHtml(s.title)}</option>`).join('');
   }
 
-  handleAddBlock(type, insertBefore = false) {
+  handleAddBlock(type, insertBefore = false, forceDialog = false) {
     if (this.app.currentMode === 'code') {
       this.handleAddToCode(type);
       return;
@@ -240,6 +240,14 @@ class UIManager {
 
     const opts = { insertBefore };
     if (type === 'pause') {
+      const rememberedPause = this._getSessionDefaults('pause');
+      if (rememberedPause && !forceDialog) {
+        // 有会话记忆：不再弹窗，直接按记忆属性添加（Alt+点击可强制弹窗重设）
+        this.app.renderer.addBlock('pause', { ...opts, duration: rememberedPause.duration });
+        this.app.fileManager.markUnsaved();
+        this.refreshSectionJump();
+        return;
+      }
       this.showSilenceDialog((duration) => {
         this.app.renderer.addBlock('pause', { ...opts, duration });
         this.app.fileManager.markUnsaved();
@@ -248,6 +256,26 @@ class UIManager {
       return;
     }
     if (type === 'fx') {
+      const rememberedFx = this._getSessionDefaults('fx');
+      if (rememberedFx && !forceDialog) {
+        (async () => {
+          // 记忆的音效已被删除则清记忆并回退弹窗
+          const tabFx = window.app?.tabManager?.getActiveTab()?.effects || [];
+          let ok = tabFx.some(e => e.id === rememberedFx.effectId);
+          if (!ok && window.electronAPI?.listBuiltinSounds) {
+            try { ok = (await window.electronAPI.listBuiltinSounds() || []).some(b => b.id === rememberedFx.effectId); } catch {}
+          }
+          if (ok) {
+            this.app.renderer.addBlock('fx', { ...opts, effectId: rememberedFx.effectId, duration: rememberedFx.duration, fade: rememberedFx.fade });
+            this.app.fileManager.markUnsaved();
+            this.refreshSectionJump();
+          } else {
+            this._setSessionDefaults('fx', null);
+            this.handleAddBlock('fx', insertBefore, true);
+          }
+        })();
+        return;
+      }
       this.showEffectDialog((effectId, duration, fade) => {
         if (!effectId) {
           this.app.updateStatus('请先选择音效');
@@ -260,6 +288,16 @@ class UIManager {
       return;
     }
     if (type === 'say') {
+      const rememberedSay = this._getSessionDefaults('say');
+      if (rememberedSay && !forceDialog) {
+        const rolesNow = window.app?.tabManager?.getActiveTab()?.roles || [];
+        let roleId = rememberedSay.roleId || '';
+        if (roleId && !rolesNow.some(r => r.id === roleId)) roleId = ''; // 角色被删回落"不使用角色"
+        this.app.renderer.addBlock('say', { ...opts, roleId, rate: rememberedSay.rate || 1.0 });
+        this.app.fileManager.markUnsaved();
+        this.refreshSectionJump();
+        return;
+      }
       this.showSayAddDialog((roleId, rate) => {
         this.app.renderer.addBlock('say', { ...opts, roleId, rate });
         this.app.fileManager.markUnsaved();
@@ -377,7 +415,7 @@ class UIManager {
     this.app.renderer.openEditDialog('添加朗读块', `
       <div class="form-group"><label>角色（可选）</label><select id="addSayRole"><option value="">不使用角色（默认中文，其他语言可能不准确）</option>${roles.map(r => `<option value="${this.escapeHtml(r.id)}" ${r.id === defRole ? 'selected' : ''}>${this.escapeHtml(r.name)} (${this.escapeHtml(r.id)})</option>`).join('')}</select></div>
       <div class="form-group"><label>语速（0.5 - 2.0）</label><input id="addSayRate" type="number" min="0.5" max="2" step="0.1" value="${defRate}" /></div>
-      <div class="form-group" style="display:flex;align-items:center;gap:8px;"><input id="addSayRemember" type="checkbox" style="width:auto;" ${remembered ? 'checked' : ''} /><label for="addSayRemember" style="margin:0;">当前项目记住本属性（关闭窗口后失效）</label></div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px;"><input id="addSayRemember" type="checkbox" style="width:auto;" ${remembered ? 'checked' : ''} /><label for="addSayRemember" style="margin:0;">当前项目记住本属性（勾选后添加不再询问，Alt+点击添加可重新设置）</label></div>
     `, () => {
       const roleId = document.getElementById('addSayRole').value || '';
       let rate = parseFloat(document.getElementById('addSayRate').value);
@@ -939,32 +977,32 @@ class UIManager {
 
       if (this.matchShortcut(e, this.shortcuts.insertSay)) {
         e.preventDefault();
-        this.handleAddBlock('say', e.shiftKey);
+        this.handleAddBlock('say', e.shiftKey, e.altKey);
         return;
       }
       if (this.matchShortcut(e, this.shortcuts.insertPause)) {
         e.preventDefault();
-        this.handleAddBlock('pause', e.shiftKey);
+        this.handleAddBlock('pause', e.shiftKey, e.altKey);
         return;
       }
       if (this.matchShortcut(e, this.shortcuts.insertRepeat)) {
         e.preventDefault();
-        this.handleAddBlock('repeat', e.shiftKey);
+        this.handleAddBlock('repeat', e.shiftKey, e.altKey);
         return;
       }
       if (this.matchShortcut(e, this.shortcuts.insertSection)) {
         e.preventDefault();
-        this.handleAddBlock('section', e.shiftKey);
+        this.handleAddBlock('section', e.shiftKey, e.altKey);
         return;
       }
       if (this.matchShortcut(e, this.shortcuts.insertFx)) {
         e.preventDefault();
-        this.handleAddBlock('fx', e.shiftKey);
+        this.handleAddBlock('fx', e.shiftKey, e.altKey);
         return;
       }
       if (this.matchShortcut(e, this.shortcuts.insertDivider)) {
         e.preventDefault();
-        this.handleAddBlock('divider', e.shiftKey);
+        this.handleAddBlock('divider', e.shiftKey, e.altKey);
         return;
       }
 

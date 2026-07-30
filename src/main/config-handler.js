@@ -64,13 +64,19 @@ async function applyProxySettings(settings) {
   const mode = settings?.proxyMode || 'system';
   const url = (settings?.proxyUrl || '').trim();
   if (mode === 'manual' && url) {
-    process.env.HTTP_PROXY = url;
-    process.env.HTTPS_PROXY = url;
+    // 主进程 fetch（undici）走代理；session.setProxy 只影响 Chromium 侧；
+    // preload 的 EdgeTTS 经 get-settings 读取本设置
+    try {
+      const { ProxyAgent, setGlobalDispatcher } = require('undici');
+      setGlobalDispatcher(new ProxyAgent(url));
+    } catch (e) { console.error('设置全局代理失败:', e.message); }
     await session.defaultSession.setProxy({ proxyRules: url });
     return;
   }
-  delete process.env.HTTP_PROXY;
-  delete process.env.HTTPS_PROXY;
+  try {
+    const { Agent, setGlobalDispatcher } = require('undici');
+    setGlobalDispatcher(new Agent());
+  } catch (e) { console.error('恢复直连失败:', e.message); }
   if (mode === 'direct') {
     await session.defaultSession.setProxy({ mode: 'direct' });
   } else {
