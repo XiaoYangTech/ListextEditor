@@ -374,14 +374,15 @@ class UIManager {
       this._setSessionDefaults('say', { ...(remembered || {}), roleId: '' });
     }
     const defRate = remembered?.rate || 1.0;
-    const rateOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
     this.app.renderer.openEditDialog('添加朗读块', `
       <div class="form-group"><label>角色（可选）</label><select id="addSayRole"><option value="">不使用角色（默认中文，其他语言可能不准确）</option>${roles.map(r => `<option value="${this.escapeHtml(r.id)}" ${r.id === defRole ? 'selected' : ''}>${this.escapeHtml(r.name)} (${this.escapeHtml(r.id)})</option>`).join('')}</select></div>
-      <div class="form-group"><label>语速</label><select id="addSayRate">${rateOptions.map(v => `<option value="${v}" ${v === defRate ? 'selected' : ''}>${v}x</option>`).join('')}</select></div>
+      <div class="form-group"><label>语速（0.5 - 2.0）</label><input id="addSayRate" type="number" min="0.5" max="2" step="0.1" value="${defRate}" /></div>
       <div class="form-group" style="display:flex;align-items:center;gap:8px;"><input id="addSayRemember" type="checkbox" style="width:auto;" ${remembered ? 'checked' : ''} /><label for="addSayRemember" style="margin:0;">当前项目记住本属性（关闭窗口后失效）</label></div>
     `, () => {
       const roleId = document.getElementById('addSayRole').value || '';
-      const rate = parseFloat(document.getElementById('addSayRate').value) || 1.0;
+      let rate = parseFloat(document.getElementById('addSayRate').value);
+      if (isNaN(rate)) rate = 1.0;
+      rate = Math.min(2.0, Math.max(0.5, rate)); // clamp 到合法区间
       if (document.getElementById('addSayRemember').checked) {
         this._setSessionDefaults('say', { roleId, rate });
       } else {
