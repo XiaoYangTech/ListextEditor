@@ -421,7 +421,7 @@ async function composeMp3(targetPath, segments, skipWatermark = false) {
 function registerIpcHandlers() {
   ipcMain.handle('save-file', async (event, filePath, content, meta = {}) => {
     try { return saveProjectPackage(filePath, { content, ...meta }); }
-    catch (error) { return { success: false, error: error.message }; }
+    catch (error) { console.error('[IPC失败] save-file:', error.message); return { success: false, error: error.message }; }
   });
 
   ipcMain.handle('open-project-file', async (event, filePath) => {
@@ -437,9 +437,11 @@ function registerIpcHandlers() {
       const result = openProjectPackage(filePath, lockedBuf);
       // 打开失败时释放文件锁，避免同一文件后续被误报"已在其他标签页中打开"
       if (!result?.success && lockResult === true) fileLocker.unlock(filePath);
+      // 业务性失败（文件损坏/不存在等）也落日志
+      if (!result?.success) console.error('[打开工程失败]', filePath, result?.error);
       return result;
     }
-    catch (error) { return { success: false, error: error.message }; }
+    catch (error) { console.error('[IPC失败] open-project-file:', error.message); return { success: false, error: error.message }; }
   });
 
   ipcMain.handle('check-ffmpeg', async () => {
@@ -456,6 +458,7 @@ function registerIpcHandlers() {
       if (!targetPath || !Array.isArray(segments)) return { success: false, error: '参数不完整' };
       return await composeMp3(targetPath, segments, skipWatermark);
     } catch (error) {
+      console.error('[IPC失败] compose-mp3:', error.message);
       return { success: false, error: error.message };
     }
   });

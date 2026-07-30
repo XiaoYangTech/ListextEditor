@@ -683,6 +683,8 @@ class UIManager {
 
   showInfoDialog(title, message) {
     if (!this.infoDialog) return;
+    // 错误弹窗统一落日志，避免"用户看到了但日志里没有"
+    if (title === '错误') console.error('[错误弹窗]', message);
     this.infoDialogTitle.textContent = title || '提示';
     this.infoDialogBody.textContent = message || '';
     this.infoDialog.classList.add('active');

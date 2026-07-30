@@ -158,6 +158,9 @@ class ApiClient {
         this.stopHeartbeat();
         this.startPing();
         this.onAuthLost?.();
+      } else {
+        // API 业务失败统一落日志（登录失败、配额不足等过去都是静默返回）
+        console.warn('[API失败]', route, data.error?.code, data.error?.message || JSON.stringify(data.error || {}));
       }
     }
 
