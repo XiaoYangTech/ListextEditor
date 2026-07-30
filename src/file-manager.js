@@ -261,7 +261,7 @@ class FileManager {
       return await this.saveFileAs(tab.filePath);
     }
 
-    const filePath = await this.api?.selectProjectPath?.();
+    const filePath = await this.api?.selectProjectPath?.(tab.title);
     if (!filePath) return false;
     return await this.saveFileAs(filePath);
   }

@@ -94,7 +94,7 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
 contextBridge.exposeInMainWorld('electronAPI', {
   saveFile: (filePath, content, meta) => ipcRenderer.invoke('save-file', filePath, content, meta),
   openProjectFile: (filePath) => ipcRenderer.invoke('open-project-file', filePath),
-  selectProjectPath: () => ipcRenderer.invoke('select-project-path'),
+  selectProjectPath: (defaultName) => ipcRenderer.invoke('select-project-path', defaultName),
 
   onSaveAs: (callback) => ipcRenderer.on('menu-save-as', (event, filePath) => callback(filePath)),
   onMenuOpenProject: (callback) => ipcRenderer.on('menu-open-project', (event, filePath) => callback(filePath)),

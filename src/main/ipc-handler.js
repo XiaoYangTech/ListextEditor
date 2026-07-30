@@ -528,12 +528,13 @@ function registerIpcHandlers() {
     return result.canceled ? null : result.filePath;
   });
 
-  ipcMain.handle('select-project-path', async () => {
+  ipcMain.handle('select-project-path', async (event, defaultName) => {
     const { dialog, BrowserWindow } = require('electron');
     const win = BrowserWindow.getFocusedWindow();
     const result = await dialog.showSaveDialog(win, {
       filters: [{ name: 'Listext Project', extensions: ['lstx'] }],
-      defaultPath: 'untitled.lstx'
+      // 默认文件名跟随标签当前标题，避免与标题栏显示不一致
+      defaultPath: defaultName || 'untitled.lstx'
     });
     return result.canceled ? null : normalizeExt(result.filePath);
   });
