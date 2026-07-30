@@ -162,6 +162,8 @@ class ListextEditor {
         tab.roles = roles;
         if (changed) this.fileManager.markUnsaved();
       }
+      // 刷新朗读块头部属性显示（角色增删即时生效）
+      this.renderer?.refreshSayRoleOptions?.();
       if (this.codeEditor) {
         this.codeEditor.projectRoles = roles || [];
         if (this.currentMode !== 'block') {

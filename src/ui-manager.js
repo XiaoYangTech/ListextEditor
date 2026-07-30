@@ -259,6 +259,14 @@ class UIManager {
       });
       return;
     }
+    if (type === 'say') {
+      this.showSayAddDialog((roleId, rate) => {
+        this.app.renderer.addBlock('say', { ...opts, roleId, rate });
+        this.app.fileManager.markUnsaved();
+        this.refreshSectionJump();
+      });
+      return;
+    }
     if (type === 'repeat') {
       this.app.renderer.addBlock('repeat', opts);
     } else if (type === 'section') {
@@ -327,6 +335,9 @@ class UIManager {
       sConfirm.parentNode.replaceChild(newConfirm, sConfirm);
       newConfirm.addEventListener('click', () => {
         const duration = parseInt(sDuration?.value, 10) || LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION;
+        const rememberEl = document.getElementById('silenceRemember');
+        if (rememberEl?.checked) this._setSessionDefaults('pause', { duration });
+        else this._setSessionDefaults('pause', null);
         if (this.silenceCallback) this.silenceCallback(duration);
         silenceDialog.classList.remove('active');
       });
@@ -335,8 +346,49 @@ class UIManager {
 
   showSilenceDialog(callback) {
     this.silenceCallback = callback;
-    document.getElementById('silenceDuration').value = LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION;
+    const remembered = this._getSessionDefaults('pause');
+    document.getElementById('silenceDuration').value = remembered?.duration || LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION;
+    const rememberEl = document.getElementById('silenceRemember');
+    if (rememberEl) rememberEl.checked = !!remembered;
     document.getElementById('silenceDialog')?.classList.add('active');
+  }
+
+  // 会话级积木属性记忆（关闭窗口即失效，不落盘）
+  _getSessionDefaults(type) {
+    return this._sessionBlockDefaults?.[type] || null;
+  }
+
+  _setSessionDefaults(type, attrs) {
+    if (!this._sessionBlockDefaults) this._sessionBlockDefaults = {};
+    this._sessionBlockDefaults[type] = attrs;
+  }
+
+  // 添加朗读块时的属性选择对话框（与停顿/音效一致的体验）
+  showSayAddDialog(callback) {
+    const roles = window.app?.tabManager?.getActiveTab()?.roles || [];
+    const remembered = this._getSessionDefaults('say');
+    let defRole = remembered?.roleId || '';
+    // 记忆的角色被删 → 清掉该记忆，回落"不使用角色"
+    if (defRole && !roles.some(r => r.id === defRole)) {
+      defRole = '';
+      this._setSessionDefaults('say', { ...(remembered || {}), roleId: '' });
+    }
+    const defRate = remembered?.rate || 1.0;
+    const rateOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+    this.app.renderer.openEditDialog('添加朗读块', `
+      <div class="form-group"><label>角色（可选）</label><select id="addSayRole"><option value="">不使用角色（默认中文，其他语言可能不准确）</option>${roles.map(r => `<option value="${this.escapeHtml(r.id)}" ${r.id === defRole ? 'selected' : ''}>${this.escapeHtml(r.name)} (${this.escapeHtml(r.id)})</option>`).join('')}</select></div>
+      <div class="form-group"><label>语速</label><select id="addSayRate">${rateOptions.map(v => `<option value="${v}" ${v === defRate ? 'selected' : ''}>${v}x</option>`).join('')}</select></div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px;"><input id="addSayRemember" type="checkbox" style="width:auto;" ${remembered ? 'checked' : ''} /><label for="addSayRemember" style="margin:0;">当前项目记住本属性（关闭窗口后失效）</label></div>
+    `, () => {
+      const roleId = document.getElementById('addSayRole').value || '';
+      const rate = parseFloat(document.getElementById('addSayRate').value) || 1.0;
+      if (document.getElementById('addSayRemember').checked) {
+        this._setSessionDefaults('say', { roleId, rate });
+      } else {
+        this._setSessionDefaults('say', null);
+      }
+      callback(roleId, rate);
+    });
   }
 
   initEffectDialog() {
@@ -358,6 +410,9 @@ class UIManager {
       if (!this._selectedEffectId) { this.app.updateStatus('请先选择音效'); return; }
       const dur = parseInt(document.getElementById('effectDialogDuration')?.value, 10) || null;
       const fade = parseInt(document.getElementById('effectDialogFade')?.value, 10) || null;
+      const rememberEl = document.getElementById('effectRemember');
+      if (rememberEl?.checked) this._setSessionDefaults('fx', { effectId: this._selectedEffectId, duration: dur, fade });
+      else this._setSessionDefaults('fx', null);
 
       if (this._effectTab === 'builtin') {
         const builtin = this._effectBuiltinSounds.find(b => b.id === this._selectedEffectId);
@@ -402,9 +457,26 @@ class UIManager {
 
   async showEffectDialog(callback, preselectedId = null) {
     this._effectCallback = callback;
-    this._selectedEffectId = preselectedId;
+    // 会话记忆的音效属性预填（音效已不存在则只清记忆、不预选）
+    const remembered = this._getSessionDefaults('fx');
+    this._selectedEffectId = preselectedId || remembered?.effectId || null;
     this._previewingPath = null;
     this._stopPreview();
+    if (remembered) {
+      const durEl = document.getElementById('effectDialogDuration');
+      const fadeEl = document.getElementById('effectDialogFade');
+      const rememberEl = document.getElementById('effectRemember');
+      if (durEl) durEl.value = remembered.duration ?? '';
+      if (fadeEl) fadeEl.value = remembered.fade ?? '';
+      if (rememberEl) rememberEl.checked = true;
+    } else {
+      const durEl = document.getElementById('effectDialogDuration');
+      const fadeEl = document.getElementById('effectDialogFade');
+      const rememberEl = document.getElementById('effectRemember');
+      if (durEl) durEl.value = '';
+      if (fadeEl) fadeEl.value = '';
+      if (rememberEl) rememberEl.checked = false;
+    }
 
     if (window.electronAPI?.listBuiltinSounds) {
       try { this._effectBuiltinSounds = await window.electronAPI.listBuiltinSounds() || []; } catch { this._effectBuiltinSounds = []; }
@@ -659,6 +731,12 @@ class UIManager {
     if (this.updateVersionNew) this.updateVersionNew.textContent = latest_version || '';
     if (this.updateReleaseDate) this.updateReleaseDate.textContent = latest_release_date ? `发布日期: ${latest_release_date}` : '';
     if (this.updateChangelog) this.updateChangelog.textContent = latest_changelog || '暂无更新说明';
+    // 统信 UOS/深度（deepin）用户建议走系统自带应用商店更新
+    const storeHint = document.getElementById('updateStoreHint');
+    if (storeHint) {
+      const distro = appInfo?.distro || '';
+      storeHint.style.display = (appInfo?.platform === 'linux' && /uos|deepin/.test(distro)) ? '' : 'none';
+    }
     this.updateDialog.classList.add('active');
   }
 

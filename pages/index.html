@@ -197,7 +197,7 @@
   <div id="silenceDialog" class="dialog">
     <div class="dialog-content dialog-small">
       <div class="dialog-header"><h2>设置静音时长</h2><button class="dialog-close">&times;</button></div>
-      <div class="dialog-body"><div class="form-group"><label>时长（秒）</label><input type="number" id="silenceDuration" min="1" max="300" value="10"></div></div>
+      <div class="dialog-body"><div class="form-group"><label>时长（秒）</label><input type="number" id="silenceDuration" min="1" max="300" value="10"></div><div class="form-group" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="silenceRemember" style="width:auto;"><label for="silenceRemember" style="margin:0;">当前项目记住本属性（关闭窗口后失效）</label></div></div>
       <div class="dialog-footer"><button class="btn btn-cancel">取消</button><button class="btn btn-primary" id="silenceConfirm">确定</button></div>
     </div>
   </div>
@@ -226,6 +226,10 @@
             <label>淡出秒数（可选）</label>
             <input type="number" id="effectDialogFade" min="1" max="60" placeholder="无淡出">
           </div>
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+          <input type="checkbox" id="effectRemember" style="width:auto;">
+          <label for="effectRemember" style="margin:0;">当前项目记住本属性（关闭窗口后失效）</label>
         </div>
       </div>
       <div class="dialog-footer">
@@ -402,6 +406,7 @@
         </div>
         <p class="update-date" id="updateReleaseDate"></p>
         <div class="update-changelog-box" id="updateChangelog"></div>
+        <p id="updateStoreHint" style="display:none;margin-top:10px;font-size:13px;color:#1976d2;">建议使用系统自带应用商店更新本软件</p>
       </div>
       <div class="dialog-footer update-footer">
         <button class="btn btn-cancel" id="updateLaterBtn">稍后提醒</button>

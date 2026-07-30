@@ -418,6 +418,28 @@ body.toolbar-left .toolbar {
     opacity: 1;
   }
 
+/* 积木头部属性区（朗读块：角色 · 语速），超长跑马灯 */
+.block-attr {
+  flex: 1;
+  min-width: 0;
+  margin: 0 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--md-on-surface-variant);
+}
+.block-attr-text { display: inline-block; }
+.block-attr-marquee .block-attr-text {
+  animation: blockAttrMarquee 5s ease-in-out infinite alternate;
+}
+@keyframes blockAttrMarquee {
+  0%, 15% { transform: translateX(0); }
+  85%, 100% { transform: translateX(var(--attr-shift, 0px)); }
+}
+
+/* 标签拖拽排序反馈 */
+.tab-item.dragging { opacity: 0.5; }
+
 .block-content {
   padding: 12px 16px;
 }

@@ -195,48 +195,62 @@ class FileManager {
       return false;
     }
 
-    const normalized = await this.normalizeImportedRoles(result.roles || []);
-    const effects = result.effects || [];
-    let finalContent = result.content || '';
-    let finalRoles = normalized.roles;
+    // 主进程已对文件加锁：建标签之前的任何取消/异常都必须放锁，否则文件永久"被占用"
+    let tabCreated = false;
+    try {
+      const normalized = await this.normalizeImportedRoles(result.roles || []);
+      const effects = result.effects || [];
+      let finalContent = result.content || '';
+      let finalRoles = normalized.roles;
 
-    const isUnlocked = window.entitlement?.isUnlocked();
-    if (!isUnlocked && finalRoles.length > 3) {
-      const choice = await new Promise(resolve => {
-        window._roleReplaceDialog?.show(finalRoles, finalContent, resolve);
-      });
-      if (!choice) {
-        this.app.uiManager?.showInfoDialog?.('提示', '已取消导入：角色数超出免费版限制');
-        return false;
+      const isUnlocked = window.entitlement?.isUnlocked();
+      if (!isUnlocked && finalRoles.length > 3) {
+        const choice = await new Promise(resolve => {
+          window._roleReplaceDialog?.show(finalRoles, finalContent, resolve);
+        });
+        if (!choice) {
+          this.app.uiManager?.showInfoDialog?.('提示', '已取消导入：角色数超出免费版限制');
+          return false;
+        }
+        finalRoles = choice.roles;
+        finalContent = choice.content;
       }
-      finalRoles = choice.roles;
-      finalContent = choice.content;
+
+      // 标签标题永远以实际文件名为准（包内 title 是保存时的旧名，已废弃不再读取）
+      const title = filePath.split(/[/\\]/).pop();
+      if (this.app.tabManager) {
+        this.app.tabManager.createNewTab(title, finalContent, filePath, true, {
+          mode: result.mode,
+          roles: finalRoles,
+          effects: effects
+        });
+        tabCreated = true;
+      }
+
+      await this.api.setProjectEffects(effects);
+      await this.api.setProjectRoles(finalRoles);
+
+      const allNotes = [...normalized.notes, ...(result.warnings || [])];
+      this.app.uiManager?.refreshSectionJump?.();
+      this.app.tabManager?.recordRecentProject(filePath, title);
+
+      if (allNotes.length) {
+        this.app.uiManager?.showInfoDialog?.(
+          '工程导入提示',
+          allNotes.map(n => '• ' + n).join('\n')
+        );
+      }
+      this.app.updateStatus('项目已打开');
+      return true;
+    } catch (e) {
+      console.error('打开工程失败:', e);
+      this.app.uiManager?.showInfoDialog?.('错误', '打开失败: ' + (e.message || e));
+      return false;
+    } finally {
+      if (!tabCreated) {
+        try { await this.api?.releaseFileLock?.(filePath); } catch {}
+      }
     }
-
-    const title = result.title || filePath.split(/[/\\]/).pop();
-    if (this.app.tabManager) {
-      this.app.tabManager.createNewTab(title, finalContent, filePath, true, {
-        mode: result.mode,
-        roles: finalRoles,
-        effects: effects
-      });
-    }
-
-    await this.api.setProjectEffects(effects);
-    await this.api.setProjectRoles(finalRoles);
-
-    const allNotes = [...normalized.notes, ...(result.warnings || [])];
-    this.app.uiManager?.refreshSectionJump?.();
-    this.app.tabManager?.recordRecentProject(filePath, title);
-
-    if (allNotes.length) {
-      this.app.uiManager?.showInfoDialog?.(
-        '工程导入提示',
-        allNotes.map(n => '• ' + n).join('\n')
-      );
-    }
-    this.app.updateStatus('项目已打开');
-    return true;
   }
 
   async saveFile() {
@@ -260,7 +274,6 @@ class FileManager {
     const roles = tab.roles || [];
     const effects = tab.effects || [];
     const result = await this.api?.saveFile(filePath, content, {
-      title: tab.title,
       mode: this.app.currentMode,
       roles,
       effects

@@ -36,6 +36,18 @@ function normalizeExt(filePath) {
   return filePath.toLowerCase().endsWith('.lstx') ? filePath : `${filePath}.lstx`;
 }
 
+// linux 发行版 ID（/etc/os-release 的 ID 字段，小写），用于识别统信 UOS/深度等国产系统
+function getLinuxDistro() {
+  if (process.platform !== 'linux') return null;
+  try {
+    const text = fs.readFileSync('/etc/os-release', 'utf-8');
+    const m = text.match(/^ID=(.+)$/m);
+    return m ? m[1].trim().replace(/^["']|["']$/g, '').toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
 function parseFxIds(content) {
   const ids = new Set();
   const regex = /<fx\s+[^>]*id\s*=\s*["']([^"']+)["'][^>]*>/gi;
@@ -74,7 +86,6 @@ function saveProjectPackage(filePath, payload) {
   const content = payload?.content || '';
   const roles = payload?.roles || [];
   const projectEffects = payload?.effects || [];
-  const tabTitle = payload?.title || 'untitled.lstx';
 
   const codeRoles = parseRoleDefs(content);
   const mergedRoles = [...codeRoles];
@@ -110,7 +121,6 @@ function saveProjectPackage(filePath, payload) {
 
   zip.addFile('project.json', Buffer.from(JSON.stringify({
     version: 1,
-    title: tabTitle,
     content,
     mode: payload?.mode || 'block',
     roles: mergedRoles,
@@ -290,7 +300,6 @@ function openProjectPackage(filePath, buffer) {
     mode: project.mode || 'block',
     roles: mergedRoles,
     effects: projectEffects,
-    title: project.title || path.basename(filePath),
     filePath,
     warnings
   };
@@ -612,7 +621,8 @@ function registerIpcHandlers() {
     name: app.getName(),
     version: app.getVersion(),
     platform: process.platform,
-    arch: process.arch
+    arch: process.arch,
+    distro: getLinuxDistro()
   }));
 
   ipcMain.handle('set-toolbar-align', async (event, align) => {

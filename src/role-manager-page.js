@@ -82,6 +82,8 @@ class RoleManagerPage {
 
   async setRoles(roles) {
     if (window.electronAPI) await window.electronAPI.setProjectRoles(roles);
+    // 角色表变化后刷新所有朗读块头部属性显示（角色被删则显示回落）
+    window.app?.renderer?.refreshSayRoleOptions?.();
   }
 
   async getLocalVoices() {

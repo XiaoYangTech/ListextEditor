@@ -355,6 +355,11 @@ class BlockRenderer {
   renderSayBlock(node) {
     const block = this.createBaseBlock('say', node);
     const header = this.createBlockHeader('say', '朗读', 'record_voice_over', true);
+    // 头部空白条加属性区：角色 · 语速，超出时跑马灯滚动
+    const attr = document.createElement('span');
+    attr.className = 'block-attr';
+    attr.innerHTML = '<span class="block-attr-text"></span>';
+    header.insertBefore(attr, header.querySelector('.block-actions'));
     const content = document.createElement('div');
     content.className = 'block-content';
     const textarea = document.createElement('textarea');
@@ -370,7 +375,37 @@ class BlockRenderer {
     block.appendChild(header);
     block.appendChild(content);
     this.attachBlockEvents(block, textarea, 'say');
+    this.updateSayAttr(block);
     return block;
+  }
+
+  getRolesSync() {
+    return window.app?.tabManager?.getActiveTab()?.roles || [];
+  }
+
+  // 刷新朗读块头部属性区显示（角色 · 语速），文字超宽加跑马灯
+  updateSayAttr(block) {
+    const attr = block?.querySelector('.block-attr');
+    const textEl = attr?.querySelector('.block-attr-text');
+    if (!attr || !textEl) return;
+    const roles = this.getRolesSync();
+    const role = block._roleId ? roles.find(r => r.id === block._roleId) : null;
+    const roleText = role ? role.name : '不使用角色';
+    textEl.textContent = `${roleText} · ${(block._rate ?? 1.0)}x`;
+    attr.classList.remove('block-attr-marquee');
+    textEl.style.removeProperty('--attr-shift');
+    requestAnimationFrame(() => {
+      const shift = textEl.scrollWidth - attr.clientWidth;
+      if (shift > 2) {
+        textEl.style.setProperty('--attr-shift', `-${shift}px`);
+        attr.classList.add('block-attr-marquee');
+      }
+    });
+  }
+
+  // 角色表变化后刷新所有朗读块的属性显示（角色被删则显示回落为不使用角色）
+  refreshSayRoleOptions() {
+    this.container?.querySelectorAll('.block[data-tag-name="say"]').forEach(b => this.updateSayAttr(b));
   }
 
   renderPauseBlock(node) {
@@ -779,11 +814,12 @@ class BlockRenderer {
   async showSayEditor(block) {
     const roles = await this.getRoles();
     this.openEditDialog('设置朗读属性', `
-      <div class="form-group"><label>角色ID（可选）</label><select id="editSayRole"><option value="">不使用角色</option>${roles.map(r => `<option value="${this.escapeHtml(r.id)}" ${r.id === (block._roleId || '') ? 'selected' : ''}>${this.escapeHtml(r.name)} (${this.escapeHtml(r.id)})</option>`).join('')}</select></div>
+      <div class="form-group"><label>角色ID（可选）</label><select id="editSayRole"><option value="">不使用角色（默认中文，其他语言可能不准确）</option>${roles.map(r => `<option value="${this.escapeHtml(r.id)}" ${r.id === (block._roleId || '') ? 'selected' : ''}>${this.escapeHtml(r.name)} (${this.escapeHtml(r.id)})</option>`).join('')}</select></div>
       <div class="form-group"><label>语速（0.5 - 2.0）</label><input id="editSayRate" type="number" min="0.5" max="2" step="0.1" value="${block._rate || 1.0}" /></div>
     `, () => {
       block._roleId = document.getElementById('editSayRole').value || '';
       block._rate = parseFloat(document.getElementById('editSayRate').value) || 1.0;
+      this.updateSayAttr(block);
       this.onBlockChange();
     });
   }
@@ -796,6 +832,10 @@ class BlockRenderer {
   }
 
   onBlockChange() {
+    // 最后一个积木被删走时恢复空态指引
+    if (this.container && !this.container.querySelector(':scope > .block')) {
+      this.showEmptyState();
+    }
     this.recordHistory();
     if (this.onChangeCallback) this.onChangeCallback();
   }

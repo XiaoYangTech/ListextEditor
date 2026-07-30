@@ -720,6 +720,42 @@ class TabManager {
       });
 
       if (!tab.isHome) {
+        // 拖拽排序（首页标签固定不参与）
+        tabEl.draggable = true;
+        tabEl.addEventListener('dragstart', (e) => {
+          this._dragTabId = tab.id;
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', tab.id);
+          tabEl.classList.add('dragging');
+        });
+        tabEl.addEventListener('dragend', () => {
+          this._dragTabId = null;
+          tabEl.classList.remove('dragging');
+        });
+        tabEl.addEventListener('dragover', (e) => {
+          if (!this._dragTabId || this._dragTabId === tab.id) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        });
+        tabEl.addEventListener('drop', (e) => {
+          e.preventDefault();
+          const srcId = this._dragTabId || e.dataTransfer.getData('text/plain');
+          if (!srcId || srcId === tab.id) return;
+          const from = this.tabs.findIndex(t => t.id === srcId);
+          if (from < 0) return;
+          const rect = tabEl.getBoundingClientRect();
+          const after = e.clientX > rect.left + rect.width / 2;
+          const [moved] = this.tabs.splice(from, 1);
+          let idx = this.tabs.findIndex(t => t.id === tab.id);
+          if (idx < 0) { this.tabs.splice(from, 0, moved); return; }
+          if (after) idx += 1;
+          this.tabs.splice(idx, 0, moved);
+          this._dragTabId = null;
+          this.renderTabs();
+        });
+      }
+
+      if (!tab.isHome) {
         tabEl.addEventListener('mouseup', (e) => {
           if (e.button === 1) this.closeTab(tab.id);
         });
