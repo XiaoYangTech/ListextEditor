@@ -241,6 +241,7 @@ class FileManager {
         );
       }
       this.app.updateStatus('项目已打开');
+      console.log('[动作] 打开工程:', filePath);
       return true;
     } catch (e) {
       console.error('打开工程失败:', e);
@@ -299,6 +300,7 @@ class FileManager {
       this.updateStatusForTab(this.app.tabManager.getActiveTab());
       this.app.tabManager?.recordRecentProject(finalPath, fileName);
       this.app.updateStatus('已保存项目');
+      console.log('[动作] 保存工程:', finalPath);
       if (result?.warnings?.length) {
         this.app.uiManager?.showInfoDialog?.('提示',
           '项目已保存，但以下警告：\n' + result.warnings.join('\n'));

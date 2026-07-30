@@ -291,6 +291,7 @@ class ListextEditor {
 
     this.uiManager.updateModeUI(mode);
     this.currentMode = mode;
+    console.log('[动作] 切换编辑模式:', mode);
 
     if (mode === 'block') {
       this.codeEditor.hideSuggestions();

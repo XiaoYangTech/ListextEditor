@@ -73,11 +73,13 @@ class TTSRenderer {
 
     this.playQueue.play(ast);
     this.app.updateStatus('开始播放...');
+    console.log('[动作] 开始播放');
   }
 
   stopPlay() {
     this.playQueue.stop();
     this.app.updateStatus('播放停止');
+    console.log('[动作] 停止播放');
 
     document.querySelectorAll('.block.playing').forEach(el => el.classList.remove('playing'));
   }

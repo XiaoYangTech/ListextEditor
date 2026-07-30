@@ -529,6 +529,7 @@ class BlockRenderer {
       deleteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const parent = block.parentElement;
+        console.log('[动作] 删除积木:', block.dataset.tagName || block.dataset.type || '未知');
         block.remove();
         this.ensureRepeatEmptyState(parent);
         this.onBlockChange();
@@ -1186,6 +1187,7 @@ class BlockRenderer {
 
       this.selectSingleBlock(block);
       block.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      console.log('[动作] 添加积木:', tagName);
       this.onBlockChange();
     }
 

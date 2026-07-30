@@ -82,6 +82,7 @@ class RoleManagerPage {
 
   async setRoles(roles) {
     if (window.electronAPI) await window.electronAPI.setProjectRoles(roles);
+    console.log('[动作] 保存角色配置，共', roles?.length || 0, '个角色');
     // 角色表变化后刷新所有朗读块头部属性显示（角色被删则显示回落）
     window.app?.renderer?.refreshSayRoleOptions?.();
   }

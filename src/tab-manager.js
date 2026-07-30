@@ -477,6 +477,7 @@ class TabManager {
     }
 
     let tabTitle = title || this.generateUntitledName();
+    console.log('[动作] 新建标签:', tabTitle);
 
     const tab = {
       id: this.generateId(),
@@ -577,6 +578,7 @@ class TabManager {
     const index = this.tabs.indexOf(tab);
     if (this.activeTabId === id) this._stopGlobalPlayback();
     this.tabs.splice(index, 1);
+    console.log('[动作] 关闭标签:', tab.title);
 
     if (tab.filePath && window.electronAPI?.releaseFileLock) {
       try { window.electronAPI.releaseFileLock(tab.filePath); } catch (e) { console.error('释放文件锁失败:', e); }

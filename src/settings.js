@@ -91,6 +91,7 @@ class SettingsManager {
     const bindClear = (id, category) => {
       document.getElementById(id)?.addEventListener('click', async () => {
         if (!window.electronAPI?.clearCache) return;
+        console.log('[动作] 清除缓存:', category);
         const res = await window.electronAPI.clearCache(category);
         if (!res?.success) console.error('清除缓存失败:', res?.error);
         this.loadCacheStats();
@@ -105,6 +106,7 @@ class SettingsManager {
       const ok = window.confirm(
         '确定清除导入的音效素材库吗？\n\n已保存工程中的自定义音效都已打进工程包（.lstx），不受影响；\n仅当前尚未保存工程里的导入音效将丢失。');
       if (!ok) return;
+      console.log('[动作] 清除音效素材库');
       const res = await window.electronAPI.clearCache('importedSounds');
       if (!res?.success) console.error('清除素材库失败:', res?.error);
       this.loadCacheStats();

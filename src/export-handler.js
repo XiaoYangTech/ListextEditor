@@ -240,6 +240,7 @@ class ExportHandler {
       const skipWarnings = [];
       const totalTasks = queue.length;
       this._updateProgress(5, `正在构建导出任务（${totalTasks}）...`);
+      console.log('[动作] 导出开始:', targetPath, `共 ${totalTasks} 个任务`);
 
       for (let i = 0; i < queue.length; i++) {
         const task = queue[i];
@@ -327,6 +328,7 @@ class ExportHandler {
         });
         this._updateProgress(100, '导出完成');
         this.updateStatus('导出完成');
+        console.log('[动作] 导出完成:', targetPath);
         if (skipWarnings.length) {
           // 延迟弹出，等进度框关闭后再提示缺失音效
           setTimeout(() => {

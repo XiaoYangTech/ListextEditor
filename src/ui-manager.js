@@ -664,6 +664,7 @@ class UIManager {
     this._commitEffects();
     this._renderEffectList();
     this.app.updateStatus('已导入本地音效');
+    console.log('[动作] 导入音效:', filename);
   }
 
   initUnsavedDialog() {
@@ -791,6 +792,7 @@ class UIManager {
 
   async checkForUpdates(manual = false) {
     if (!window.electronAPI?.checkUpdate || !window.electronAPI?.getAppInfo) return;
+    if (manual) console.log('[动作] 手动检查更新');
     try {
       const [updateInfo, appInfo] = await Promise.all([
         window.electronAPI.checkUpdate(),

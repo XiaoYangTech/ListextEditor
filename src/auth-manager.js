@@ -170,6 +170,7 @@ class AuthManager {
         this._loginEmail = null;
         this._loginPassword = null;
         this.hideLoginDialog();
+        console.log('[动作] 登录成功:', email);
         await this.refreshProfile();
         this.updateAccountUI();
         return;
@@ -225,6 +226,7 @@ class AuthManager {
 
   async doLogout() {
     this.hideAccountMenu();
+    console.log('[动作] 退出登录');
     await this.api?.logout();
     this._userCache = null;
     this._entitlementCache = null;
