@@ -18,6 +18,7 @@
 
 class ListextEditor {
   constructor() {
+    this.initLogForwarding();
     this.parser = new ListextParser();
     this.renderer = null;
     this.ttsEngine = new TTSEngine();
@@ -31,6 +32,29 @@ class ListextEditor {
     this.authManager = new AuthManager();
     this.authManager.init();
     this.loadDefaultContent();
+  }
+
+  // 渲染进程日志转发到主进程统一落盘（含未捕获错误与 Promise 拒绝）
+  initLogForwarding() {
+    if (!window.electronAPI?.appendLog) return;
+    const serialize = (a) => {
+      if (a instanceof Error) return a.stack || a.message;
+      if (typeof a === 'object' && a !== null) { try { return JSON.stringify(a); } catch { return String(a); } }
+      return String(a);
+    };
+    for (const level of ['log', 'warn', 'error']) {
+      const orig = console[level].bind(console);
+      console[level] = (...args) => {
+        orig(...args);
+        try { window.electronAPI.appendLog(level, args.map(serialize)); } catch {}
+      };
+    }
+    window.addEventListener('error', (e) => {
+      try { window.electronAPI.appendLog('error', [`${e.message} @${e.filename}:${e.lineno}:${e.colno}`]); } catch {}
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      try { window.electronAPI.appendLog('error', ['未处理的 Promise 拒绝:', serialize(e.reason)]); } catch {}
+    });
   }
 
   init() {

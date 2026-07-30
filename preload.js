@@ -116,6 +116,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getAudioFile: (filePath) => ipcRenderer.invoke('get-audio-file', filePath),
   cleanupTemp: () => ipcRenderer.invoke('cleanup-temp'),
+  appendLog: (level, args) => ipcRenderer.invoke('append-log', level, args),
   listEdgeVoices: async () => {
     const maxRetries = 3;
     const agent = await getProxyAgent();

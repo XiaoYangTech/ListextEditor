@@ -27,7 +27,12 @@ const { setupCrypto } = require('./src/main/utils');
 setupCrypto();
 
 // F12 toggle DevTools
+// 打包生产默认禁用 F12；后门：开发环境、LISTEXT_DEVTOOLS=1、或 --devtools 参数
 function bindDevToolsShortcut(win) {
+  const allow = !app.isPackaged
+    || process.env.LISTEXT_DEVTOOLS === '1'
+    || process.argv.includes('--devtools');
+  if (!allow) return;
   win.webContents.on('before-input-event', (event, input) => {
     if (input.key === 'F12') {
       win.webContents.toggleDevTools();
@@ -41,6 +46,9 @@ async function initApp() {
   const settings = loadSettings();
 
   await app.whenReady();
+
+  // 日志系统（主进程 console 双写 + 崩溃记录 + 渲染日志落盘）
+  try { require('./src/main/logger').initLogger(); } catch (e) { console.error('日志系统初始化失败:', e.message); }
 
   // Apply settings (proxy, etc.) after app is ready
   await applyProxySettings(settings);

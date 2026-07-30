@@ -236,6 +236,12 @@ function createMenu() {
         { id: 'help-author-bilibili', label: '关注作者B站', click: () => openExternal('https://space.bilibili.com/413043448') },
         { type: 'separator' },
         { id: 'help-check-update', label: '检查更新', click: () => sendToMain('check-update') },
+        { id: 'help-open-logs', label: '打开日志目录', click: () => {
+          try {
+            const { shell } = require('electron');
+            shell.openPath(require('./logger').getLogDir());
+          } catch (e) { console.error('打开日志目录失败:', e.message); }
+        } },
         { type: 'separator' },
         { id: 'help-about', label: '关于',
           click: () => sendToMain('show-about')
