@@ -26,6 +26,7 @@ class SettingsManager {
 
   async init() {
     this.bindNavigation();
+    this.switchPage(this.currentPage);
     await this.loadAll();
     this.bindEvents();
     this.bindCachePage();
@@ -76,7 +77,8 @@ class SettingsManager {
       const map = {
         cacheSizeLogs: stats.logs,
         cacheSizeTemp: stats.temp,
-        cacheSizeProjectSounds: stats.projectSounds
+        cacheSizeProjectSounds: stats.projectSounds,
+        cacheSizeImportedSounds: stats.importedSounds
       };
       for (const [id, size] of Object.entries(map)) {
         const el = document.getElementById(id);
@@ -97,6 +99,16 @@ class SettingsManager {
     bindClear('btnClearLogs', 'logs');
     bindClear('btnClearTemp', 'temp');
     bindClear('btnClearProjectSounds', 'projectSounds');
+    // 素材库清除需二次确认：未保存/未引用的导入音效只有这一份
+    document.getElementById('btnClearImportedSounds')?.addEventListener('click', async () => {
+      if (!window.electronAPI?.clearCache) return;
+      const ok = window.confirm(
+        '确定清除导入的音效素材库吗？\n\n已保存工程中的自定义音效都已打进工程包（.lstx），不受影响；\n仅当前尚未保存工程里的导入音效将丢失。');
+      if (!ok) return;
+      const res = await window.electronAPI.clearCache('importedSounds');
+      if (!res?.success) console.error('清除素材库失败:', res?.error);
+      this.loadCacheStats();
+    });
     document.getElementById('btnOpenLogsDir')?.addEventListener('click', () => {
       window.electronAPI?.openLogsDir?.();
     });

@@ -284,6 +284,11 @@
             <span id="cacheSizeProjectSounds" style="font-size:13px;color:var(--md-on-surface-variant);">…</span>
             <button class="btn btn-outline" id="btnClearProjectSounds">清除缓存</button>
           </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">导入的音效素材库</span>
+            <span id="cacheSizeImportedSounds" style="font-size:13px;color:var(--md-on-surface-variant);">…</span>
+            <button class="btn btn-outline" id="btnClearImportedSounds">清除素材库</button>
+          </div>
           <div style="margin-top:12px;">
             <button class="btn btn-ghost" id="btnOpenLogsDir">打开日志目录</button>
           </div>
@@ -292,7 +297,7 @@
           <div class="card-title">说明</div>
           <div style="font-size:12px;color:var(--md-on-surface-variant);line-height:1.8;">
             以上数据均存放在系统默认应用数据目录（Windows：AppData\Roaming\ListextEditor；macOS：~/Library/Application Support/ListextEditor；Linux：~/.config/ListextEditor），路径不可修改。<br>
-            各类缓存上限 1GB，超限自动清理最旧文件。用户导入的音效素材库可能被工程引用，不提供自动清除。
+            各类缓存上限 1GB，超限自动清理最旧文件。自定义音效保存工程时已打进工程包（.lstx），素材库仅是导入暂存，清除前会二次确认。
           </div>
         </div>
       </div>

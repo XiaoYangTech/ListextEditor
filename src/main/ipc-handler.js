@@ -143,7 +143,14 @@ function saveProjectPackage(filePath, payload) {
     } catch { /* 旧包读取失败则按无旧副本处理 */ }
   }
 
-  for (const fxId of usedFxIds) {
+  // 工程自包含：被引用的音效 + 项目里全部自定义（非内置）音效都打入 sounds/<fxId>/，
+  // 自定义音效随工程走，不依赖全局素材库
+  const packFxIds = new Set(usedFxIds);
+  for (const e of projectEffects) {
+    if (e?.id && e.source !== 'builtin') packFxIds.add(e.id);
+  }
+
+  for (const fxId of packFxIds) {
     const effect = projectEffects.find(e => e.id === fxId);
     if (!effect) continue;
 
@@ -159,7 +166,7 @@ function saveProjectPackage(filePath, payload) {
   }
 
   const missingSounds = [];
-  for (const fxId of usedFxIds) {
+  for (const fxId of packFxIds) {
     const effect = projectEffects.find(e => e.id === fxId);
     if (!effect) {
       missingSounds.push(`音效 "${fxId}" 未在项目中配置，保存后将无法播放`);
@@ -169,8 +176,10 @@ function saveProjectPackage(filePath, payload) {
     if (!absPath || !fs.existsSync(absPath)) {
       if (oldSoundEntries.has(fxId)) {
         missingSounds.push(`音效 "${fxId}" 的源文件 "${effect.filename || '未知'}" 在磁盘上不存在，已保留工程内旧副本`);
-      } else {
+      } else if (usedFxIds.includes(fxId)) {
         missingSounds.push(`音效 "${fxId}" 的文件 "${effect.filename || '未知'}" 在磁盘上不存在，保存后将无法播放`);
+      } else {
+        missingSounds.push(`音效 "${fxId}" 的文件 "${effect.filename || '未知'}" 在磁盘上不存在，未打入工程包`);
       }
     }
   }

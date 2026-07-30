@@ -120,7 +120,8 @@ function registerConfigHandlers(ipcMain) {
     return {
       logs: dirSize(getLogDir()),
       temp: dirSize(tempDir),
-      projectSounds: dirSize(path.join(app.getPath('userData'), 'project-sounds'))
+      projectSounds: dirSize(path.join(app.getPath('userData'), 'project-sounds')),
+      importedSounds: dirSize(path.join(app.getPath('userData'), 'imported-sounds'))
     };
   });
 
@@ -129,7 +130,8 @@ function registerConfigHandlers(ipcMain) {
     const targets = {
       logs: getLogDir(),
       temp: path.join(app.getPath('temp'), 'listext-editor'),
-      projectSounds: path.join(app.getPath('userData'), 'project-sounds')
+      projectSounds: path.join(app.getPath('userData'), 'project-sounds'),
+      importedSounds: path.join(app.getPath('userData'), 'imported-sounds')
     };
     const dir = targets[category];
     if (!dir) return { success: false, error: '未知分类' };
