@@ -281,6 +281,7 @@ class FileManager {
 
     if (result?.success) {
       const finalPath = result.filePath || filePath;
+      const oldPath = tab.filePath;
       const fileName = finalPath.split(/[/\\]/).pop();
       this.app.tabManager.updateTab(tab.id, {
         filePath: finalPath,
@@ -288,6 +289,12 @@ class FileManager {
         content,
         isDirty: false
       });
+
+      // 另存为换了路径：旧路径的锁随标签路径变更一并释放，避免旧文件永久"被占用"
+      const tm = this.app.tabManager;
+      if (oldPath && tm.pathKey(oldPath) !== tm.pathKey(finalPath)) {
+        try { await this.api?.releaseFileLock?.(oldPath); } catch {}
+      }
 
       this.updateStatusForTab(this.app.tabManager.getActiveTab());
       this.app.tabManager?.recordRecentProject(finalPath, fileName);

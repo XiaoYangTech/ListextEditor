@@ -67,6 +67,9 @@ async function initApp() {
 initApp();
 
 app.on('window-all-closed', () => {
+  // 窗口全关后没有 UI 能操作文件：立即放掉所有文件锁。
+  // 尤其 macOS 关窗不退出，主进程存活时内存锁表若不清，文件会永久"被占用"
+  try { require('./src/main/file-locker').unlockAll(); } catch {}
   if (process.platform !== 'darwin') {
     app.quit();
   }
