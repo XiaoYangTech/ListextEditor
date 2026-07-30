@@ -157,6 +157,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
+  getCacheStats: () => ipcRenderer.invoke('get-cache-stats'),
+  clearCache: (category) => ipcRenderer.invoke('clear-cache', category),
+  openLogsDir: () => ipcRenderer.invoke('open-logs-dir'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
 
   getShortcuts: () => ipcRenderer.invoke('get-shortcuts'),

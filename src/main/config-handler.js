@@ -20,6 +20,7 @@ const fs = require('fs');
 const path = require('path');
 const { app, session } = require('electron');
 const { ensureDir } = require('./utils');
+const { getLogDir } = require('./logger');
 const SHORTCUT_DEFAULTS = require('../shortcut-defaults');
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
@@ -109,6 +110,50 @@ function registerConfigHandlers(ipcMain) {
   ipcMain.handle('get-shortcuts', async () => getShortcuts());
   ipcMain.handle('save-shortcuts', async (event, shortcuts) => {
     return { success: saveShortcuts(shortcuts) };
+  });
+
+  // 缓存管理：大小统计 / 分类清除 / 打开日志目录
+  ipcMain.handle('get-cache-stats', async () => {
+    const { app } = require('electron');
+    const { dirSize } = require('./logger');
+    const tempDir = path.join(app.getPath('temp'), 'listext-editor');
+    return {
+      logs: dirSize(getLogDir()),
+      temp: dirSize(tempDir),
+      projectSounds: dirSize(path.join(app.getPath('userData'), 'project-sounds'))
+    };
+  });
+
+  ipcMain.handle('clear-cache', async (event, category) => {
+    const { app } = require('electron');
+    const targets = {
+      logs: getLogDir(),
+      temp: path.join(app.getPath('temp'), 'listext-editor'),
+      projectSounds: path.join(app.getPath('userData'), 'project-sounds')
+    };
+    const dir = targets[category];
+    if (!dir) return { success: false, error: '未知分类' };
+    try {
+      if (fs.existsSync(dir)) {
+        for (const entry of fs.readdirSync(dir)) {
+          fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
+        }
+      }
+      console.log('[缓存] 已清除:', category);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('open-logs-dir', async () => {
+    try {
+      const { shell } = require('electron');
+      await shell.openPath(getLogDir());
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
   });
 }
 

@@ -98,6 +98,50 @@ function cleanOldLogs() {
   } catch { /* 忽略清理失败 */ }
 }
 
+// 目录大小递归求和（失败按 0）
+function dirSize(dir) {
+  let total = 0;
+  try {
+    if (!fs.existsSync(dir)) return 0;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      try {
+        if (entry.isDirectory()) total += dirSize(p);
+        else total += fs.statSync(p).size;
+      } catch { /* 单文件失败跳过 */ }
+    }
+  } catch { /* 忽略 */ }
+  return total;
+}
+
+// 目录超限时按 mtime 最旧先删到限内（不删子目录结构本身）
+function enforceDirSize(dir, maxBytes) {
+  try {
+    if (!fs.existsSync(dir)) return;
+    const files = [];
+    (function walk(d) {
+      for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, entry.name);
+        try {
+          if (entry.isDirectory()) walk(p);
+          else {
+            const st = fs.statSync(p);
+            files.push({ p, size: st.size, mtime: st.mtimeMs });
+          }
+        } catch { /* 跳过 */ }
+      }
+    })(dir);
+    let total = files.reduce((s, f) => s + f.size, 0);
+    if (total <= maxBytes) return;
+    files.sort((a, b) => a.mtime - b.mtime);
+    for (const f of files) {
+      if (total <= maxBytes) break;
+      try { fs.unlinkSync(f.p); total -= f.size; } catch { /* 跳过 */ }
+    }
+    console.log(`[日志] 目录限额清理: ${dir} 删除过期文件至 ${(total / 1024 / 1024).toFixed(1)}MB`);
+  } catch { /* 忽略 */ }
+}
+
 function wrapConsole(level) {
   const orig = console[level].bind(console);
   console[level] = (...args) => {
@@ -109,6 +153,12 @@ function wrapConsole(level) {
 function initLogger() {
   ensureLogDir();
   cleanOldLogs();
+  // 各类缓存目录 1GB 限额（日志/TTS 临时文件/工程音效解压缓存）
+  const G = 1024 * 1024 * 1024;
+  const tempDir = path.join(app.getPath('temp'), 'listext-editor');
+  enforceDirSize(getLogDir(), G);
+  enforceDirSize(tempDir, G);
+  enforceDirSize(path.join(app.getPath('userData'), 'project-sounds'), G);
   wrapConsole('log');
   wrapConsole('warn');
   wrapConsole('error');
@@ -125,4 +175,4 @@ function getLogDir() {
   return ensureLogDir();
 }
 
-module.exports = { initLogger, getLogDir };
+module.exports = { initLogger, getLogDir, dirSize, enforceDirSize };

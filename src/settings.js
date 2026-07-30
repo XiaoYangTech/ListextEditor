@@ -28,6 +28,7 @@ class SettingsManager {
     this.bindNavigation();
     await this.loadAll();
     this.bindEvents();
+    this.bindCachePage();
   }
 
   bindNavigation() {
@@ -53,9 +54,52 @@ class SettingsManager {
     const titles = {
       shortcuts: '快捷键',
       layout: '布局',
-      proxy: '网络代理'
+      proxy: '网络代理',
+      cache: '缓存管理'
     };
     document.getElementById('page-title').textContent = titles[page] || '';
+    if (page === 'cache') this.loadCacheStats();
+  }
+
+  formatBytes(n) {
+    if (!n || n <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let v = n, i = 0;
+    while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+    return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+  }
+
+  async loadCacheStats() {
+    if (!window.electronAPI?.getCacheStats) return;
+    try {
+      const stats = await window.electronAPI.getCacheStats();
+      const map = {
+        cacheSizeLogs: stats.logs,
+        cacheSizeTemp: stats.temp,
+        cacheSizeProjectSounds: stats.projectSounds
+      };
+      for (const [id, size] of Object.entries(map)) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = this.formatBytes(size);
+      }
+    } catch (e) { console.error('读取缓存统计失败:', e); }
+  }
+
+  bindCachePage() {
+    const bindClear = (id, category) => {
+      document.getElementById(id)?.addEventListener('click', async () => {
+        if (!window.electronAPI?.clearCache) return;
+        const res = await window.electronAPI.clearCache(category);
+        if (!res?.success) console.error('清除缓存失败:', res?.error);
+        this.loadCacheStats();
+      });
+    };
+    bindClear('btnClearLogs', 'logs');
+    bindClear('btnClearTemp', 'temp');
+    bindClear('btnClearProjectSounds', 'projectSounds');
+    document.getElementById('btnOpenLogsDir')?.addEventListener('click', () => {
+      window.electronAPI?.openLogsDir?.();
+    });
   }
 
   async loadAll() {

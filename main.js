@@ -26,6 +26,13 @@ const { setupCrypto } = require('./src/main/utils');
 // Setup global polyfills
 setupCrypto();
 
+// 数据目录统一为 appid 同名（原跟随 productName 落在中文目录，现直接切换不迁移，旧目录保留不动）
+// 必须在 app ready 前设置
+{
+  const path = require('path');
+  app.setPath('userData', path.join(app.getPath('appData'), 'ListextEditor'));
+}
+
 // F12 toggle DevTools
 // 打包生产默认禁用 F12；后门：开发环境、LISTEXT_DEVTOOLS=1、或 --devtools 参数
 function bindDevToolsShortcut(win) {

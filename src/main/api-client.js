@@ -35,6 +35,7 @@ class ApiClient {
     this.userCache = null;
     this.entitlementCache = null;
     this.heartbeatTimer = null;
+    this.pingTimer = null;
     this.loadState();
   }
 
@@ -43,7 +44,9 @@ class ApiClient {
       if (fs.existsSync(authPath)) {
         const data = JSON.parse(fs.readFileSync(authPath, 'utf-8'));
         this.token = data.token || null;
+        // 已登录走心跳，未登录走匿名上报，两者互斥
         if (this.token) this.startHeartbeat();
+        else this.startPing();
         this.deviceKey = data.deviceKey || this.generateDeviceKey();
         this.deviceName = data.deviceName || this.getDeviceName();
         this.userCache = data.user || null;
@@ -153,6 +156,7 @@ class ApiClient {
         this.entitlementCache = null;
         this.saveState();
         this.stopHeartbeat();
+        this.startPing();
         this.onAuthLost?.();
       }
     }
@@ -198,6 +202,7 @@ class ApiClient {
         this.entitlementCache.signature = this.signEntitlement(this.entitlementCache);
       }
       this.saveState();
+      this.stopPing();
       this.startHeartbeat();
     }
     return result;
@@ -275,11 +280,37 @@ class ApiClient {
     this.entitlementCache = null;
     this.saveState();
     this.stopHeartbeat();
+    this.startPing();
   }
 
   async checkUpdate() {
     const result = await this.requestNoAuthApp('app_info');
     return result?.data || result;
+  }
+
+  // 匿名设备上报（未登录可见性）：网络错误静默，不阻塞任何功能
+  async ping() {
+    try {
+      await this.requestApp('client_ping', 'POST', {
+        device_key: this.deviceKey,
+        os: `${os.platform()} ${os.release()}`,
+        device_name: this.deviceName
+      });
+    } catch { /* 静默 */ }
+  }
+
+  startPing() {
+    if (this.token) return; // 与心跳互斥，绝不并行
+    this.stopPing();
+    this.ping();
+    this.pingTimer = setInterval(() => { this.ping(); }, 8 * 60 * 1000);
+  }
+
+  stopPing() {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer);
+      this.pingTimer = null;
+    }
   }
 
   async heartbeat() {
@@ -294,12 +325,14 @@ class ApiClient {
       this.entitlementCache = null;
       this.saveState();
       this.stopHeartbeat();
+      this.startPing();
       this.onAuthLost?.();
     }
   }
 
   startHeartbeat() {
     this.stopHeartbeat();
+    this.stopPing(); // 与匿名上报互斥
     this.heartbeatTimer = setInterval(() => {
       this.heartbeat().catch(() => {});
     }, 10 * 60 * 1000);

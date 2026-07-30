@@ -115,6 +115,9 @@
       <div class="nav-item" data-page="proxy">
         <span>网络代理</span>
       </div>
+      <div class="nav-item" data-page="cache">
+        <span>缓存管理</span>
+      </div>
     </div>
   </nav>
 
@@ -261,8 +264,40 @@
           <button id="btnSaveProxy" class="btn btn-primary">保存</button>
         </div>
       </div>
-      
-      
+
+      <!-- 缓存管理页 -->
+      <div id="cache-page" class="settings-page">
+        <div class="card">
+          <div class="card-title">缓存占用</div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">日志文件</span>
+            <span id="cacheSizeLogs" style="font-size:13px;color:var(--md-on-surface-variant);">…</span>
+            <button class="btn btn-outline" id="btnClearLogs">清除日志</button>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">TTS 临时文件</span>
+            <span id="cacheSizeTemp" style="font-size:13px;color:var(--md-on-surface-variant);">…</span>
+            <button class="btn btn-outline" id="btnClearTemp">清除缓存</button>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">工程音效解压缓存（重开工程自动重建）</span>
+            <span id="cacheSizeProjectSounds" style="font-size:13px;color:var(--md-on-surface-variant);">…</span>
+            <button class="btn btn-outline" id="btnClearProjectSounds">清除缓存</button>
+          </div>
+          <div style="margin-top:12px;">
+            <button class="btn btn-ghost" id="btnOpenLogsDir">打开日志目录</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">说明</div>
+          <div style="font-size:12px;color:var(--md-on-surface-variant);line-height:1.8;">
+            以上数据均存放在系统默认应用数据目录（Windows：AppData\Roaming\ListextEditor；macOS：~/Library/Application Support/ListextEditor；Linux：~/.config/ListextEditor），路径不可修改。<br>
+            各类缓存上限 1GB，超限自动清理最旧文件。用户导入的音效素材库可能被工程引用，不提供自动清除。
+          </div>
+        </div>
+      </div>
+
+
     </div>
   </main>
 
