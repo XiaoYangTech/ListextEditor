@@ -15,6 +15,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - name: 诊断商店站点可达性
+        run: |
+          echo "== chinauos.com =="
+          curl -o /dev/null -sS -w 'http=%{http_code} time=%{time_total}s\n' --max-time 60 https://store.chinauos.com/ || echo "CURL_FAIL code=$?"
+          echo "== uosdn.uniontech.com =="
+          curl -o /dev/null -sS -w 'http=%{http_code} time=%{time_total}s\n' --max-time 60 https://uosdn.uniontech.com/ || echo "CURL_FAIL code=$?"
       - name: 验证商店账号
         uses: guanzi008/appstore@main
         with:
