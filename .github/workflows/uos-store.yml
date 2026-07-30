@@ -1,0 +1,25 @@
+name: UOS Store Publish
+
+# 手动触发：先在仓库 Secrets 配好 APPSTORE_USERNAME / APPSTORE_PASSWORD
+# 默认 test-only 仅验证账号连通性，不真投递；验证通过后接入 release.yml 自动上架
+on:
+  workflow_dispatch:
+    inputs:
+      test_only:
+        description: '仅验证账号（true=不投递）'
+        required: true
+        default: 'true'
+
+jobs:
+  publish-uos:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: 验证商店账号
+        uses: guanzi008/appstore@main
+        with:
+          username: ${{ secrets.APPSTORE_USERNAME }}
+          password: ${{ secrets.APPSTORE_PASSWORD }}
+          app-id: "1096876"
+          test-only: ${{ inputs.test_only }}
+          mode: api
