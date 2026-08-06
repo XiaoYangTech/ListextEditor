@@ -112,7 +112,11 @@ class RoleManagerPage {
 
     if (type === 'edge' && window.electronAPI?.listEdgeVoices) {
       const res = await window.electronAPI.listEdgeVoices();
-      let voices = res?.voices || [];
+      // 排序：中文 → 英文 → 日/俄/西 → 其他语言
+      const rank = (v) => v.startsWith('zh-CN') ? 0
+        : v.startsWith('en-US') ? 1
+        : (/^(ja|ru|es)-/.test(v) ? 2 : 3);
+      let voices = (res?.voices || []).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
       const isUnlocked = window.entitlement?.isUnlocked();
       if (!isUnlocked) {
         voices = voices.filter(v => v.startsWith('zh-CN') || v.startsWith('en-US') || v === preserveVoice);
@@ -125,7 +129,12 @@ class RoleManagerPage {
         html += '<option value="" disabled>💎 升级专业版解锁日语/俄语/西班牙语等小语种</option>';
       }
       this.roleVoice.innerHTML = html;
-      if (voices.length) this.roleVoice.value = voices[0];
+      // 选中：编辑已有角色保持其音色；新建默认英文 Jenny，都没有退列表首位
+      if (preserveVoice && voices.includes(preserveVoice)) {
+        this.roleVoice.value = preserveVoice;
+      } else {
+        this.roleVoice.value = voices.includes('en-US-JennyNeural') ? 'en-US-JennyNeural' : (voices[0] || '');
+      }
       return;
     }
 
