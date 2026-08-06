@@ -214,14 +214,35 @@ class UIManager {
   searchInBlocks() {
     const keyword = (this.blockSearchInput?.value || '').trim();
     if (!keyword) return;
-    const found = this.app.renderer.findBlockByKeyword(keyword);
-    if (!found) {
+
+    // 同一关键词连续搜索 = 找下一个；换词则从头开始
+    if (this._searchKeyword !== keyword) {
+      this._searchKeyword = keyword;
+      this._searchBlock = null;
+      this._searchCount = 0;
+    }
+    const total = this.app.renderer.countByKeyword(keyword);
+    if (!total) {
       this.showInfoDialog?.('提示', `未找到: ${keyword}`);
+      this._searchBlock = null;
       return;
     }
+
+    const startAfter = (this._searchBlock && document.contains(this._searchBlock)) ? this._searchBlock : null;
+    let found = startAfter ? this.app.renderer.findBlockByKeyword(keyword, startAfter) : null;
+    if (found) {
+      this._searchCount++;
+    } else {
+      // 到底循环回第一个
+      found = this.app.renderer.findBlockByKeyword(keyword);
+      this._searchCount = 1;
+    }
+    if (!found) return;
+
+    this._searchBlock = found;
     this.app.renderer.scrollToBlockId(found.dataset.id);
     this.app.renderer.selectSingleBlock(found);
-    this.app.updateStatus(`已定位: ${keyword}`);
+    this.app.updateStatus(`已定位: ${keyword}（第 ${this._searchCount}/${total} 个）`);
   }
 
   refreshSectionJump() {

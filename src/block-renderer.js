@@ -1358,21 +1358,39 @@ class BlockRenderer {
     }, 1200);
   }
 
-  findBlockByKeyword(keyword) {
+  // 单块关键词匹配规则：分节匹配标题、音效匹配ID、朗读匹配文本、其余匹配块标题
+  _matchBlockForQuery(block, q) {
+    const tag = block.dataset.tagName || '';
+    if (tag === 'section') return (block._sectionTitle || '').toLowerCase().includes(q);
+    if (tag === 'fx') return (block._effectId || '').toLowerCase().includes(q);
+    const textarea = block.querySelector('textarea');
+    // 无 textarea 的块仅匹配标题，避免按钮/图标的 textContent 噪声
+    const text = textarea ? (textarea.value || '') : (block.querySelector('.block-title')?.textContent || '');
+    return text.toLowerCase().includes(q);
+  }
+
+  // startAfter 非空时从该块之后继续找（"找下一个"循环用）
+  findBlockByKeyword(keyword, startAfter = null) {
     const q = (keyword || '').toLowerCase();
     if (!q) return null;
 
     const blocks = Array.from(this.container.querySelectorAll('.block'));
+    let skipping = !!startAfter;
     for (const block of blocks) {
-      const tag = block.dataset.tagName || '';
-      if (tag === 'section' && (block._sectionTitle || '').toLowerCase().includes(q)) return block;
-      if (tag === 'fx' && (block._effectId || '').toLowerCase().includes(q)) return block;
-      const textarea = block.querySelector('textarea');
-      // 无 textarea 的块仅匹配标题，避免按钮/图标的 textContent 噪声
-      const text = textarea ? (textarea.value || '') : (block.querySelector('.block-title')?.textContent || '');
-      if (text.toLowerCase().includes(q)) return block;
+      if (skipping) {
+        if (block === startAfter) skipping = false;
+        continue;
+      }
+      if (this._matchBlockForQuery(block, q)) return block;
     }
     return null;
+  }
+
+  countByKeyword(keyword) {
+    const q = (keyword || '').toLowerCase();
+    if (!q) return 0;
+    return Array.from(this.container.querySelectorAll('.block'))
+      .filter(b => this._matchBlockForQuery(b, q)).length;
   }
 
   getTopLevelBlocks() {
