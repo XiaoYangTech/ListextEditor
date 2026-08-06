@@ -951,6 +951,21 @@ body.toolbar-left .toolbar {
 .rm-actions { display: flex; gap: 8px; }
 
 .rm-vip-bar { background: linear-gradient(135deg, #fff3e0, #ffe0b2); border: 1px solid #ffcc02; border-radius: 6px; padding: 8px 12px; font-size: 12px; color: #e65100; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+
+/* 角色管理器自定义发音人下拉（语言标识+分组+跑马灯） */
+.rm-select { position: relative; }
+.rm-select-face { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--md-divider); border-radius: 6px; background: var(--md-surface); cursor: pointer; font-size: 13px; }
+.rm-select-face:hover { border-color: var(--md-primary); }
+.rm-select-face-text { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+.rm-select-face-inner { display: inline-block; }
+.rm-marquee .rm-select-face-inner { animation: rmMarquee 4s ease-in-out infinite alternate; }
+@keyframes rmMarquee { 0%, 15% { transform: translateX(0); } 85%, 100% { transform: translateX(var(--rm-shift, 0px)); } }
+.rm-select-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; max-height: 260px; overflow-y: auto; background: var(--md-surface); border: 1px solid var(--md-divider); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); z-index: 20; }
+.rm-select-group { position: sticky; top: 0; background: #f5f5f5; padding: 6px 10px; font-size: 11px; color: var(--md-on-surface-variant); font-weight: 600; z-index: 1; }
+.rm-select-item { padding: 8px 10px; font-size: 13px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rm-select-item:hover { background: rgba(25, 118, 210, 0.08); }
+.rm-select-item.active { color: var(--md-primary); font-weight: 600; background: rgba(25, 118, 210, 0.06); }
+.rm-select-hint { margin-top: 6px; font-size: 11px; color: #e65100; }
 .rm-upgrade-link { color: #e65100; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .rm-upgrade-link:hover { text-decoration: underline; }
 
