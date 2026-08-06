@@ -53,6 +53,20 @@ async function getProxyAgent() {
   return undefined;
 }
 
+// 校验合成结果完整性：网络断流会产生截断文件，交给 ffmpeg 必然报错
+function isValidMp3(p) {
+  try {
+    const st = fs.statSync(p);
+    if (st.size < 2048) return false;
+    const fd = fs.openSync(p, 'r');
+    const buf = Buffer.alloc(3);
+    fs.readSync(fd, buf, 0, 3, 0);
+    fs.closeSync(fd);
+    // ID3 头或 MPEG 帧同步字
+    return buf.toString('latin1', 0, 3) === 'ID3' || (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0);
+  } catch { return false; }
+}
+
 async function synthesizeTTS(text, voice, rate = '+0%') {
   try {
     ensureDir(tempDir);
@@ -82,7 +96,12 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
       audioStream.on('error', reject);
     });
 
-    if (fs.existsSync(outputPath)) return { success: true, path: outputPath };
+    if (fs.existsSync(outputPath)) {
+      if (isValidMp3(outputPath)) return { success: true, path: outputPath };
+      // 截断的残次品：删除并按网络错误处理，触发上层重试
+      try { fs.unlinkSync(outputPath); } catch {}
+      return { success: false, network: true, error: '语音合成结果不完整（网络中断），请稍后重试' };
+    }
     return { success: false, error: '音频文件生成失败' };
   } catch (error) {
     if (isNetworkError(error)) return { success: false, network: true, error: 'EdgeTTS 网络不可用，请检查网络连接后重试' };
