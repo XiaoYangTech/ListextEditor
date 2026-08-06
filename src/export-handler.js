@@ -241,6 +241,9 @@ class ExportHandler {
       const totalTasks = queue.length;
       this._updateProgress(5, `正在构建导出任务（${totalTasks}）...`);
       console.log('[动作] 导出开始:', targetPath, `共 ${totalTasks} 个任务`);
+      if (effectiveQueue._skippedEmpty > 0) {
+        this._logProgress(`已跳过 ${effectiveQueue._skippedEmpty} 个空白朗读块`);
+      }
 
       for (let i = 0; i < queue.length; i++) {
         const task = queue[i];

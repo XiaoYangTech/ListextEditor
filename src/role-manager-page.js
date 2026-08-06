@@ -141,14 +141,13 @@ class RoleManagerPage {
     const isUnlocked = window.entitlement?.isUnlocked();
     const isFreeDisplay = window.entitlement?.isFreeDisplay;
     const total = allRoles.length;
-    const maxRoles = window.LISTEXT_CONSTANTS?.MAX_FREE_ROLES || 3;
     const siteUrl = window.LISTEXT_CONSTANTS?.API_BASE_URL || 'https://api.yfyw.top';
 
     let html = '';
 
     if (!isUnlocked) {
       html += `<div class="rm-vip-bar">
-        ${isFreeDisplay ? '🎉 全服限免中' : '📋 免费版'} · 已添加 ${total}/${maxRoles} 个角色
+        ${isFreeDisplay ? '🎉 全服限免中' : '📋 免费版'} · 小语种音色需专业版解锁
         <a href="#" class="rm-upgrade-link" onclick="window.electronAPI?.openExternal?.('${siteUrl}');return false">💎 升级专业版</a>
       </div>`;
     }

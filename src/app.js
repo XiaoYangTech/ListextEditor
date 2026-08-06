@@ -103,14 +103,6 @@ class ListextEditor {
       onInput: () => {
         this.fileManager.markUnsaved();
         this.syncCodeRolesToProject(this.codeEditor.getValue());
-      },
-      validateExtra: (text) => {
-        const maxRoles = window.LISTEXT_CONSTANTS?.MAX_FREE_ROLES || 3;
-        if (window.entitlement?.isUnlocked()) return [];
-        const count = this.parser.parseRoleDefsFromCode(text).length;
-        return count > maxRoles
-          ? [{ line: 1, message: `免费版最多支持 ${maxRoles} 个角色（当前 ${count} 个），请升级专业版` }]
-          : [];
       }
     });
   }
@@ -467,10 +459,10 @@ class ListextEditor {
     return head.join('\n') + '\n' + (body || '');
   }
 
-  // 角色专项前置检查（播放前调用）：重复定义 → 免费超限；返回提示消息或 null
+  // 角色专项前置检查（播放前调用）：重复定义 → 返回提示消息或 null（角色个数不再限制）
   preflightRoles() {
     const tab = this.tabManager?.getActiveTab();
-    // ① 重复定义（代码/分屏读编辑器文本，积木读标签原文缓存）
+    // 重复定义（代码/分屏读编辑器文本，积木读标签原文缓存）
     const roleSource = this.currentMode === 'block'
       ? (tab?.roleDefsRaw || []).join('\n')
       : (this.codeEditor?.getValue() || '');
@@ -484,12 +476,7 @@ class ListextEditor {
     if (dups.size) {
       return `角色 ${[...dups].map(id => `"${id}"`).join('、')} 重复定义。\n请删除重复的角色标签。`;
     }
-    // ② 免费版角色总数超限（取标签来源与项目模型的并集计数，与实时校验口径一致）
-    const maxRoles = window.LISTEXT_CONSTANTS?.MAX_FREE_ROLES || 3;
-    if (window.entitlement?.isUnlocked()) return null;
-    const roleIds = new Set([...seen, ...(tab?.roles || []).map(r => r?.id).filter(Boolean)]);
-    if (roleIds.size <= maxRoles) return null;
-    return `免费版最多支持 ${maxRoles} 个角色，当前项目有 ${roleIds.size} 个。\n请删除多余角色，或开通会员升级专业版。`;
+    return null;
   }
 
   // 全量体检（全文播放/导出前调用）：语法+语义+角色，有问题弹窗列出并返回 false

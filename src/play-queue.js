@@ -72,10 +72,6 @@ class PlayQueue {
     this._skippedEmpty = 0;
     this.buildQueueFromNodes(ast);
     this.currentIndex = 0;
-    // 空白朗读块不参与播放/导出，提示用户
-    if (this._skippedEmpty > 0) {
-      window.app?.updateStatus?.(`已跳过 ${this._skippedEmpty} 个空白朗读块`);
-    }
     return this.queue;
   }
 

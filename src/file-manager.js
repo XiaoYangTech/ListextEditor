@@ -203,19 +203,6 @@ class FileManager {
       let finalContent = result.content || '';
       let finalRoles = normalized.roles;
 
-      const isUnlocked = window.entitlement?.isUnlocked();
-      if (!isUnlocked && finalRoles.length > 3) {
-        const choice = await new Promise(resolve => {
-          window._roleReplaceDialog?.show(finalRoles, finalContent, resolve);
-        });
-        if (!choice) {
-          this.app.uiManager?.showInfoDialog?.('提示', '已取消导入：角色数超出免费版限制');
-          return false;
-        }
-        finalRoles = choice.roles;
-        finalContent = choice.content;
-      }
-
       // 标签标题永远以实际文件名为准（包内 title 是保存时的旧名，已废弃不再读取）
       const title = filePath.split(/[/\\]/).pop();
       if (this.app.tabManager) {
