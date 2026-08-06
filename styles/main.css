@@ -912,20 +912,20 @@ body.toolbar-left .toolbar {
 
 .effect-dialog-content { min-width: 520px; max-width: 620px; }
 .effect-dialog-body { display: flex; flex-direction: column; gap: 0; padding: 0; }
-.effect-tabs { display: flex; gap: 0; padding: 8px 16px 0; border-bottom: 1px solid var(--md-divider); }
-.effect-tab { border: none; background: transparent; padding: 8px 16px; font-size: 13px; cursor: pointer; color: var(--md-on-surface-variant); border-bottom: 2px solid transparent; transition: all .15s; }
+.effect-tabs-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; }
+.effect-tabs { display: flex; gap: 2px; background: #f0f0f0; border-radius: 8px; padding: 3px; }
+.effect-tab { border: none; background: transparent; padding: 6px 16px; font-size: 13px; cursor: pointer; color: var(--md-on-surface-variant); border-radius: 6px; transition: all .15s; }
 .effect-tab:hover { color: var(--md-primary); }
-.effect-tab.active { color: var(--md-primary); border-bottom-color: var(--md-primary); font-weight: 500; }
-.effect-toolbar { display: flex; align-items: center; padding: 6px 16px; border-bottom: 1px solid var(--md-divider); }
+.effect-tab.active { color: var(--md-primary); background: #fff; font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
 .effect-filter { padding: 5px 8px; border: 1px solid var(--md-divider); border-radius: 6px; font-size: 12px; background: #fff; min-width: 120px; }
-.effect-custom-actions { display: flex; justify-content: center; padding: 20px; border-top: 1px solid var(--md-divider); }
+.effect-custom-actions { display: flex; justify-content: center; padding: 20px; }
 .effect-custom-actions .btn { padding: 8px 20px; }
-.effect-list { padding: 8px 16px; max-height: 240px; overflow-y: auto; min-height: 60px; }
-.effect-group-card { border: 1px solid var(--md-divider); border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
-.effect-group-header { padding: 8px 12px; background: var(--md-surface-dim, #fcfcfc); border-bottom: 1px solid var(--md-divider); font-size: 12px; font-weight: 600; color: var(--md-on-surface-variant); }
-.effect-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px dashed #eee; cursor: pointer; transition: background .1s; }
-.effect-item:first-child { border-top: none; }
-.effect-item:hover { background: var(--md-surface-dim, #f5f5f5); }
+.effect-list { margin: 0 16px; max-height: 260px; overflow-y: auto; min-height: 60px; border: 1px solid var(--md-divider); border-radius: 10px; background: #fff; }
+.effect-group-card { overflow: hidden; }
+.effect-group-header { position: sticky; top: 0; padding: 6px 12px; background: #f5f5f5; font-size: 11px; font-weight: 600; color: var(--md-on-surface-variant); z-index: 1; }
+.effect-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; transition: background .1s; border-top: 1px solid #f3f3f3; }
+.effect-group-card .effect-item:first-of-type { border-top: none; }
+.effect-item:hover { background: #f7faff; }
 .effect-item.selected { background: #e3f2fd; }
 .effect-item .material-icons { font-size: 20px; color: var(--md-primary); }
 .effect-item-info { flex: 1; min-width: 0; }
@@ -938,7 +938,11 @@ body.toolbar-left .toolbar {
 .effect-item-preview.playing { color: var(--md-primary); background: #e3f2fd; }
 .effect-item-remove { width: 28px; height: 28px; border: none; border-radius: 50%; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; color: var(--md-on-surface-variant); }
 .effect-item-remove:hover { background: #ffebee; color: #b00020; }
-.effect-options { display: flex; gap: 12px; padding: 4px 20px 12px; }
+.effect-options { display: flex; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--md-divider); background: #fafafa; border-radius: 0 0 10px 10px; }
+.effect-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.effect-remember { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--md-on-surface-variant); cursor: pointer; user-select: none; }
+.effect-remember input { width: auto; }
+.effect-footer-btns { display: flex; gap: 8px; }
 .effect-empty { color: var(--md-on-surface-variant); font-size: 13px; text-align: center; padding: 24px; }
 
 /* Role Manager Dialog */

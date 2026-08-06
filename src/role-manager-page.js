@@ -104,12 +104,14 @@ class RoleManagerPage {
       }
       const lang = this._dnLang.of(parts[0]);
       if (!lang) return '';
+      // Chromium 对个别语言码无中文名，手动补
+      const langName = parts[0] === 'iu' ? '因纽特语' : lang;
       // 三段码（方言口音如 zh-CN-liaoning）地区字段非法时退回纯语言名
       let region = '';
       if (parts[1]) {
         try { region = this._dnRegion.of(parts[1]) || ''; } catch { region = ''; }
       }
-      return region ? `${lang}（${region}）` : lang;
+      return region ? `${langName}（${region}）` : langName;
     } catch { return ''; }
   }
 
@@ -135,7 +137,7 @@ class RoleManagerPage {
     document.body.appendChild(panel);
     this._voicePanel = panel;
 
-    const rank = (v) => v.startsWith('zh-CN') ? 0 : v.startsWith('en-US') ? 1 : (/^(ja|ru|es)-/.test(v) ? 2 : 3);
+    const rank = (v) => v.startsWith('zh-') ? 0 : v.startsWith('en-US') ? 1 : (/^(ja|ru|es)-/.test(v) ? 2 : 3);
     const groupNames = ['中文', '英语', '日语 / 俄语 / 西班牙语', '其他语言'];
     let panelHtml = '';
     let lastRank = -1;
@@ -251,8 +253,8 @@ class RoleManagerPage {
 
     if (type === 'edge' && window.electronAPI?.listEdgeVoices) {
       const res = await window.electronAPI.listEdgeVoices();
-      // 排序：中文 → 英文 → 日/俄/西 → 其他语言
-      const rank = (v) => v.startsWith('zh-CN') ? 0
+      // 排序：中文（含港澳台及方言） → 英文 → 日/俄/西 → 其他语言
+      const rank = (v) => v.startsWith('zh-') ? 0
         : v.startsWith('en-US') ? 1
         : (/^(ja|ru|es)-/.test(v) ? 2 : 3);
       let voices = (res?.voices || []).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));

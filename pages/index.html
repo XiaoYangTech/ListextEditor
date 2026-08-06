@@ -206,11 +206,11 @@
     <div class="dialog-content effect-dialog-content">
       <div class="dialog-header"><h2>选择音效</h2><button class="dialog-close">&times;</button></div>
       <div class="dialog-body effect-dialog-body">
-        <div class="effect-tabs">
-          <button class="effect-tab active" id="effectTabBuiltin">系统音效</button>
-          <button class="effect-tab" id="effectTabCustom">自定义音效</button>
-        </div>
-        <div class="effect-toolbar" id="effectToolbar">
+        <div class="effect-tabs-bar">
+          <div class="effect-tabs">
+            <button class="effect-tab active" id="effectTabBuiltin">系统音效</button>
+            <button class="effect-tab" id="effectTabCustom">自定义音效</button>
+          </div>
           <select id="effectGroupFilter" class="effect-filter"><option value="">全部分类</option></select>
         </div>
         <div class="effect-list" id="effectList"></div>
@@ -227,14 +227,13 @@
             <input type="number" id="effectDialogFade" min="1" max="60" placeholder="无淡出">
           </div>
         </div>
-        <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:8px;">
-          <input type="checkbox" id="effectRemember" style="width:auto;">
-          <label for="effectRemember" style="margin:0;">当前项目记住本属性（勾选后添加不再询问，Alt+点击添加可重新设置）</label>
-        </div>
       </div>
-      <div class="dialog-footer">
-        <button class="btn btn-cancel" id="effectDialogCancel">取消</button>
-        <button class="btn btn-primary" id="effectDialogConfirm">确定</button>
+      <div class="dialog-footer effect-footer">
+        <label class="effect-remember" title="勾选后添加不再询问，Alt+点击添加可重新设置"><input type="checkbox" id="effectRemember"> 当前项目记住本属性</label>
+        <div class="effect-footer-btns">
+          <button class="btn btn-cancel" id="effectDialogCancel">取消</button>
+          <button class="btn btn-primary" id="effectDialogConfirm">确定</button>
+        </div>
       </div>
     </div>
   </div>

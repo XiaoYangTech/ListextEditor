@@ -521,7 +521,7 @@ class UIManager {
       this._effectTab = 'builtin';
       document.getElementById('effectTabBuiltin').classList.add('active');
       document.getElementById('effectTabCustom').classList.remove('active');
-      document.getElementById('effectToolbar').style.display = 'flex';
+      document.getElementById('effectGroupFilter').style.display = '';
       document.getElementById('effectCustomActions').style.display = 'none';
       this._renderEffectList();
     });
@@ -530,7 +530,7 @@ class UIManager {
       this._effectTab = 'custom';
       document.getElementById('effectTabCustom').classList.add('active');
       document.getElementById('effectTabBuiltin').classList.remove('active');
-      document.getElementById('effectToolbar').style.display = 'none';
+      document.getElementById('effectGroupFilter').style.display = 'none';
       document.getElementById('effectCustomActions').style.display = 'flex';
       this._renderEffectList();
     });
@@ -581,7 +581,7 @@ class UIManager {
     this._effectTab = 'builtin';
     document.getElementById('effectTabBuiltin').classList.add('active');
     document.getElementById('effectTabCustom').classList.remove('active');
-    document.getElementById('effectToolbar').style.display = 'flex';
+    document.getElementById('effectGroupFilter').style.display = '';
     document.getElementById('effectCustomActions').style.display = 'none';
     document.getElementById('effectDialogDuration').value = '';
     document.getElementById('effectDialogFade').value = '';
