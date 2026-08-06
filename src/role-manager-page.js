@@ -139,6 +139,20 @@ class RoleManagerPage {
 
     const rank = (v) => v.startsWith('zh-') ? 0 : v.startsWith('en-US') ? 1 : (/^(ja|ru|es)-/.test(v) ? 2 : 3);
     const groupNames = ['中文', '英语', '日语 / 俄语 / 西班牙语', '其他语言'];
+    // 加载失败/为空：占位 + 点击重试
+    if (!voices.length) {
+      wrap.innerHTML = `
+        <div class="rm-select-face rm-select-face-retry" id="roleVoiceFace" title="未获取到 EdgeTTS 发音人，点击重试">
+          <span class="rm-select-face-text"><span class="rm-select-face-inner" style="color:var(--md-on-surface-variant);">未获取到发音人，点击重试加载</span></span>
+          <span class="material-icons">refresh</span>
+        </div>`;
+      wrap.querySelector('#roleVoiceFace').addEventListener('click', (e) => {
+        e.stopPropagation();
+        wrap.querySelector('.rm-select-face-inner').textContent = '加载中…';
+        this.populateVoices(this.roleVoice.value || '');
+      });
+      return;
+    }
     let panelHtml = '';
     let lastRank = -1;
     for (const v of voices) {
