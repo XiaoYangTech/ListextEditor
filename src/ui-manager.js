@@ -233,7 +233,7 @@ class UIManager {
 
   handleAddBlock(type, insertBefore = false, forceDialog = false) {
     if (this.app.currentMode === 'code') {
-      this.handleAddToCode(type);
+      this.handleAddToCode(type, forceDialog);
       return;
     }
     if (!this.app.renderer) return;
@@ -308,8 +308,12 @@ class UIManager {
     if (type === 'repeat') {
       this.app.renderer.addBlock('repeat', opts);
     } else if (type === 'section') {
-      this.app.renderer.addBlock('section', { ...opts, title: `分节 ${Date.now().toString().slice(-4)}` });
-      this.refreshSectionJump();
+      this.showSectionAddDialog((title) => {
+        this.app.renderer.addBlock('section', { ...opts, title });
+        this.app.fileManager.markUnsaved();
+        this.refreshSectionJump();
+      });
+      return;
     } else {
       const block = this.app.renderer.addBlock(type, opts);
       block?.querySelector?.('textarea')?.focus();
@@ -319,11 +323,16 @@ class UIManager {
     this.refreshSectionJump();
   }
 
-  handleAddToCode(type) {
+  handleAddToCode(type, forceDialog = false) {
     const editor = this.app.codeEditor;
     if (!editor) return;
 
     if (type === 'pause') {
+      const rememberedPause = this._getSessionDefaults('pause');
+      if (rememberedPause && !forceDialog) {
+        editor.insertCodeAtCursor(`<pause dur="${rememberedPause.duration}">`);
+        return;
+      }
       this.showSilenceDialog((duration) => {
         editor.insertCodeAtCursor(`<pause dur="${duration}">`);
       });
@@ -339,14 +348,40 @@ class UIManager {
         editor.insertCodeAtCursor(`<fx ${attrs}>`);
       });
     } else if (type === 'say') {
-      editor.insertCodeAtCursor('<say role=""></say>', -6);
+      const insertSay = (roleId, rate) => {
+        let attrs = roleId ? ` role="${roleId}"` : '';
+        if (rate && rate !== 1.0) attrs += ` rate="${rate}"`;
+        editor.insertCodeAtCursor(`<say${attrs}></say>`, -6);
+      };
+      const rememberedSay = this._getSessionDefaults('say');
+      if (rememberedSay && !forceDialog) {
+        const rolesNow = window.app?.tabManager?.getActiveTab()?.roles || [];
+        let roleId = rememberedSay.roleId || '';
+        if (roleId && !rolesNow.some(r => r.id === roleId)) roleId = ''; // 角色被删回落
+        insertSay(roleId, rememberedSay.rate || 1.0);
+        return;
+      }
+      this.showSayAddDialog(insertSay);
     } else if (type === 'repeat') {
       editor.insertCodeAtCursor('<repeat count="2">\n  \n</repeat>', -4);
     } else if (type === 'section') {
-      editor.insertCodeAtCursor('<section title="分节标题">');
+      this.showSectionAddDialog((title) => {
+        editor.insertCodeAtCursor(`<section title="${title}">`);
+      });
     } else if (type === 'divider') {
       editor.insertCodeAtCursor('<divider>');
     }
+  }
+
+  // 添加分节时的标题询问框（不提供记住属性勾选）
+  showSectionAddDialog(callback) {
+    this.app.renderer.openEditDialog('添加分节', `
+      <div class="form-group"><label>分节标题</label><input id="addSectionTitle" type="text" value="分节标题" /></div>
+    `, () => {
+      const title = (document.getElementById('addSectionTitle').value || '').trim() || '分节标题';
+      callback(title);
+    });
+    setTimeout(() => document.getElementById('addSectionTitle')?.select(), 50);
   }
 
   initDialogs() {
@@ -416,6 +451,7 @@ class UIManager {
       <div class="form-group"><label>角色（可选）</label><select id="addSayRole"><option value="">不使用角色（默认中文，其他语言可能不准确）</option>${roles.map(r => `<option value="${this.escapeHtml(r.id)}" ${r.id === defRole ? 'selected' : ''}>${this.escapeHtml(r.name)} (${this.escapeHtml(r.id)})</option>`).join('')}</select></div>
       <div class="form-group"><label>语速（0.5 - 2.0）</label><input id="addSayRate" type="number" min="0.5" max="2" step="0.1" value="${defRate}" /></div>
       <div class="form-group" style="display:flex;align-items:center;gap:8px;"><input id="addSayRemember" type="checkbox" style="width:auto;" ${remembered ? 'checked' : ''} /><label for="addSayRemember" style="margin:0;">当前项目记住本属性（勾选后添加不再询问，Alt+点击添加可重新设置）</label></div>
+      <div class="form-group" style="text-align:right;margin-top:-6px;"><a href="#" id="addSayGotoRoles" style="font-size:12px;color:#1976d2;text-decoration:none;">没有想要的角色？去角色管理器添加 →</a></div>
     `, () => {
       const roleId = document.getElementById('addSayRole').value || '';
       let rate = parseFloat(document.getElementById('addSayRate').value);
@@ -427,6 +463,12 @@ class UIManager {
         this._setSessionDefaults('say', null);
       }
       callback(roleId, rate);
+    });
+    // 快速跳转角色管理器：关掉本框，打开角色管理器
+    document.getElementById('addSayGotoRoles')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('blockEditDialog')?.classList.remove('active');
+      this.openRoleManager();
     });
   }
 
