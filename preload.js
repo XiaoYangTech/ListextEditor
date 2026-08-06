@@ -69,6 +69,9 @@ function isValidMp3(p) {
 
 async function synthesizeTTS(text, voice, rate = '+0%') {
   try {
+    if (!text || !text.trim()) {
+      return { success: false, error: '朗读内容为空' };
+    }
     ensureDir(tempDir);
     const rawVoice = voice || DEFAULT_EDGE_VOICE;
 

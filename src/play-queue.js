@@ -69,8 +69,13 @@ class PlayQueue {
 
   buildQueue(ast) {
     this.queue = [];
+    this._skippedEmpty = 0;
     this.buildQueueFromNodes(ast);
     this.currentIndex = 0;
+    // 空白朗读块不参与播放/导出，提示用户
+    if (this._skippedEmpty > 0) {
+      window.app?.updateStatus?.(`已跳过 ${this._skippedEmpty} 个空白朗读块`);
+    }
     return this.queue;
   }
 
@@ -130,6 +135,11 @@ class PlayQueue {
   createTaskForNode(node) {
     switch (node.tagName) {
       case 'say': {
+        // 空白朗读块不产生任务（空文本合成必出坏文件），由 buildQueue 统一提示
+        if (!node.content || !node.content.trim()) {
+          this._skippedEmpty = (this._skippedEmpty || 0) + 1;
+          return null;
+        }
         const roleId = node.attrs?.role || '';
         const role = roleId ? this.getRole(roleId) : null;
         const defaultTtsType = 'edge';
