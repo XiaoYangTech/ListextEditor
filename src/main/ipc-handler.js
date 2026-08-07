@@ -29,7 +29,7 @@ const { getBuiltInDir, getBuiltInRoots, scanBuiltInSounds } = require('./sound-h
 const fileLocker = require('./file-locker');
 const crypto = require('crypto');
 
-const tempDir = path.join(app.getPath('temp'), 'listext-editor');
+const tempDir = path.join(app.getPath('temp'), 'ListextEditor');
 
 function normalizeExt(filePath) {
   if (!filePath) return filePath;

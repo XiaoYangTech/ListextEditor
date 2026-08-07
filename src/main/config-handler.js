@@ -116,7 +116,7 @@ function registerConfigHandlers(ipcMain) {
   ipcMain.handle('get-cache-stats', async () => {
     const { app } = require('electron');
     const { dirSize } = require('./logger');
-    const tempDir = path.join(app.getPath('temp'), 'listext-editor');
+    const tempDir = path.join(app.getPath('temp'), 'ListextEditor');
     return {
       logs: dirSize(getLogDir()),
       temp: dirSize(tempDir),
@@ -129,7 +129,7 @@ function registerConfigHandlers(ipcMain) {
     const { app } = require('electron');
     const targets = {
       logs: getLogDir(),
-      temp: path.join(app.getPath('temp'), 'listext-editor'),
+      temp: path.join(app.getPath('temp'), 'ListextEditor'),
       projectSounds: path.join(app.getPath('userData'), 'project-sounds'),
       importedSounds: path.join(app.getPath('userData'), 'imported-sounds')
     };

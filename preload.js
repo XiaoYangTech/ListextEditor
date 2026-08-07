@@ -24,7 +24,7 @@ const os = require('os');
 const { ensureDir, isNetworkError, sleep } = require('./src/main/utils');
 const { DEFAULT_EDGE_VOICE } = require('./src/listext-constants');
 
-const tempDir = path.join(os.tmpdir(), 'listext-editor');
+const tempDir = path.join(os.tmpdir(), 'ListextEditor');
 
 // 手动代理时 EdgeTTS 的 WebSocket 也要走代理。
 // 注意一：LISTEXT_PROXY 设在主进程渲染进程读不到，须经 IPC 取设置。

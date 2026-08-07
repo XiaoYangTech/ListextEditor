@@ -153,9 +153,14 @@ function wrapConsole(level) {
 function initLogger() {
   ensureLogDir();
   cleanOldLogs();
+  // 旧版临时目录（listext-editor 小写连字符）一次性清除
+  try {
+    const oldTempDir = path.join(app.getPath('temp'), 'listext-editor');
+    if (fs.existsSync(oldTempDir)) fs.rmSync(oldTempDir, { recursive: true, force: true });
+  } catch { /* 忽略 */ }
   // 各类缓存目录 1GB 限额（日志/TTS 临时文件/工程音效解压缓存）
   const G = 1024 * 1024 * 1024;
-  const tempDir = path.join(app.getPath('temp'), 'listext-editor');
+  const tempDir = path.join(app.getPath('temp'), 'ListextEditor');
   enforceDirSize(getLogDir(), G);
   enforceDirSize(tempDir, G);
   enforceDirSize(path.join(app.getPath('userData'), 'project-sounds'), G);
