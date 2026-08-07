@@ -121,7 +121,7 @@ class RoleManagerPage {
   }
 
   // 自定义发音人下拉：分组 + 语言标识 + 收起状态跑马灯；面板挂 body 级 fixed 定位可伸出对话框
-  _buildVoiceDropdown(voices, selected, isUnlocked) {
+  _buildVoiceDropdown(voices, selected) {
     let wrap = document.getElementById('roleVoiceCustom');
     if (!wrap) {
       wrap = document.createElement('div');
@@ -283,7 +283,7 @@ class RoleManagerPage {
       // 原生 select 隐藏仅作数据存储，自定义下拉（语言标识+分组+跑马灯）接管交互
       this.roleVoice.innerHTML = voices.map(v => `<option value="${v}">${v}</option>`).join('');
       this.roleVoice.value = selected;
-      this._buildVoiceDropdown(voices, selected, isUnlocked);
+      this._buildVoiceDropdown(voices, selected);
       return;
     }
 

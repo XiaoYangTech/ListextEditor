@@ -946,9 +946,13 @@ body.toolbar-left .toolbar {
 .effect-empty { color: var(--md-on-surface-variant); font-size: 13px; text-align: center; padding: 24px; }
 
 /* Role Manager Dialog */
-.rm-tip { background: #e3f2fd; border: 1px solid #90caf9; color: #1565c0; padding: 10px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+.rm-tip { background: #e3f2fd; border: 1px solid #90caf9; color: #1565c0; padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 8px; }
+/* 角色管理器：内容不滚动由对话框整体承载，消除 flex 收缩产生的幻影滚动条 */
+#roleManagerDialog .dialog-body { padding-bottom: 0 !important; overflow: visible; flex: 0 0 auto; }
+#roleManagerDialog .dialog-body > *:last-child { margin-bottom: 0; }
+#roleManagerDialog .dialog-content { max-height: 92%; overflow-y: auto; }
 .rm-tip code { background: #bbdefb; padding: 2px 4px; border-radius: 3px; font-family: Consolas, monospace; }
-.rm-card { border: 1px solid var(--md-divider); border-radius: 8px; background: var(--md-surface); padding: 12px; margin-bottom: 12px; }
+.rm-card { border: 1px solid var(--md-divider); border-radius: 8px; background: var(--md-surface); padding: 10px 12px; margin-bottom: 12px; }
 .rm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .rm-list-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--md-divider); border-radius: 6px; margin-bottom: 8px; }
 .rm-meta { font-size: 12px; color: var(--md-on-surface-variant); margin-top: 4px; }
