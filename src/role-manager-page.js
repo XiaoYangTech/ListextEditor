@@ -165,7 +165,6 @@ class RoleManagerPage {
         <span class="rm-select-face-text"><span class="rm-select-face-inner">${this._voiceText(selected)}</span></span>
         <span class="material-icons">arrow_drop_down</span>
       </div>
-      ${!isUnlocked ? '<div class="rm-select-hint">💎 英式英语及日/俄/西等 30+ 语种需专业版解锁</div>' : ''}
     `;
     panel.innerHTML = panelHtml || '<div class="rm-select-group">无可用发音人</div>';
 
@@ -306,7 +305,7 @@ class RoleManagerPage {
 
     if (!isUnlocked) {
       html += `<div class="rm-vip-bar">
-        ${isFreeDisplay ? '🎉 全服限免中' : '📋 免费版'} · 小语种音色需专业版解锁
+        ${isFreeDisplay ? '🎉 全服限免中' : '📋 免费版'} · 英式英语及日/俄/西等 30+ 语种需专业版解锁
         <a href="#" class="rm-upgrade-link" onclick="window.electronAPI?.openExternal?.('${siteUrl}');return false">💎 升级专业版</a>
       </div>`;
     }
