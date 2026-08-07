@@ -165,7 +165,7 @@ class RoleManagerPage {
         <span class="rm-select-face-text"><span class="rm-select-face-inner">${this._voiceText(selected)}</span></span>
         <span class="material-icons">arrow_drop_down</span>
       </div>
-      ${!isUnlocked ? '<div class="rm-select-hint">💎 日/俄/西等 30+ 语种需专业版解锁</div>' : ''}
+      ${!isUnlocked ? '<div class="rm-select-hint">💎 英式英语及日/俄/西等 30+ 语种需专业版解锁</div>' : ''}
     `;
     panel.innerHTML = panelHtml || '<div class="rm-select-group">无可用发音人</div>';
 
@@ -274,7 +274,8 @@ class RoleManagerPage {
       let voices = (res?.voices || []).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
       const isUnlocked = window.entitlement?.isUnlocked();
       if (!isUnlocked) {
-        voices = voices.filter(v => v.startsWith('zh-CN') || v.startsWith('en-US') || v === preserveVoice);
+        // 免费版放行：全部中文（含港澳台及方言口音）+ 美式英语
+        voices = voices.filter(v => v.startsWith('zh-') || v.startsWith('en-US') || v === preserveVoice);
       }
       // 选中：编辑已有角色保持其音色；新建默认英文 Jenny，都没有退列表首位
       const selected = (preserveVoice && voices.includes(preserveVoice))
@@ -372,8 +373,8 @@ class RoleManagerPage {
     }
 
     if (type === 'edge' && !window.entitlement?.isUnlocked()
-        && voice && !voice.startsWith('zh-CN') && !voice.startsWith('en-US')) {
-      window.entitlement?.showVipToast('小语种发音人');
+        && voice && !voice.startsWith('zh-') && !voice.startsWith('en-US')) {
+      window.entitlement?.showVipToast('该发音人音色');
       return;
     }
 

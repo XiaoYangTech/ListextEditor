@@ -79,8 +79,9 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
     const isPro = ent?.plan === 'pro' && !ent?.expired;
     const isFreeDisplay = ent?.free_display?.enabled;
     if (!isPro && !isFreeDisplay) {
-      if (!rawVoice.startsWith('zh-CN') && !rawVoice.startsWith('en-US')) {
-        return { success: false, error: '小语种 TTS 是专业版功能，请升级后使用' };
+      // 免费版放行：全部中文（含港澳台及方言口音）+ 美式英语
+      if (!rawVoice.startsWith('zh-') && !rawVoice.startsWith('en-US')) {
+        return { success: false, error: '该发音人音色是专业版功能，请升级后使用' };
       }
     }
 
