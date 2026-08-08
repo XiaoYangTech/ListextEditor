@@ -739,6 +739,15 @@ body.toolbar-left .toolbar {
   color: #6A6A6A;
 }
 
+/* 修复 Ctrl+A 全选重影：Chromium 对 textarea 选中文本会忽略透明填充色、
+   按系统主题色反色绘制，叠加在高亮层上形成重影。
+   这里让选区文字保持透明，仅用半透明背景提供选中反馈，高亮层文字可正常透出 */
+#codeEditor::selection {
+  background: rgba(38, 79, 120, 0.6);
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
 .code-highlight {
   position: absolute;
   top: 0;
