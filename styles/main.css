@@ -740,7 +740,6 @@ body.toolbar-left .toolbar {
 }
 
 #codeEditor::selection {
-  background: rgba(38, 79, 120, 0.6);
   color: transparent;
   -webkit-text-fill-color: transparent;
 }
