@@ -261,6 +261,17 @@ class ListextEditor {
     this.stopSplitSync();
 
     if (sync && this.currentMode !== mode) {
+      // 从代码/分屏切到需要渲染积木的模式（积木/分屏）时，先体检代码；
+      // 有错弹窗拦截并停留在当前模式（恢复切换模式及时弹窗提示，防止错误代码渲染出异常积木）
+      if (this.currentMode !== 'block' && mode !== 'code') {
+        const errs = this.codeEditor?.collectErrors(this.codeEditor.getValue()) || [];
+        if (errs.length) {
+          const list = errs.slice(0, 8).map(e => `第${e.line}行: ${e.message}`).join('\n');
+          const more = errs.length > 8 ? `\n……共 ${errs.length} 个问题` : '';
+          this.uiManager?.showInfoDialog?.('无法继续', `发现以下问题，请先修复：\n${list}${more}`);
+          return;
+        }
+      }
       try {
         if (this.currentMode === 'block') this.syncBlocksToCode();
         else if (this.currentMode === 'code') this.syncCodeToBlocks();
