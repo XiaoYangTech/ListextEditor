@@ -732,9 +732,6 @@ body.toolbar-left .toolbar {
   resize: none;
   outline: none;
   tab-size: 2;
-  /* 始终为滚动条预留槽位：textarea 内容宽度与下方高亮层保持一致，
-     否则滚动条占宽 8px 会使长行换行点不同，滚动后与高亮层错位（见 .code-highlight right:8px） */
-  scrollbar-gutter: stable;
   z-index: 2;
 }
 
@@ -742,23 +739,12 @@ body.toolbar-left .toolbar {
   color: #6A6A6A;
 }
 
-/* 修复 Ctrl+A 全选重影：Chromium 对 textarea 选中文本会忽略透明填充色、
-   按系统主题色反色绘制，叠加在高亮层上形成重影。
-   这里让选区文字保持透明，仅用半透明背景提供选中反馈，高亮层文字可正常透出 */
-#codeEditor::selection {
-  background: rgba(38, 79, 120, 0.6);
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-}
-
 .code-highlight {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 50px;
-  /* 与 #codeEditor 滚动条槽宽（8px，见全局 ::-webkit-scrollbar）对齐，
-     保证高亮层与 textarea 内容宽度一致，长行换行点同步 */
-  right: 8px;
+  right: 0;
   padding: 16px;
   margin: 0;
   background: #1E1E1E;
