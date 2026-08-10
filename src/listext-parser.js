@@ -234,6 +234,10 @@ class ListextParser {
           stack.pop();
         }
       } else if (!this.isSelfClosing(tagName)) {
+        // say 等纯内容标签内部只允许文本，嵌套其他标签属于结构错误（如未正确闭合的嵌套 say）
+        if (stack.length && this.isTextOnly(stack[stack.length - 1].tag)) {
+          errors.push({ line, message: `<${stack[stack.length - 1].tag}> 标签内不允许嵌套 <${tagName}> 标签` });
+        }
         stack.push({ tag: tagName, line });
       }
     }
@@ -243,5 +247,10 @@ class ListextParser {
     }
 
     return errors;
+  }
+
+  // 只允许包含文本、不能嵌套子标签的标签
+  isTextOnly(tagName) {
+    return tagName === 'say';
   }
 }

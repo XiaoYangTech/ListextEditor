@@ -90,6 +90,8 @@ class CodeEditor {
     this.loadBuiltinSounds();
     this.editor.addEventListener('input', () => {
       this.refreshView();
+      // 校验是纯计算不依赖渲染帧，立即执行，避免窗口隐藏时 rAF 冻结导致错误提示缺席
+      this.validateCode();
       if (this.callbacks.onInput) this.callbacks.onInput();
       this.updateSuggestions();
     });
