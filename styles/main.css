@@ -739,6 +739,14 @@ body.toolbar-left .toolbar {
   color: #6A6A6A;
 }
 
+/* Chromium 全选时会无视透明填充、按系统色绘制选中文字形成重影，
+   这里强制选中文字透明、只保留半透明选区背景，透出下层高亮文字 */
+#codeEditor::selection {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background: rgba(38, 79, 120, 0.55);
+}
+
 .code-highlight {
   position: absolute;
   top: 0;
@@ -754,6 +762,7 @@ body.toolbar-left .toolbar {
   line-height: 1.6;
   white-space: pre-wrap;
   word-wrap: break-word;
+  tab-size: 2;
   overflow: hidden;
   pointer-events: none;
   z-index: 1;

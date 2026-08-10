@@ -103,6 +103,8 @@ class CodeEditor {
     this.editor.addEventListener('blur', () => setTimeout(() => this.hideSuggestions(), 200));
     this.editor.addEventListener('scroll', () => this.syncScroll());
     this.editor.addEventListener('keydown', e => { if (this.handleKeydown(e)) return; });
+    // 窗口缩放会改变换行点与滚动条可见性，同步高亮层宽度避免错位
+    window.addEventListener('resize', () => this.updateCodeHighlight());
   }
 
   insertTagTemplate(tag) {
@@ -166,7 +168,12 @@ class CodeEditor {
 
   updateCodeHighlight() {
     if (!this.highlight) return;
-    const h = this.highlightListext(this.editor.value);
+    // 高亮层让出滚动条占宽，与 textarea 内容区等宽，长行换行点才一致
+    this.highlight.style.right = (this.editor.offsetWidth - this.editor.clientWidth) + 'px';
+    const v = this.editor.value;
+    // pre-wrap 会吞掉文末换行而 textarea 仍渲染一空行，补齐以保持两层高度一致，
+    // 否则滚到底部时高亮层永远差一行，末尾文字与选区错位
+    const h = this.highlightListext(v) + (v.endsWith('\n') ? '\n' : '');
     if (this.highlight.innerHTML !== h) this.highlight.innerHTML = h;
   }
 
