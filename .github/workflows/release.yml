@@ -14,13 +14,24 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Create GitHub Release
+      - uses: actions/checkout@v4
+      - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          # 本 job 不 checkout，gh 没有 git 仓库可推断，必须显式指定仓库
+          # 本 job 需要 checkout 才能读取 RELEASE_NOTES.md
           GH_REPO: ${{ github.repository }}
-        # 打 tag 即自动建同名 Release，标题就是版本号（vx.x.x）；已存在则跳过
-        run: gh release create ${{ github.ref_name }} --title ${{ github.ref_name }} --generate-notes || gh release view ${{ github.ref_name }} > /dev/null
+        # 仓库根目录的 RELEASE_NOTES.md 是当版发布文案（随版本号一起提交）；
+        # 首次创建或已存在时都写入该文案，缺失则回退到自动生成的说明。
+        # 重跑工作流即可刷新已有 Release 的正文。
+        run: |
+          TAG=${{ github.ref_name }}
+          if [ -f RELEASE_NOTES.md ]; then
+            gh release create "$TAG" --title "$TAG" --notes-file RELEASE_NOTES.md 2>/dev/null \
+              || gh release edit "$TAG" --title "$TAG" --notes-file RELEASE_NOTES.md
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes 2>/dev/null \
+              || gh release view "$TAG" > /dev/null
+          fi
 
   build-windows:
     needs: create-release
