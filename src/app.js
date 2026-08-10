@@ -262,15 +262,9 @@ class ListextEditor {
 
     if (sync && this.currentMode !== mode) {
       // 从代码/分屏切到需要渲染积木的模式（积木/分屏）时，先体检代码；
-      // 有错弹窗拦截并停留在当前模式（恢复切换模式及时弹窗提示，防止错误代码渲染出异常积木）
+      // 有错弹窗拦截并停留在当前模式，防止错误代码渲染出异常积木
       if (this.currentMode !== 'block' && mode !== 'code') {
-        const errs = this.codeEditor?.collectErrors(this.codeEditor.getValue()) || [];
-        if (errs.length) {
-          const list = errs.slice(0, 8).map(e => `第${e.line}行: ${e.message}`).join('\n');
-          const more = errs.length > 8 ? `\n……共 ${errs.length} 个问题` : '';
-          this.uiManager?.showInfoDialog?.('无法继续', `发现以下问题，请先修复：\n${list}${more}`);
-          return;
-        }
+        if (!this.showCodeErrorsDialog(this.codeEditor?.getValue() || '')) return;
       }
       try {
         if (this.currentMode === 'block') this.syncBlocksToCode();
@@ -489,7 +483,12 @@ class ListextEditor {
     const code = this.currentMode === 'block'
       ? this.buildCodeWithRoles(this.parser.stringify(this.renderer.collectAST()).trim())
       : (this.codeEditor?.getValue() || '');
-    const errors = this.codeEditor.collectErrors(code);
+    return this.showCodeErrorsDialog(code);
+  }
+
+  // 校验代码并弹窗列出错误（模式切换拦截与播放/导出体检共用）；无错返回 true
+  showCodeErrorsDialog(code) {
+    const errors = this.codeEditor?.collectErrors(code) || [];
     if (!errors.length) return true;
     const list = errors.slice(0, 8).map(e => `第${e.line}行: ${e.message}`).join('\n');
     const more = errors.length > 8 ? `\n……共 ${errors.length} 个问题` : '';
