@@ -124,11 +124,17 @@ function createMainWindow() {
     e.preventDefault();
     isClosing = true;
 
+    // 关闭时先把主窗口带到前台，避免未保存提示被设置等窗口盖住无法操作
+    if (!mainWindow.isVisible()) mainWindow.show();
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+
     mainWindow.webContents.send('request-close-check');
 
+    // 兜底看门狗：渲染进程崩溃时才强制关闭，留足够时间给用户响应未保存弹窗
     const closeTimeout = setTimeout(() => {
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
-    }, 5000);
+      if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.isCrashed()) mainWindow.destroy();
+    }, 30000);
 
     ipcMain.once('close-check-result', (event, shouldClose) => {
       if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) return;

@@ -57,6 +57,10 @@ class ExportHandler {
       const fullPath = dir + this._sep() + fileName;
       this.doExport(fullPath);
     });
+
+    // 导出进度弹窗：显式取消/重试按钮（不再依赖隐藏的 ESC 逻辑）
+    document.getElementById('exportProgressCancel')?.addEventListener('click', () => this._requestCancelExport());
+    document.getElementById('exportProgressRetry')?.addEventListener('click', () => this._resolveNetworkPause('retry'));
   }
 
   _sep() {
@@ -145,13 +149,56 @@ class ExportHandler {
   _showProgress() {
     const dlg = document.getElementById('exportProgressDialog');
     if (!dlg) return;
+    this._cancelRequested = false;
+    this._pauseResolver = null;
     document.getElementById('exportProgressTitle').textContent = '正在导出';
     document.getElementById('exportProgressText').textContent = '准备中...';
     document.getElementById('exportProgressFill').style.width = '0%';
     document.getElementById('exportProgressPercent').textContent = '0%';
+    const retryBtn = document.getElementById('exportProgressRetry');
+    if (retryBtn) retryBtn.style.display = 'none';
+    const cancelBtn = document.getElementById('exportProgressCancel');
+    if (cancelBtn) cancelBtn.style.display = '';
     const log = document.getElementById('exportProgressLog');
     if (log) log.innerHTML = '';
     dlg.classList.add('active');
+  }
+
+  // 用户点击“取消导出”：置位取消标志；若正停在网络错误等待选择，直接按取消处理
+  _requestCancelExport() {
+    this._cancelRequested = true;
+    if (this._pauseResolver) this._resolveNetworkPause('cancel');
+  }
+
+  // 网络错误后暂停导出，引导用户稍后重试或更换网络；返回 'retry' 或 'cancel'
+  _pauseForNetworkError() {
+    document.getElementById('exportProgressTitle').textContent = '导出已暂停';
+    document.getElementById('exportProgressText').textContent =
+      '网络连接错误。请稍后重试，或更换网络环境（如使用手机流量）后重试。';
+    this._logProgress('网络连接错误，导出已暂停，等待用户选择…');
+    const retryBtn = document.getElementById('exportProgressRetry');
+    if (retryBtn) retryBtn.style.display = '';
+    return new Promise(resolve => { this._pauseResolver = resolve; });
+  }
+
+  _resolveNetworkPause(choice) {
+    if (!this._pauseResolver) return;
+    const resolver = this._pauseResolver;
+    this._pauseResolver = null;
+    const retryBtn = document.getElementById('exportProgressRetry');
+    if (retryBtn) retryBtn.style.display = 'none';
+    if (choice === 'retry') {
+      document.getElementById('exportProgressTitle').textContent = '正在导出';
+    }
+    resolver(choice);
+  }
+
+  // 中止导出：清理临时文件、关闭进度弹窗
+  async _abortExport(api) {
+    this._hideProgress();
+    await api.cleanupTemp?.();
+    this.updateStatus('已取消导出');
+    console.log('[动作] 导出已取消');
   }
 
   _logProgress(msg) {
@@ -246,6 +293,7 @@ class ExportHandler {
       }
 
       for (let i = 0; i < queue.length; i++) {
+        if (this._cancelRequested) { await this._abortExport(api); return; }
         const task = queue[i];
         const taskPct = 5 + Math.round((i / queue.length) * 70);
         this._updateProgress(taskPct, `正在处理任务 ${i + 1}/${totalTasks}...`);
@@ -256,28 +304,41 @@ class ExportHandler {
           const preview = (task.text || '').slice(0, 10);
           this._logProgress(`[${i + 1}/${totalTasks}] 合成中："${preview}…"`);
           let res = null;
+          let retryTask = false;
           const maxAttempts = 3;
           for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            if (this._cancelRequested) { await this._abortExport(api); return; }
             if (attempt > 1) {
               this._updateProgress(taskPct, `正在处理任务 ${i + 1}/${totalTasks}（第 ${attempt}/${maxAttempts} 次重试）...`);
             }
             res = await api.synthesizeTTS(task.text || '', voice, rate);
+            if (this._cancelRequested) { await this._abortExport(api); return; }
             if (res?.success && res.path) break;
             const reason = res?.error || '未知原因';
             const isNetwork = !!res?.network || /网络/.test(reason);
             this._logProgress(`[${i + 1}/${totalTasks}] 第 ${attempt} 次尝试失败：${reason}`);
-            if (attempt < maxAttempts && isNetwork) {
+            if (!isNetwork) {
+              // 非网络错误：立即中止整个导出
+              this._hideProgress();
+              await api.cleanupTemp?.();
+              window.app?.uiManager?.showInfoDialog?.('错误',
+                `第 ${i + 1} 条语音（"${preview}…"）合成失败：${reason}，导出已取消`);
+              return;
+            }
+            if (attempt < maxAttempts) {
               this._logProgress(`[${i + 1}/${totalTasks}] 2 秒后重试…`);
               await this._sleep(2000);
               continue;
             }
-            // 非网络错误或重试已用尽：立即中止整个导出
-            this._hideProgress();
-            await api.cleanupTemp?.();
-            window.app?.uiManager?.showInfoDialog?.('错误',
-              `第 ${i + 1} 条语音（"${preview}…"）合成失败：${reason}，导出已取消`);
-            return;
+            // 网络错误且重试用尽：单个语音失败不掐掉整个项目，暂停导出引导用户
+            this._updateProgress(taskPct, `任务 ${i + 1}/${totalTasks} 网络连接错误，导出已暂停`);
+            const choice = await this._pauseForNetworkError();
+            if (choice !== 'retry' || this._cancelRequested) { await this._abortExport(api); return; }
+            this._updateProgress(taskPct, `正在处理任务 ${i + 1}/${totalTasks}...`);
+            retryTask = true;
+            break;
           }
+          if (retryTask) { i--; continue; }
           segments.push({ type: 'file', path: res.path });
         } else if (task.type === 'effect') {
           let effect = projectEffects.find(e => e.id === task.effectId);
@@ -317,6 +378,8 @@ class ExportHandler {
       if (typeof api.composeMp3 !== 'function') { this._hideProgress(); window.app?.uiManager?.showInfoDialog?.('错误', '导出失败：composeMp3 不可用'); return; }
 
       this._updateProgress(80, '正在合成 MP3...');
+      // 合成阶段无法中途取消，收起取消按钮避免误导
+      document.getElementById('exportProgressCancel').style.display = 'none';
       // 仅真正的付费会员去水印；free_display 等免费体验仍带水印。
       // 先刷新一次权益，避免云端刚降级后本地仍按旧缓存跳过水印
       await window.entitlement?.refresh();

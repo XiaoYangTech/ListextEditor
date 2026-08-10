@@ -945,7 +945,11 @@ class UIManager {
 
       if (e.key === 'Escape') {
         this.app.ttsRenderer.stopPlay();
-        document.querySelectorAll('.dialog.active').forEach(d => d.classList.remove('active'));
+        document.querySelectorAll('.dialog.active').forEach(d => {
+          // 导出进度弹窗只能通过“取消导出”按钮取消，防止 ESC 误触隐藏进度后导出仍在后台跑
+          if (d.id === 'exportProgressDialog') return;
+          d.classList.remove('active');
+        });
         return;
       }
 
