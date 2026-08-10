@@ -383,12 +383,11 @@ class ListextEditor {
     this.syncCodeRolesToProject(code);
   }
 
-  // 代码 → 项目：全镜像，代码中的 <role> 标签集合即项目角色集合（删标签即删角色）
+  // 代码 → 项目：全镜像，代码中的 <role> 标签集合即项目角色集合（删标签即删角色，清空即清空）
   syncCodeRolesToProject(code) {
-    if (!code) return;
     const tab = this.tabManager?.getActiveTab();
     if (!tab) return;
-    const codeRoles = this.parser.parseRoleDefsFromCode(code);
+    const codeRoles = this.parser.parseRoleDefsFromCode(code || '');
     if (JSON.stringify(tab.roles || []) === JSON.stringify(codeRoles)) return;
     tab.roles = codeRoles;
     if (window.electronAPI) {
