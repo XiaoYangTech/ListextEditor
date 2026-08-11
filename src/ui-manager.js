@@ -248,9 +248,10 @@ class UIManager {
   refreshSectionJump() {
     if (!this.sectionJumpSelect || !this.app.renderer) return;
     const sections = this.app.renderer.getSections();
-        // 不加占位项：默认展示第一个分节，避免"请选择分节"这类无用选项
-    this.sectionJumpSelect.innerHTML =
-      sections.map((s, i) => `<option value="${this.escapeHtml(s.id)}">${i + 1}. ${this.escapeHtml(s.title)}</option>`).join('');
+    // 有分节时直接列分节（不加"请选择分节"这类无用选项）；无分节时保留占位文字避免下拉框空白
+    this.sectionJumpSelect.innerHTML = sections.length
+      ? sections.map((s, i) => `<option value="${this.escapeHtml(s.id)}">${i + 1}. ${this.escapeHtml(s.title)}</option>`).join('')
+      : '<option value="" disabled selected>跳转到分节...</option>';
   }
 
   handleAddBlock(type, insertBefore = false, forceDialog = false) {
