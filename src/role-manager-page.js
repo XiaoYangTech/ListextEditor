@@ -137,7 +137,7 @@ class RoleManagerPage {
     document.body.appendChild(panel);
     this._voicePanel = panel;
 
-    const rank = (v) => v.startsWith('zh-') ? 0 : v.startsWith('en-US') ? 1 : (/^(ja|ru|es)-/.test(v) ? 2 : 3);
+    const rank = (v) => v.startsWith('zh-') ? 0 : v.startsWith('en-') ? 1 : (/^(ja|ru|es)-/.test(v) ? 2 : 3);
     const groupNames = ['中文', '英语', '日语 / 俄语 / 西班牙语', '其他语言'];
     // 加载失败/为空：占位 + 点击重试
     if (!voices.length) {
@@ -266,15 +266,15 @@ class RoleManagerPage {
 
     if (type === 'edge' && window.electronAPI?.listEdgeVoices) {
       const res = await window.electronAPI.listEdgeVoices();
-      // 排序：中文（含港澳台及方言） → 英文 → 日/俄/西 → 其他语言
+      // 排序：中文（含港澳台及方言） → 英语（全部地区） → 日/俄/西 → 其他语言
       const rank = (v) => v.startsWith('zh-') ? 0
-        : v.startsWith('en-US') ? 1
+        : v.startsWith('en-') ? 1
         : (/^(ja|ru|es)-/.test(v) ? 2 : 3);
       let voices = (res?.voices || []).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
       const isUnlocked = window.entitlement?.isUnlocked();
       if (!isUnlocked) {
-        // 免费版放行：全部中文（含港澳台及方言口音）+ 美式英语
-        voices = voices.filter(v => v.startsWith('zh-') || v.startsWith('en-US') || v === preserveVoice);
+        // 免费版放行：全部中文（含港澳台及方言口音）+ 全部英语
+        voices = voices.filter(v => v.startsWith('zh-') || v.startsWith('en-') || v === preserveVoice);
       }
       // 选中：编辑已有角色保持其音色；新建默认英文 Jenny，都没有退列表首位
       const selected = (preserveVoice && voices.includes(preserveVoice))
@@ -305,7 +305,7 @@ class RoleManagerPage {
 
     if (!isUnlocked) {
       html += `<div class="rm-vip-bar">
-        ${isFreeDisplay ? '🎉 全服限免中' : '📋 免费版'} · 英式英语及日/俄/西等 30+ 语种需专业版解锁
+        ${isFreeDisplay ? '🎉 全服限免中' : '📋 免费版'} · 日/俄/西等 30+ 语种需专业版解锁
         <a href="#" class="rm-upgrade-link" onclick="window.electronAPI?.openExternal?.('${siteUrl}');return false">💎 升级专业版</a>
       </div>`;
     }
@@ -372,7 +372,7 @@ class RoleManagerPage {
     }
 
     if (type === 'edge' && !window.entitlement?.isUnlocked()
-        && voice && !voice.startsWith('zh-') && !voice.startsWith('en-US')) {
+        && voice && !voice.startsWith('zh-') && !voice.startsWith('en-')) {
       window.entitlement?.showVipToast('该发音人音色');
       return;
     }

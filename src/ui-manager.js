@@ -127,7 +127,11 @@ class UIManager {
 
   initModeSwitcher() {
     document.querySelectorAll('.mode-tab').forEach(tab => {
-      tab.addEventListener('click', () => this.app.switchMode(tab.dataset.mode));
+      tab.addEventListener('click', () => {
+        // 主页没有编辑区，模式切换无意义，直接拦截
+        if (this.app.isHomeActive()) return;
+        this.app.switchMode(tab.dataset.mode);
+      });
     });
   }
 
@@ -931,7 +935,8 @@ class UIManager {
 
       if (this.matchShortcut(e, this.shortcuts.toggleMode)) {
         e.preventDefault();
-        this.app.switchMode(this.app.currentMode === 'block' ? 'code' : 'block');
+        // 主页同样拦截，与右上角模式按钮行为一致
+        if (!isHome) this.app.switchMode(this.app.currentMode === 'block' ? 'code' : 'block');
         return;
       }
 
