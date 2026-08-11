@@ -127,11 +127,7 @@ class UIManager {
 
   initModeSwitcher() {
     document.querySelectorAll('.mode-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        // 主页没有编辑区，模式切换无意义，直接拦截
-        if (this.app.isHomeActive()) return;
-        this.app.switchMode(tab.dataset.mode);
-      });
+      tab.addEventListener('click', () => this.app.switchMode(tab.dataset.mode));
     });
   }
 
@@ -252,7 +248,8 @@ class UIManager {
   refreshSectionJump() {
     if (!this.sectionJumpSelect || !this.app.renderer) return;
     const sections = this.app.renderer.getSections();
-    this.sectionJumpSelect.innerHTML = '<option value="">跳转到分节...</option>' +
+        // 不加占位项：默认展示第一个分节，避免"请选择分节"这类无用选项
+    this.sectionJumpSelect.innerHTML =
       sections.map((s, i) => `<option value="${this.escapeHtml(s.id)}">${i + 1}. ${this.escapeHtml(s.title)}</option>`).join('');
   }
 
@@ -317,7 +314,8 @@ class UIManager {
       if (rememberedSay && !forceDialog) {
         const rolesNow = window.app?.tabManager?.getActiveTab()?.roles || [];
         let roleId = rememberedSay.roleId || '';
-        if (roleId && !rolesNow.some(r => r.id === roleId)) roleId = ''; // 角色被删回落"不使用角色"
+        // 记忆的角色被删时回落到第一个角色（有角色的话）
+        if (roleId && !rolesNow.some(r => r.id === roleId)) roleId = rolesNow[0]?.id || '';
         this.app.renderer.addBlock('say', { ...opts, roleId, rate: rememberedSay.rate || 1.0 });
         this.app.fileManager.markUnsaved();
         this.refreshSectionJump();
@@ -466,11 +464,12 @@ class UIManager {
     const roles = window.app?.tabManager?.getActiveTab()?.roles || [];
     const remembered = this._getSessionDefaults('say');
     let defRole = remembered?.roleId || '';
-    // 记忆的角色被删 → 清掉该记忆，回落"不使用角色"
+    // 记忆的角色被删 → 清掉该记忆；无记忆时默认选中第一个角色（有角色的话）
     if (defRole && !roles.some(r => r.id === defRole)) {
       defRole = '';
       this._setSessionDefaults('say', { ...(remembered || {}), roleId: '' });
     }
+    if (!defRole && !remembered && roles.length) defRole = roles[0].id;
     const defRate = remembered?.rate || 1.0;
     this.app.renderer.openEditDialog('添加朗读块', `
       <div class="form-group"><label>角色（可选）</label><select id="addSayRole"><option value="">不使用角色（默认中文，其他语言可能不准确）</option>${roles.map(r => `<option value="${this.escapeHtml(r.id)}" ${r.id === defRole ? 'selected' : ''}>${this.escapeHtml(r.name)} (${this.escapeHtml(r.id)})</option>`).join('')}</select></div>
@@ -935,8 +934,7 @@ class UIManager {
 
       if (this.matchShortcut(e, this.shortcuts.toggleMode)) {
         e.preventDefault();
-        // 主页同样拦截，与右上角模式按钮行为一致
-        if (!isHome) this.app.switchMode(this.app.currentMode === 'block' ? 'code' : 'block');
+        this.app.switchMode(this.app.currentMode === 'block' ? 'code' : 'block');
         return;
       }
 

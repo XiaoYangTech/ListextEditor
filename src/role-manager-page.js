@@ -266,11 +266,13 @@ class RoleManagerPage {
 
     if (type === 'edge' && window.electronAPI?.listEdgeVoices) {
       const res = await window.electronAPI.listEdgeVoices();
-      // 排序：中文（含港澳台及方言） → 英语（全部地区） → 日/俄/西 → 其他语言
+      // 排序：中文（含港澳台及方言） → 英语（全部地区） → 日/俄/西 → 其他语言；
+      // 英语组内美式/英式靠前，其他地区口音排后面
       const rank = (v) => v.startsWith('zh-') ? 0
         : v.startsWith('en-') ? 1
         : (/^(ja|ru|es)-/.test(v) ? 2 : 3);
-      let voices = (res?.voices || []).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+      const enRank = (v) => v.startsWith('en-US') ? 0 : v.startsWith('en-GB') ? 1 : 2;
+      let voices = (res?.voices || []).sort((a, b) => rank(a) - rank(b) || enRank(a) - enRank(b) || a.localeCompare(b));
       const isUnlocked = window.entitlement?.isUnlocked();
       if (!isUnlocked) {
         // 免费版放行：全部中文（含港澳台及方言口音）+ 全部英语

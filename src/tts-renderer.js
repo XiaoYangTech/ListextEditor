@@ -29,12 +29,21 @@ class TTSRenderer {
     const btnStop = document.getElementById('btnStop');
     const btnExport = document.getElementById('btnExport');
 
-    if (btnPreview) btnPreview.addEventListener('click', () => this.previewPlay());
-    if (btnStop) btnStop.addEventListener('click', () => this.stopPlay());
+    // 主页没有可播放/导出的内容，右上角三大按钮直接拦截
+    const homeGuard = (fn) => () => {
+      if (this.app.isHomeActive()) {
+        this.app.updateStatus('主页没有可操作的内容，请先新建或打开项目');
+        return;
+      }
+      fn();
+    };
+
+    if (btnPreview) btnPreview.addEventListener('click', homeGuard(() => this.previewPlay()));
+    if (btnStop) btnStop.addEventListener('click', homeGuard(() => this.stopPlay()));
     if (btnExport) {
-      btnExport.addEventListener('click', () => {
+      btnExport.addEventListener('click', homeGuard(() => {
         this.app.exportHandler.showExportDialog();
-      });
+      }));
     }
 
     this.playQueue.onProgress = (info) => {
