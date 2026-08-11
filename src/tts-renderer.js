@@ -29,10 +29,11 @@ class TTSRenderer {
     const btnStop = document.getElementById('btnStop');
     const btnExport = document.getElementById('btnExport');
 
-    // 主页没有可播放/导出的内容，右上角三大按钮直接拦截
+    // 主页没有可播放/导出的内容，右上角三大按钮直接拦截并弹窗引导
     const homeGuard = (fn) => () => {
       if (this.app.isHomeActive()) {
-        this.app.updateStatus('主页没有可操作的内容，请先新建或打开项目');
+        this.app.uiManager?.showInfoDialog('提示', '主页没有可操作的内容，请先新建或打开一个项目。');
+        console.log('[动作] 主页拦截播放/停止/导出按钮');
         return;
       }
       fn();
