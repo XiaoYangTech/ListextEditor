@@ -396,6 +396,11 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
 
   if (!partPaths.length) return { success: false, error: '没有可合成片段' };
 
+  // 仅字幕模式：只需要逐片段时长（与正式合成同一套截断/淡出逻辑），不做拼接/水印/写盘
+  if (options.durationsOnly) {
+    return { success: true, durations: options.withDurations ? durations : [] };
+  }
+
   const rawOutput = path.join(jobDir, 'raw_output.mp3');
   const listFile = path.join(jobDir, 'concat.txt');
   const listContent = partPaths.map(p => "file '" + p.replace(/'/g, "''") + "'").join(os.EOL);
