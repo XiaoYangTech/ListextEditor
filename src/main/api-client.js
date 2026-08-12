@@ -138,14 +138,18 @@ class ApiClient {
     try {
       response = await fetch(url, options);
     } catch (e) {
-      return { ok: false, error: { code: 0, message: '网络连接失败' } };
+      // 网络层失败（DNS/断网/连接重置）落日志，便于排查"啥也没报"类问题
+      console.error('[API网络失败]', route, e?.cause?.code || e?.code || '', e.message);
+      return { ok: false, error: { code: 0, message: `网络连接失败${e?.cause?.code ? `（${e.cause.code}）` : ''}` } };
     }
 
     let data;
     try {
       data = await response.json();
     } catch {
-      return { ok: false, error: { code: response.status, message: '服务器响应异常' } };
+      // 非 2xx 或响应非 JSON：把 HTTP 状态码带进日志与用户态文案
+      if (!response.ok) console.error('[API响应异常]', route, `HTTP ${response.status}`);
+      return { ok: false, error: { code: response.status, message: `服务器响应异常（HTTP ${response.status}）` } };
     }
 
     if (data.ok === false) {

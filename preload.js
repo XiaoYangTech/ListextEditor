@@ -21,7 +21,7 @@ const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { ensureDir, isNetworkError, sleep } = require('./src/main/utils');
+const { ensureDir, isNetworkError, extractErrorCode, sleep } = require('./src/main/utils');
 const { DEFAULT_EDGE_VOICE } = require('./src/listext-constants');
 
 const tempDir = path.join(os.tmpdir(), 'ListextEditor');
@@ -67,13 +67,19 @@ function isValidMp3(p) {
   } catch { return false; }
 }
 
+// preload 的 console 不进日志文件，错误直接经 append-log 落盘
+function logToFile(level, args) {
+  try { ipcRenderer.invoke('append-log', level, args); } catch {}
+}
+
 async function synthesizeTTS(text, voice, rate = '+0%') {
+  let rawVoice = voice || DEFAULT_EDGE_VOICE;
   try {
     if (!text || !text.trim()) {
       return { success: false, error: '朗读内容为空' };
     }
     ensureDir(tempDir);
-    const rawVoice = voice || DEFAULT_EDGE_VOICE;
+    rawVoice = voice || DEFAULT_EDGE_VOICE;
 
     const ent = await ipcRenderer.invoke('api-get-entitlement');
     const isPro = ent?.plan === 'pro' && !ent?.expired;
@@ -104,13 +110,18 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
       if (isValidMp3(outputPath)) return { success: true, path: outputPath };
       // 截断的残次品：删除并按网络错误处理，触发上层重试
       try { fs.unlinkSync(outputPath); } catch {}
+      logToFile('warn', ['[EdgeTTS] 合成结果不完整（网络中断）', `voice=${rawVoice}`]);
       return { success: false, network: true, error: '语音合成结果不完整（网络中断），请稍后重试' };
     }
+    logToFile('error', ['[EdgeTTS] 音频文件未生成', `voice=${rawVoice}`]);
     return { success: false, error: '音频文件生成失败' };
   } catch (error) {
-    if (isNetworkError(error)) return { success: false, network: true, error: 'EdgeTTS 网络不可用，请检查网络连接后重试' };
-    console.error('EdgeTTS 合成失败:', error);
-    return { success: false, error: error.message || 'EdgeTTS 合成失败' };
+    // 完整错误（含堆栈/错误码）落日志，用户态提示携带具体错误码（如 HTTP 403）
+    const errCode = extractErrorCode(error);
+    const codeText = errCode ? `（${errCode}）` : '';
+    logToFile('error', ['[EdgeTTS] 合成失败', errCode || '无错误码', `voice=${rawVoice}`, String(error?.stack || error?.message || error)]);
+    if (isNetworkError(error)) return { success: false, network: true, code: errCode, error: `EdgeTTS 网络不可用${codeText}，请检查网络连接后重试` };
+    return { success: false, code: errCode, error: `${error.message || 'EdgeTTS 合成失败'}${codeText}` };
   }
 }
 
@@ -155,7 +166,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
           continue;
         }
         if (isNetworkError(error)) {
-          return { success: false, voices: ['zh-CN-XiaoxiaoNeural', 'zh-CN-YunxiNeural'], error: 'EdgeTTS 网络不可用' };
+          const errCode = extractErrorCode(error);
+          logToFile('error', ['[EdgeTTS] 发音人列表拉取失败（重试耗尽）', errCode || '无错误码', String(error?.message || error)]);
+          const codeText = errCode ? `（${errCode}）` : '';
+          return { success: false, voices: ['zh-CN-XiaoxiaoNeural', 'zh-CN-YunxiNeural'], error: `EdgeTTS 网络不可用${codeText}` };
         }
         console.error('获取发音人列表失败', error);
         return { success: false, voices: ['zh-CN-XiaoxiaoNeural', 'zh-CN-YunxiNeural'] };
@@ -175,7 +189,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sendCloseCheckResult: (shouldClose) => ipcRenderer.send('close-check-result', shouldClose),
 
   openSettingsWindow: () => ipcRenderer.invoke('open-settings-window'),
-  composeMp3: (targetPath, segments, skipWatermark) => ipcRenderer.invoke('compose-mp3', targetPath, segments, skipWatermark),
+  composeMp3: (targetPath, segments, skipWatermark, options) => ipcRenderer.invoke('compose-mp3', targetPath, segments, skipWatermark, options),
   checkFfmpeg: () => ipcRenderer.invoke('check-ffmpeg'),
 
   getSettings: () => ipcRenderer.invoke('get-settings'),

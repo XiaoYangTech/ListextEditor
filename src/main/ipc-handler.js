@@ -344,7 +344,19 @@ function stageIfInAsar(filePath, jobDir, index) {
   }
 }
 
-async function composeMp3(targetPath, segments, skipWatermark = false) {
+// 探测音频实际时长（秒）：LRC 字幕需要逐片段精确时间轴
+async function probeDuration(file) {
+  try {
+    const { stderr } = await runFfmpeg(['-i', file, '-f', 'null', '-']);
+    const m = String(stderr || '').match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+    if (m) return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+  } catch (e) {
+    console.warn('[导出] 片段时长探测失败:', file, e.message);
+  }
+  return 0;
+}
+
+async function composeMp3(targetPath, segments, skipWatermark = false, options = {}) {
   ensureDir(tempDir);
   const jobDir = path.join(tempDir, 'compose_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
   ensureDir(jobDir);
@@ -352,6 +364,7 @@ async function composeMp3(targetPath, segments, skipWatermark = false) {
   await runFfmpeg(['-version']);
 
   const partPaths = [];
+  const durations = []; // options.withDurations 时逐片段探测时长，供上层生成 LRC
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];
     const part = path.join(jobDir, 'part_' + String(i).padStart(4, '0') + '.mp3');
@@ -361,6 +374,7 @@ async function composeMp3(targetPath, segments, skipWatermark = false) {
       if (dur <= 0) continue;
       await runFfmpeg(['-y', '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo', '-t', String(dur), '-q:a', '4', part]);
       partPaths.push(part);
+      if (options.withDurations) durations.push(dur);
       continue;
     }
 
@@ -375,6 +389,8 @@ async function composeMp3(targetPath, segments, skipWatermark = false) {
       args.push('-ac', '2', '-ar', '44100', '-q:a', '4', part);
       await runFfmpeg(args);
       partPaths.push(part);
+      // 截断/淡出后的实际时长以输出文件为准，不能用输入时长
+      if (options.withDurations) durations.push(await probeDuration(part));
     }
   }
 
@@ -409,13 +425,13 @@ async function composeMp3(targetPath, segments, skipWatermark = false) {
       await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', wmList,
         '-metadata', 'artist=亿方听力大师',
         '-c', 'copy', targetPath]);
-      return { success: true, filePath: targetPath };
+      return { success: true, filePath: targetPath, durations: options.withDurations ? durations : undefined };
     }
     console.error('[导出] 免费版水印文件缺失，导出将不带水印');
   }
 
   await runFfmpeg(['-y', '-i', rawOutput, '-metadata', 'artist=亿方听力大师', '-c', 'copy', targetPath]);
-  return { success: true, filePath: targetPath };
+  return { success: true, filePath: targetPath, durations: options.withDurations ? durations : undefined };
 }
 
 function registerIpcHandlers() {
@@ -453,10 +469,10 @@ function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle('compose-mp3', async (event, targetPath, segments, skipWatermark) => {
+  ipcMain.handle('compose-mp3', async (event, targetPath, segments, skipWatermark, options) => {
     try {
       if (!targetPath || !Array.isArray(segments)) return { success: false, error: '参数不完整' };
-      return await composeMp3(targetPath, segments, skipWatermark);
+      return await composeMp3(targetPath, segments, skipWatermark, options);
     } catch (error) {
       console.error('[IPC失败] compose-mp3:', error.message);
       return { success: false, error: error.message };

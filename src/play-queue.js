@@ -258,12 +258,15 @@ class PlayQueue {
         }
         const err = new Error(res?.error || 'EdgeTTS 合成失败');
         if (res?.network) err.network = true;
+        if (res?.code) err.code = res.code;
         throw err;
       } catch (error) {
         if (!this.isPlaying) return;
         const msg = error?.message || String(error);
+        // 错误码（如 HTTP 403 / ECONNRESET）带进弹窗，用户能直接看到具体原因
+        const codeText = error?.code ? `（${error.code}）` : '';
         if (error.network || /网络/.test(msg)) {
-          if (this.onTtsError) this.onTtsError('网络连接失败：EdgeTTS 无法连接服务器，请检查网络后稍后重试');
+          if (this.onTtsError) this.onTtsError(`网络连接失败${codeText}：EdgeTTS 无法连接服务器，请检查网络后稍后重试`);
         } else if (this.onTtsError) {
           this.onTtsError('EdgeTTS 合成失败: ' + msg);
         }

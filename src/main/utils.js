@@ -34,6 +34,20 @@ function isNetworkError(error) {
   return /network|socket|getaddrinfo|fetch failed|unexpected server response|stream closed|econn|timed? ?out/i.test(msg);
 }
 
+// 从错误中提取可识别的错误码（ECONNRESET / HTTP 403 / 业务码等），供落日志与用户态展示
+function extractErrorCode(error) {
+  const code = error?.code ?? error?.cause?.code;
+  if (code !== undefined && code !== null && code !== '' && String(code) !== '0') {
+    const s = String(code);
+    if (/^[A-Z][A-Z0-9_]+$/.test(s)) return s; // ECONNRESET / ETIMEDOUT…
+    if (/^\d+$/.test(s)) return 'HTTP ' + s; // HTTP 状态码
+  }
+  const msg = String(error?.message || error?.cause?.message || error || '');
+  const http = msg.match(/(?:response|status|HTTP)[^0-9]{0,8}([1-5]\d{2})/i);
+  if (http) return 'HTTP ' + http[1];
+  return null;
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -57,6 +71,7 @@ function setupCrypto() {
 module.exports = {
   ensureDir,
   isNetworkError,
+  extractErrorCode,
   sleep,
   setupCrypto
 };

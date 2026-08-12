@@ -108,8 +108,43 @@ class ExportHandler {
       if (dirInput) dirInput.value = this.exportDir || '';
       if (info) info.textContent = '';
       if (warn) warn.style.display = window.entitlement?.isPro ? 'none' : 'block';
+      this._refreshLrcGate();
       dialog.classList.add('active');
     });
+  }
+
+  // LRC 字幕为专业版功能：非专业版点击时拦截勾选并引导升级（不置灰，否则点击无反馈）
+  _refreshLrcGate() {
+    const lrcBox = document.getElementById('exportLrc');
+    if (!lrcBox) return;
+    lrcBox.checked = false;
+    if (!lrcBox.dataset.gateBound) {
+      lrcBox.dataset.gateBound = '1';
+      lrcBox.addEventListener('click', () => {
+        if (!window.entitlement?.isPro) {
+          // click 事件先于勾选状态更新触发，下一 tick 再复位并引导升级
+          setTimeout(() => { lrcBox.checked = false; }, 0);
+          window.entitlement?.showVipToast?.('LRC 字幕导出');
+        }
+      });
+    }
+  }
+
+  // 由逐片段时长与台词文本生成 LRC 字幕内容
+  _buildLrc(segmentTexts, durations) {
+    const fmt = (sec) => {
+      const m = Math.floor(sec / 60);
+      const s = sec - m * 60;
+      return `[${String(m).padStart(2, '0')}:${s.toFixed(2).padStart(5, '0')}]`;
+    };
+    const lines = [];
+    let t = 0;
+    for (let i = 0; i < durations.length; i++) {
+      const text = (segmentTexts[i] || '').trim();
+      if (text) lines.push(`${fmt(t)}${text}`);
+      t += Number(durations[i]) || 0;
+    }
+    return lines.join('\r\n') + '\r\n';
   }
 
   async _ensureAuthForExport(onSuccess) {
@@ -284,6 +319,8 @@ class ExportHandler {
       const builtinSounds = await api.listBuiltinSounds() || [];
 
       const segments = [];
+      // 与 segments 一一对应的台词文本（音效/静默为空串），供 LRC 时间轴对齐
+      const segmentTexts = [];
       const skipWarnings = [];
       const totalTasks = queue.length;
       this._updateProgress(5, `正在构建导出任务（${totalTasks}）...`);
@@ -340,6 +377,7 @@ class ExportHandler {
           }
           if (retryTask) { i--; continue; }
           segments.push({ type: 'file', path: res.path });
+          segmentTexts.push(task.text || '');
         } else if (task.type === 'effect') {
           let effect = projectEffects.find(e => e.id === task.effectId);
           let effectPath = null;
@@ -368,9 +406,13 @@ class ExportHandler {
             maxDuration: task.maxDuration || null,
             fadeDuration: task.fadeDuration || null
           });
+          segmentTexts.push('');
         } else if (task.type === 'silence') {
           const dur = Number(task.duration || 0);
-          if (dur > 0) segments.push({ type: 'silence', duration: dur });
+          if (dur > 0) {
+            segments.push({ type: 'silence', duration: dur });
+            segmentTexts.push('');
+          }
         }
       }
 
@@ -384,8 +426,28 @@ class ExportHandler {
       // 先刷新一次权益，避免云端刚降级后本地仍按旧缓存跳过水印
       await window.entitlement?.refresh();
       const skipWatermark = window.entitlement?.isPro === true;
-      const result = await api.composeMp3(targetPath, segments, skipWatermark);
+      // LRC 字幕仅专业版可用；复选框状态以打开导出对话框时的门控为准
+      const wantLrc = skipWatermark && !!document.getElementById('exportLrc')?.checked;
+      this._updateProgress(80, wantLrc ? '正在合成 MP3（含字幕时间轴）...' : '正在合成 MP3...');
+      const result = await api.composeMp3(targetPath, segments, skipWatermark, wantLrc ? { withDurations: true } : undefined);
       await api.cleanupTemp?.();
+
+      // 合成成功后写 LRC（与 MP3 同名同目录）；写盘失败不影响 MP3 交付
+      let lrcPath = null;
+      if (wantLrc && result?.success && Array.isArray(result.durations)) {
+        try {
+          lrcPath = targetPath.replace(/\.mp3$/i, '.lrc');
+          const lrc = this._buildLrc(segmentTexts, result.durations);
+          const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(lrc)));
+          const wr = await api.saveBinary?.(lrcPath, b64);
+          if (wr?.success) this._logProgress('LRC 字幕已生成: ' + lrcPath);
+          else { this._logProgress('LRC 字幕写入失败: ' + (wr?.error || '未知错误')); lrcPath = null; }
+        } catch (e) {
+          console.error('LRC 生成失败:', e);
+          this._logProgress('LRC 字幕生成失败: ' + (e?.message || e));
+          lrcPath = null;
+        }
+      }
 
       if (result?.success) {
         this._updateProgress(95, '正在保存...');
@@ -393,8 +455,8 @@ class ExportHandler {
           console.error('导出次数扣减:', e);
         });
         this._updateProgress(100, '导出完成');
-        this.updateStatus('导出完成');
-        console.log('[动作] 导出完成:', targetPath);
+        this.updateStatus(lrcPath ? '导出完成（含 LRC 字幕）' : '导出完成');
+        console.log('[动作] 导出完成:', targetPath, lrcPath ? `（字幕: ${lrcPath}）` : '');
         if (skipWarnings.length) {
           // 延迟弹出，等进度框关闭后再提示缺失音效
           setTimeout(() => {
