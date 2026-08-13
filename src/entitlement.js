@@ -21,9 +21,9 @@ class Entitlement {
     this._cache = null;
   }
 
-  async refresh() {
+  async refresh(force = false) {
     if (!window.electronAPI) return;
-    try { this._cache = await window.electronAPI.getEntitlement(); } catch {}
+    try { this._cache = await window.electronAPI.getEntitlement(force); } catch {}
   }
 
   get plan() { return this._cache?.plan || 'free'; }

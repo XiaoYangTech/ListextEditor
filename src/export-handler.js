@@ -153,7 +153,15 @@ class ExportHandler {
       window.app?.authManager?.showLoginDialog('请登录后使用导出功能');
       return;
     }
+    // 打开导出前强制刷新订阅状态，避免用陈旧权益判断水印/专业版门控
+    await window.entitlement?.refresh(true);
     const ent = await this.api?.getEntitlement();
+    // 远端下线/会话过期时服务端返回 401，主进程已随之清除登录态：
+    // 立即引导重新登录，不再走配额检查（否则会被误判为“次数用完”）
+    if (!(await this.api?.isLoggedIn())) {
+      window.app?.authManager?.showLoginDialog('登录已失效，请重新登录后使用导出功能');
+      return;
+    }
     const isPro = ent?.plan === 'pro' && !ent?.expired;
     const isFreeDisplay = ent?.free_display?.enabled;
 
@@ -167,6 +175,11 @@ class ExportHandler {
         }
       } catch (e) {
         console.error('导出配额查询失败:', e);
+      }
+      // 配额查询期间同样可能因 401 被清除登录态，再校验一次
+      if (!(await this.api?.isLoggedIn())) {
+        window.app?.authManager?.showLoginDialog('登录已失效，请重新登录后使用导出功能');
+        return;
       }
       const limitText = typeof quota?.limit === 'number' ? `${quota.limit}次` : '';
       window.app?.uiManager?.showInfoDialog?.('提示', `本月免费版${limitText}带水印导出次数已用完，请购买会员后继续使用。`);
@@ -275,7 +288,11 @@ class ExportHandler {
       const ffCheck = await api.checkFfmpeg();
       if (!ffCheck?.ok) {
         this._hideProgress();
-        window.app?.uiManager?.showInfoDialog?.('错误', '导出失败：未找到 ffmpeg 编码器\n请确保程序安装目录完整');
+        // 内置二进制与运行架构不匹配时（如 Linux arm64）回退系统 ffmpeg，此时提示用户自行安装
+        const hint = api.platform === 'linux'
+          ? '请安装系统 ffmpeg 后重试（如 sudo apt install ffmpeg）'
+          : '请确保程序安装目录完整';
+        window.app?.uiManager?.showInfoDialog?.('错误', `导出失败：未找到 ffmpeg 编码器\n${hint}`);
         return;
       }
     }

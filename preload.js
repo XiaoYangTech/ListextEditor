@@ -230,7 +230,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getDevices: () => ipcRenderer.invoke('api-devices'),
   removeDevice: (id) => ipcRenderer.invoke('api-remove-device', id),
   isLoggedIn: () => ipcRenderer.invoke('api-is-logged-in'),
-  getEntitlement: () => ipcRenderer.invoke('api-get-entitlement'),
+  getEntitlement: (force) => ipcRenderer.invoke('api-get-entitlement', !!force),
   getUser: () => ipcRenderer.invoke('api-get-user'),
 
   getExportQuota: () => ipcRenderer.invoke('api-export-quota'),

@@ -413,11 +413,12 @@ function registerApiHandlers() {
     return !!apiClient.token;
   });
 
-  ipcMain.handle('api-get-entitlement', async () => {
-    // 缓存超过 60 秒先向服务器刷新，避免云端改订阅后客户端长期显示旧权益
+  ipcMain.handle('api-get-entitlement', async (e, force = false) => {
+    // 缓存超过 60 秒先向服务器刷新，避免云端改订阅后客户端长期显示旧权益；
+    // force=true 时忽略缓存立即刷新（打开导出窗口等关键节点）
     try {
       const cachedAt = Date.parse(apiClient.entitlementCache?.cached_at || '') || 0;
-      if (apiClient.token && Date.now() - cachedAt > 60 * 1000) {
+      if (apiClient.token && (force || Date.now() - cachedAt > 60 * 1000)) {
         await apiClient.getStatus().catch(() => null);
       }
     } catch {}

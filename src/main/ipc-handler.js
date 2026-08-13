@@ -31,15 +31,15 @@ const crypto = require('crypto');
 
 const tempDir = path.join(app.getPath('temp'), 'ListextEditor');
 
-// ffmpeg-static 只预置 win32 x64/ia32 二进制，Windows ARM64 上其 path 为 null；
-// 但安装时包内 ffmpeg.exe（x64）实际存在，可经 Windows 内置 x64 模拟层直接运行
+// ffmpeg-static 的架构白名单不全（win32 无 arm64），且 Linux arm64 包在 x64 机器上交叉构建时
+// 其导出路径指向的二进制实际不存在；统一先验文件存在，缺失时回退到包内文件再兜底系统 PATH
 function resolveFfmpegBin() {
-  if (ffmpegStatic) return ffmpegStatic;
+  if (ffmpegStatic && fs.existsSync(ffmpegStatic)) return ffmpegStatic;
   try {
     const bundled = path.join(require.resolve('ffmpeg-static/package.json'), '..',
       process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
     if (fs.existsSync(bundled)) {
-      console.warn('[FFmpeg] 当前架构无原生二进制，回退使用包内 x64 版本:', bundled);
+      if (!ffmpegStatic) console.warn('[FFmpeg] 当前架构无原生二进制，回退使用包内 x64 版本:', bundled);
       return bundled;
     }
   } catch { /* 解析失败走系统 PATH 兜底 */ }
