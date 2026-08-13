@@ -64,13 +64,17 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      # ffmpeg-static 按安装时架构下载二进制，x64 runner 上需要换成 arm64 版再打包
+      # ffmpeg-static 按安装时架构下载二进制：npm ci 已在 x64 runner 上装了 x64 版，
+      # 而 install.js 检测到同名文件已存在会直接 exit(0) 不下载，
+      # 必须先删掉旧二进制才能强制重新下载 arm64 版
       - name: Reinstall ffmpeg-static for arm64
         if: matrix.arch == 'arm64'
         run: |
           cd node_modules/ffmpeg-static
+          rm -f ffmpeg ffmpeg.README ffmpeg.LICENSE
           npm_config_arch=arm64 npm_config_platform=linux node install.js
           file ffmpeg
+          file ffmpeg | grep -qi aarch64 || { echo "::error::ffmpeg 仍非 arm64 二进制"; exit 1; }
       - name: Install ARM64 tools (if needed)
         if: matrix.arch == 'arm64'
         run: |
