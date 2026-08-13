@@ -31,6 +31,21 @@ const crypto = require('crypto');
 
 const tempDir = path.join(app.getPath('temp'), 'ListextEditor');
 
+// ffmpeg-static 只预置 win32 x64/ia32 二进制，Windows ARM64 上其 path 为 null；
+// 但安装时包内 ffmpeg.exe（x64）实际存在，可经 Windows 内置 x64 模拟层直接运行
+function resolveFfmpegBin() {
+  if (ffmpegStatic) return ffmpegStatic;
+  try {
+    const bundled = path.join(require.resolve('ffmpeg-static/package.json'), '..',
+      process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
+    if (fs.existsSync(bundled)) {
+      console.warn('[FFmpeg] 当前架构无原生二进制，回退使用包内 x64 版本:', bundled);
+      return bundled;
+    }
+  } catch { /* 解析失败走系统 PATH 兜底 */ }
+  return 'ffmpeg';
+}
+
 function normalizeExt(filePath) {
   if (!filePath) return filePath;
   return filePath.toLowerCase().endsWith('.lstx') ? filePath : `${filePath}.lstx`;
@@ -316,7 +331,7 @@ function openProjectPackage(filePath, buffer) {
 
 function runFfmpeg(args) {
   return new Promise((resolve, reject) => {
-    const ffmpegBin = ffmpegStatic || 'ffmpeg';
+    const ffmpegBin = resolveFfmpegBin();
     execFile(ffmpegBin, args, { windowsHide: true }, (error, stdout, stderr) => {
       if (error) {
         // ffmpeg 报错会把版本 banner 和编译配置全喷出来，只留最后几行有用信息
