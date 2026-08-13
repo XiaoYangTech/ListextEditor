@@ -113,28 +113,21 @@ class ExportHandler {
     });
   }
 
-  // LRC 相关选项为专业版功能：非专业版点击时拦截勾选并引导升级（不置灰，否则点击无反馈）；
-  // “同时生成字幕”与“仅导出字幕”互斥
+  // LRC 字幕为专业版功能：非专业版点击时拦截勾选并引导升级（不置灰，否则点击无反馈）
   _refreshLrcGate() {
     const lrcBox = document.getElementById('exportLrc');
-    const onlyBox = document.getElementById('exportLrcOnly');
-    if (lrcBox) lrcBox.checked = false;
-    if (onlyBox) onlyBox.checked = false;
-    const bind = (box, other) => {
-      if (!box || box.dataset.gateBound) return;
-      box.dataset.gateBound = '1';
-      box.addEventListener('click', () => {
+    if (!lrcBox) return;
+    lrcBox.checked = false;
+    if (!lrcBox.dataset.gateBound) {
+      lrcBox.dataset.gateBound = '1';
+      lrcBox.addEventListener('click', () => {
         if (!window.entitlement?.isPro) {
           // click 事件先于勾选状态更新触发，下一 tick 再复位并引导升级
-          setTimeout(() => { box.checked = false; }, 0);
+          setTimeout(() => { lrcBox.checked = false; }, 0);
           window.entitlement?.showVipToast?.('LRC 字幕导出');
-          return;
         }
-        if (box.checked && other) other.checked = false;
       });
-    };
-    bind(lrcBox, onlyBox);
-    bind(onlyBox, lrcBox);
+    }
   }
 
   // 由逐片段时长与台词文本生成 LRC 字幕内容
@@ -309,13 +302,10 @@ class ExportHandler {
         targetPath = await api.selectExportPath();
       }
       if (!targetPath) { this._hideProgress(); return this.updateStatus('已取消导出'); }
-      // 仅字幕模式直接产出 .lrc（需专业版，门控在导出对话框拦截）；普通导出统一 .mp3
-      const lrcOnlyWanted = !!document.getElementById('exportLrcOnly')?.checked && !!window.entitlement?.isPro;
-      const targetExt = lrcOnlyWanted ? '.lrc' : '.mp3';
-      if (!targetPath.toLowerCase().endsWith(targetExt)) {
+      if (!/\.mp3$/i.test(targetPath)) {
         targetPath = /\.[^.\/\\]+$/.test(targetPath)
-          ? targetPath.replace(/\.[^.\/\\]+$/, targetExt)
-          : targetPath + targetExt;
+          ? targetPath.replace(/\.[^.\/\\]+$/, '.mp3')
+          : targetPath + '.mp3';
       }
 
       targetPath = await this._uniquePath(targetPath);
@@ -437,21 +427,16 @@ class ExportHandler {
       await window.entitlement?.refresh();
       const skipWatermark = window.entitlement?.isPro === true;
       // LRC 字幕仅专业版可用；复选框状态以打开导出对话框时的门控为准
-      const lrcOnly = lrcOnlyWanted && skipWatermark;
-      const wantLrc = lrcOnly || (skipWatermark && !!document.getElementById('exportLrc')?.checked);
-      this._updateProgress(80, lrcOnly
-        ? '正在生成字幕时间轴（仅字幕模式，不生成音频）...'
-        : wantLrc ? '正在合成 MP3（含字幕时间轴）...' : '正在合成 MP3...');
-      const result = await api.composeMp3(targetPath, segments, skipWatermark,
-        wantLrc ? { withDurations: true, durationsOnly: lrcOnly } : undefined);
+      const wantLrc = skipWatermark && !!document.getElementById('exportLrc')?.checked;
+      this._updateProgress(80, wantLrc ? '正在合成 MP3（含字幕时间轴）...' : '正在合成 MP3...');
+      const result = await api.composeMp3(targetPath, segments, skipWatermark, wantLrc ? { withDurations: true } : undefined);
       await api.cleanupTemp?.();
 
       // 合成成功后写 LRC（与 MP3 同名同目录）；写盘失败不影响 MP3 交付
       let lrcPath = null;
       if (wantLrc && result?.success && Array.isArray(result.durations)) {
         try {
-          // 仅字幕模式下目标文件本身就是 .lrc；普通模式则与 MP3 同名同目录
-          lrcPath = lrcOnly ? targetPath : targetPath.replace(/\.mp3$/i, '.lrc');
+          lrcPath = targetPath.replace(/\.mp3$/i, '.lrc');
           const lrc = this._buildLrc(segmentTexts, result.durations);
           const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(lrc)));
           const wr = await api.saveBinary?.(lrcPath, b64);
@@ -470,8 +455,8 @@ class ExportHandler {
           console.error('导出次数扣减:', e);
         });
         this._updateProgress(100, '导出完成');
-        this.updateStatus(lrcOnly ? '字幕导出完成' : lrcPath ? '导出完成（含 LRC 字幕）' : '导出完成');
-        console.log('[动作] 导出完成:', lrcOnly ? lrcPath : targetPath, !lrcOnly && lrcPath ? `（字幕: ${lrcPath}）` : '');
+        this.updateStatus(lrcPath ? '导出完成（含 LRC 字幕）' : '导出完成');
+        console.log('[动作] 导出完成:', targetPath, lrcPath ? `（字幕: ${lrcPath}）` : '');
         if (skipWarnings.length) {
           // 延迟弹出，等进度框关闭后再提示缺失音效
           setTimeout(() => {
