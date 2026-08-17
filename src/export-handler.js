@@ -16,6 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+// 水印音频开头宣传文案（与 freeWatermark.mp3 的语音内容一致）：
+// 水印勾选时写入 LRC 字幕开头，随水印播放逐句显示，正文时间轴整体后移水印时长
+const WATERMARK_LRC_TEXT =
+  '本听力材料使用亿方听力大师免费制作，制作高质量听力材料。' +
+  '就用亿方听力大师，会搭积木就会做听力，操作简单易学，所有功能全部免费使用。' +
+  '内置微软拟真自然语音引擎，语音自然无机械感，支持多种语言和音色，满足新高考需求。';
+
 class ExportHandler {
   constructor(api, statusCallback) {
     this.api = api || window.electronAPI;
@@ -138,7 +145,9 @@ class ExportHandler {
   }
 
   // 由逐片段时长与台词文本生成 LRC 字幕内容
-  _buildLrc(segmentTexts, durations) {
+  // watermark：{ text, duration }——水印置音频开头时，先写水印文案（按句拆分、
+  // 按字数比例分摊水印时长），正文时间轴从水印结束处起算，保证与音频对齐
+  _buildLrc(segmentTexts, durations, watermark) {
     const fmt = (sec) => {
       const m = Math.floor(sec / 60);
       const s = sec - m * 60;
@@ -146,6 +155,20 @@ class ExportHandler {
     };
     const lines = [];
     let t = 0;
+    const wmDuration = Number(watermark?.duration) || 0;
+    const wmText = (watermark?.text || '').trim();
+    if (wmText && wmDuration > 0) {
+      const sentences = wmText.split(/(?<=[。！？])/).map(s => s.trim()).filter(Boolean);
+      const totalChars = sentences.reduce((sum, s) => sum + s.length, 0) || 1;
+      let acc = 0;
+      for (let i = 0; i < sentences.length; i++) {
+        lines.push(`${fmt(acc)}${sentences[i]}`);
+        acc = i === sentences.length - 1
+          ? wmDuration
+          : acc + (wmDuration * sentences[i].length) / totalChars;
+      }
+      t = wmDuration;
+    }
     for (let i = 0; i < durations.length; i++) {
       const text = (segmentTexts[i] || '').trim();
       if (text) lines.push(`${fmt(t)}${text}`);
@@ -456,8 +479,9 @@ class ExportHandler {
       // 以下为原付费水印判定：仅真正的付费会员去水印，导出前先刷新权益
       // await window.entitlement?.refresh();
       // const skipWatermark = window.entitlement?.isPro === true;
-      // LRC 字幕勾选即生成（免费模式下水印判定恒为真，门控以导出对话框为准）
-      const wantLrc = skipWatermark && !!document.getElementById('exportLrc')?.checked;
+      // LRC 字幕勾选即生成（与水印复选框互相独立：水印置开头时，
+      // 字幕开头同样写水印文案，正文时间轴按主进程返回的水印时长整体后移）
+      const wantLrc = !!document.getElementById('exportLrc')?.checked;
       this._updateProgress(80, wantLrc ? '正在合成 MP3（含字幕时间轴）...' : '正在合成 MP3...');
       const result = await api.composeMp3(targetPath, segments, skipWatermark, wantLrc ? { withDurations: true } : undefined);
       await api.cleanupTemp?.();
@@ -467,7 +491,10 @@ class ExportHandler {
       if (wantLrc && result?.success && Array.isArray(result.durations)) {
         try {
           lrcPath = targetPath.replace(/\.mp3$/i, '.lrc');
-          const lrc = this._buildLrc(segmentTexts, result.durations);
+          const lrc = this._buildLrc(segmentTexts, result.durations, {
+            text: WATERMARK_LRC_TEXT,
+            duration: result.watermarkDuration
+          });
           const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(lrc)));
           const wr = await api.saveBinary?.(lrcPath, b64);
           if (wr?.success) this._logProgress('LRC 字幕已生成: ' + lrcPath);

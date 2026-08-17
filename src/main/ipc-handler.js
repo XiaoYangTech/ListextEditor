@@ -434,6 +434,8 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
     if (wmData) {
       const wmLocal = path.join(jobDir, 'watermark.mp3');
       fs.writeFileSync(wmLocal, wmData);
+      // 水印置开头占用的实际时长：LRC 正文时间轴要整体后移这段时长，避免字幕提前
+      const wmDuration = options.withDurations ? await probeDuration(wmLocal) : 0;
       const wmList = path.join(jobDir, 'wm_concat.txt');
       // 水印置开头：先水印后正文
       fs.writeFileSync(wmList,
@@ -444,7 +446,12 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
         '-metadata', 'artist=官网lstx.yfyw.top',
         '-metadata', 'album=本音频使用亿方听力大师免费制作',
         '-c', 'copy', targetPath]);
-      return { success: true, filePath: targetPath, durations: options.withDurations ? durations : undefined };
+      return {
+        success: true,
+        filePath: targetPath,
+        durations: options.withDurations ? durations : undefined,
+        watermarkDuration: options.withDurations ? wmDuration : undefined
+      };
     }
     console.error('[导出] 水印文件缺失，导出将不带水印');
   }
