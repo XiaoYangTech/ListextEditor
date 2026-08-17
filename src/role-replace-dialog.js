@@ -45,7 +45,10 @@ class RoleReplaceDialog {
   _escapeHtml(s) { return window.escapeHtml(s); }
 
   _render() {
-    const maxRoles = window.LISTEXT_CONSTANTS?.MAX_FREE_ROLES || 3;
+    // 【免费模式】不限角色数，全部角色保留；原逻辑为免费版仅保留前 3 个、其余强制替换
+    const maxRoles = window.LISTEXT_CONSTANTS?.FREE_MODE
+      ? this._roles.length
+      : (window.LISTEXT_CONSTANTS?.MAX_FREE_ROLES || 3);
     const list = document.getElementById('roleReplaceList');
     if (!list) return;
 

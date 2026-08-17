@@ -29,8 +29,9 @@ class ListextEditor {
 
     this.init();
     this.tabManager = new TabManager(this);
-    this.authManager = new AuthManager();
-    this.authManager.init();
+    // 【免费模式】账户登录系统停用，不再初始化 AuthManager（登录弹窗/心跳/会话检测）
+    // this.authManager = new AuthManager();
+    // this.authManager.init();
     this.loadDefaultContent();
   }
 

@@ -18,6 +18,9 @@
 
 (function() {
   var constants = {
+    // 免费模式：全部专业版功能免费开放，付费门控与账户登录系统停用
+    //（付费代码均保留为注释，恢复时置为 false 并还原各模块注释段即可）
+    FREE_MODE: true,
     // 默认 Edge TTS 发音人
     DEFAULT_EDGE_VOICE: 'zh-CN-XiaoxiaoNeural',
     // 服务端 API 地址

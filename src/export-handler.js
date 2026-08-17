@@ -107,14 +107,18 @@ class ExportHandler {
       }
       if (dirInput) dirInput.value = this.exportDir || '';
       if (info) info.textContent = '';
-      if (warn) warn.style.display = window.entitlement?.isPro ? 'none' : 'block';
+      // 【免费模式】无水印，隐藏免费版水印提示
+      if (warn) warn.style.display = 'none';
+      // if (warn) warn.style.display = window.entitlement?.isPro ? 'none' : 'block';
       this._refreshLrcGate();
       dialog.classList.add('active');
     });
   }
 
-  // LRC 字幕为专业版功能：非专业版点击时拦截勾选并引导升级（不置灰，否则点击无反馈）
+  // 【免费模式】LRC 字幕免费可用，不再拦截勾选
   _refreshLrcGate() {
+    if (window.LISTEXT_CONSTANTS?.FREE_MODE) return;
+    // 以下为原付费门控逻辑：非专业版点击时拦截勾选并引导升级（不置灰，否则点击无反馈）
     const lrcBox = document.getElementById('exportLrc');
     if (!lrcBox) return;
     lrcBox.checked = false;
@@ -148,6 +152,9 @@ class ExportHandler {
   }
 
   async _ensureAuthForExport(onSuccess) {
+    // 【免费模式】无需登录与配额校验，直接放行
+    if (window.LISTEXT_CONSTANTS?.FREE_MODE) { onSuccess(); return; }
+    /* 以下为原付费门控逻辑（登录校验 + 权益判定 + 免费配额检查）
     const loggedIn = await this.api?.isLoggedIn();
     if (!loggedIn) {
       window.app?.authManager?.showLoginDialog('请登录后使用导出功能');
@@ -187,6 +194,7 @@ class ExportHandler {
     }
 
     onSuccess();
+    */
   }
 
   updateStatus(text) {
@@ -439,11 +447,12 @@ class ExportHandler {
       this._updateProgress(80, '正在合成 MP3...');
       // 合成阶段无法中途取消，收起取消按钮避免误导
       document.getElementById('exportProgressCancel').style.display = 'none';
-      // 仅真正的付费会员去水印；free_display 等免费体验仍带水印。
-      // 先刷新一次权益，避免云端刚降级后本地仍按旧缓存跳过水印
-      await window.entitlement?.refresh();
-      const skipWatermark = window.entitlement?.isPro === true;
-      // LRC 字幕仅专业版可用；复选框状态以打开导出对话框时的门控为准
+      // 【免费模式】一律去水印
+      const skipWatermark = true;
+      // 以下为原付费水印判定：仅真正的付费会员去水印，导出前先刷新权益
+      // await window.entitlement?.refresh();
+      // const skipWatermark = window.entitlement?.isPro === true;
+      // LRC 字幕勾选即生成（免费模式下水印判定恒为真，门控以导出对话框为准）
       const wantLrc = skipWatermark && !!document.getElementById('exportLrc')?.checked;
       this._updateProgress(80, wantLrc ? '正在合成 MP3（含字幕时间轴）...' : '正在合成 MP3...');
       const result = await api.composeMp3(targetPath, segments, skipWatermark, wantLrc ? { withDurations: true } : undefined);
@@ -468,9 +477,10 @@ class ExportHandler {
 
       if (result?.success) {
         this._updateProgress(95, '正在保存...');
-        await api.consumeExport?.().catch((e) => {
-          console.error('导出次数扣减:', e);
-        });
+        // 【免费模式】不再向服务端扣减导出次数
+        // await api.consumeExport?.().catch((e) => {
+        //   console.error('导出次数扣减:', e);
+        // });
         this._updateProgress(100, '导出完成');
         this.updateStatus(lrcPath ? '导出完成（含 LRC 字幕）' : '导出完成');
         console.log('[动作] 导出完成:', targetPath, lrcPath ? `（字幕: ${lrcPath}）` : '');

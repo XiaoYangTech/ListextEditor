@@ -21,7 +21,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
-const { API_BASE_URL } = require('../listext-constants');
+const { API_BASE_URL, FREE_MODE } = require('../listext-constants');
 
 const authPath = path.join(app.getPath('userData'), 'auth.json');
 
@@ -43,10 +43,13 @@ class ApiClient {
     try {
       if (fs.existsSync(authPath)) {
         const data = JSON.parse(fs.readFileSync(authPath, 'utf-8'));
-        this.token = data.token || null;
-        // 已登录走心跳，未登录走匿名上报，两者互斥
-        if (this.token) this.startHeartbeat();
-        else this.startPing();
+        // 【免费模式】账户系统停用：不恢复登录态，也不启动心跳/匿名上报
+        if (!FREE_MODE) {
+          this.token = data.token || null;
+          // 已登录走心跳，未登录走匿名上报，两者互斥
+          if (this.token) this.startHeartbeat();
+          else this.startPing();
+        }
         this.deviceKey = data.deviceKey || this.generateDeviceKey();
         this.deviceName = data.deviceName || this.getDeviceName();
         this.userCache = data.user || null;

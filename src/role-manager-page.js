@@ -273,11 +273,12 @@ class RoleManagerPage {
         : (/^(ja|ru|es)-/.test(v) ? 2 : 3);
       const enRank = (v) => v.startsWith('en-US') ? 0 : v.startsWith('en-GB') ? 1 : 2;
       let voices = (res?.voices || []).sort((a, b) => rank(a) - rank(b) || enRank(a) - enRank(b) || a.localeCompare(b));
-      const isUnlocked = window.entitlement?.isUnlocked();
-      if (!isUnlocked) {
-        // 免费版放行：全部中文（含港澳台及方言口音）+ 全部英语
-        voices = voices.filter(v => v.startsWith('zh-') || v.startsWith('en-') || v === preserveVoice);
-      }
+      // 【免费模式】全部语种发音人开放，不再按权益过滤
+      // const isUnlocked = window.entitlement?.isUnlocked();
+      // if (!isUnlocked) {
+      //   // 免费版放行：全部中文（含港澳台及方言口音）+ 全部英语
+      //   voices = voices.filter(v => v.startsWith('zh-') || v.startsWith('en-') || v === preserveVoice);
+      // }
       // 选中：编辑已有角色保持其音色；新建默认英文 Jenny，都没有退列表首位
       const selected = (preserveVoice && voices.includes(preserveVoice))
         ? preserveVoice
@@ -298,19 +299,20 @@ class RoleManagerPage {
   async renderRoles() {
     // 角色与代码中的 <role> 标签全镜像同步，不再区分来源
     const allRoles = await this.getRoles();
-    const isUnlocked = window.entitlement?.isUnlocked();
-    const isFreeDisplay = window.entitlement?.isFreeDisplay;
     const total = allRoles.length;
-    const siteUrl = window.LISTEXT_CONSTANTS?.API_BASE_URL || 'https://api.yfyw.top';
+    // 【免费模式】不再展示免费版/升级专业版提示栏
+    // const isUnlocked = window.entitlement?.isUnlocked();
+    // const isFreeDisplay = window.entitlement?.isFreeDisplay;
+    // const siteUrl = window.LISTEXT_CONSTANTS?.API_BASE_URL || 'https://api.yfyw.top';
 
     let html = '';
 
-    if (!isUnlocked) {
-      html += `<div class="rm-vip-bar">
-        ${isFreeDisplay ? '🎉 全服限免中' : '📋 免费版'} · 日/俄/西等 30+ 语种需专业版解锁
-        <a href="#" class="rm-upgrade-link" onclick="window.electronAPI?.openExternal?.('${siteUrl}');return false">💎 升级专业版</a>
-      </div>`;
-    }
+    // if (!isUnlocked) {
+    //   html += `<div class="rm-vip-bar">
+    //     ${isFreeDisplay ? '🎉 全服限免中' : '📋 免费版'} · 日/俄/西等 30+ 语种需专业版解锁
+    //     <a href="#" class="rm-upgrade-link" onclick="window.electronAPI?.openExternal?.('${siteUrl}');return false">💎 升级专业版</a>
+    //   </div>`;
+    // }
 
     if (!total) {
       html += '<div class="effect-empty">尚未添加角色。可通过此界面添加，或在代码中使用 &lt;role&gt; 标签定义。</div>';
@@ -373,11 +375,12 @@ class RoleManagerPage {
       return;
     }
 
-    if (type === 'edge' && !window.entitlement?.isUnlocked()
-        && voice && !voice.startsWith('zh-') && !voice.startsWith('en-')) {
-      window.entitlement?.showVipToast('该发音人音色');
-      return;
-    }
+    // 【免费模式】不再拦截非中英语种发音人
+    // if (type === 'edge' && !window.entitlement?.isUnlocked()
+    //     && voice && !voice.startsWith('zh-') && !voice.startsWith('en-')) {
+    //   window.entitlement?.showVipToast('该发音人音色');
+    //   return;
+    // }
 
     const roles = await this.getRoles();
     const payload = { id, name, type, voice };

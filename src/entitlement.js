@@ -22,13 +22,25 @@ class Entitlement {
   }
 
   async refresh(force = false) {
-    if (!window.electronAPI) return;
-    try { this._cache = await window.electronAPI.getEntitlement(force); } catch {}
+    // 【免费模式】不再请求服务端权益，直接按专业版处理
+    if (window.LISTEXT_CONSTANTS?.FREE_MODE) { this._cache = { plan: 'pro', expired: false }; return; }
+    // if (!window.electronAPI) return;
+    // try { this._cache = await window.electronAPI.getEntitlement(force); } catch {}
   }
 
-  get plan() { return this._cache?.plan || 'free'; }
-  get isPro() { return this.plan === 'pro' && !this._cache?.expired; }
-  get isFreeDisplay() { return !!this._cache?.free_display?.enabled; }
+  get plan() {
+    if (window.LISTEXT_CONSTANTS?.FREE_MODE) return 'pro';
+    return this._cache?.plan || 'free';
+  }
+  get isPro() {
+    if (window.LISTEXT_CONSTANTS?.FREE_MODE) return true;
+    return this.plan === 'pro' && !this._cache?.expired;
+  }
+  get isFreeDisplay() {
+    // 【免费模式】已是全功能免费，限免概念不再适用
+    if (window.LISTEXT_CONSTANTS?.FREE_MODE) return false;
+    return !!this._cache?.free_display?.enabled;
+  }
 
   isUnlocked() {
     if (this.isFreeDisplay) return true;
