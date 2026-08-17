@@ -436,6 +436,50 @@
     <div id="accountMenuBody"></div>
   </div>
 
+  <div id="donateDialog" class="dialog">
+    <div class="dialog-content donate-content">
+      <div class="dialog-header"><h2>赞助亿方听力大师</h2><button class="dialog-close" id="donateCloseTop">&times;</button></div>
+      <div class="dialog-body">
+        <div class="donate-story">
+          受到某位曾经帮助过我们项目的科技区 UP 主「但行好事，莫问前程」的建议影响，本软件做了一个「违背祖宗的决定」：移除了真金白银、花费大量时间用 AI 写出来的付费功能系统与用户系统后端的对接，改为完全免费。
+        </div>
+        <div class="donate-story">
+          但软件的运营需要成本。如果觉得本软件好用，欢迎扫码赞助，支持项目继续走下去。
+        </div>
+        <div class="donate-qrs">
+          <div class="donate-qr">
+            <img src="../assets/pay-qrcode/alipay.png" alt="支付宝收款码">
+            <div class="donate-qr-label">支付宝</div>
+          </div>
+          <div class="donate-qr">
+            <img src="../assets/pay-qrcode/weixin.png" alt="微信收款码">
+            <div class="donate-qr-label">微信</div>
+          </div>
+        </div>
+        <div class="donate-link"><a href="#" id="donateStoryLink">了解这段「违背祖宗的决定」背后的故事 →</a></div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-cancel" id="donateLaterBtn">稍后再说</button>
+        <button class="btn btn-primary" id="donateDoneBtn">我已捐助</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="welcomeDialog" class="dialog">
+    <div class="dialog-content dialog-small welcome-content">
+      <div class="dialog-header"><h2>欢迎使用亿方听力大师</h2><button class="dialog-close" id="welcomeCloseTop">&times;</button></div>
+      <div class="dialog-body">
+        <p style="font-size:14px;color:#555;margin:0 0 14px;line-height:1.6;">第一次使用？花 5 分钟看完官方教程，就能轻松上手制作听力材料。</p>
+        <p style="font-size:13px;color:#1976d2;margin:0 0 4px;">🎬 《五分钟学会听力制作神器亿方听力大师，轻松制作听力材料》</p>
+        <p style="font-size:12px;color:#999;margin:0;">B 站官方教程视频</p>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-cancel" id="welcomeLaterBtn">稍后再说</button>
+        <button class="btn btn-primary" id="welcomeWatchBtn">观看教程</button>
+      </div>
+    </div>
+  </div>
+
   <div id="vipToast" class="vip-toast"><span class="vip-toast-text"></span></div>
 
   <script src="../src/listext-constants.js"></script>

@@ -1900,3 +1900,16 @@ body.toolbar-left .toolbar {
   gap: 12px !important;
 }
 .update-footer .btn { padding: 10px 24px; border-radius: 8px; font-size: 14px; }
+
+/* 捐助弹窗与新手引导弹窗 */
+.donate-content { max-width: 460px; width: 90%; }
+.donate-story { font-size: 14px; color: #444; line-height: 1.7; }
+.donate-story + .donate-story { margin-top: 10px; }
+.donate-qrs { display: flex; gap: 24px; justify-content: center; margin: 18px 0 8px; }
+.donate-qr { text-align: center; }
+.donate-qr img { width: 140px; height: 140px; border-radius: 8px; border: 1px solid var(--md-divider); background: #fff; display: block; }
+.donate-qr-label { margin-top: 6px; font-size: 13px; color: #555; }
+.donate-link { text-align: center; font-size: 12px; margin-top: 6px; }
+.donate-link a { color: #1976d2; text-decoration: none; }
+.donate-link a:hover { text-decoration: underline; }
+.welcome-content { max-width: 440px; }

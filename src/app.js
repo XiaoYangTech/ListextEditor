@@ -33,6 +33,8 @@ class ListextEditor {
     // this.authManager = new AuthManager();
     // this.authManager.init();
     this.loadDefaultContent();
+    this.initStartupGuides();
+    this.checkStartupGuides();
   }
 
   // 渲染进程日志转发到主进程统一落盘（含未捕获错误与 Promise 拒绝）
@@ -80,6 +82,61 @@ class ListextEditor {
     api.getAppInfo?.().then(info => {
       if (info?.version) el.textContent = `v${info.version} · ${os} ${arch}`;
     }).catch(() => {});
+  }
+
+  // 启动引导：首次打开弹新手教程；使用满 3 天后每次启动在主页弹捐助弹窗
+  // （点「我已捐助」后永久不再弹）
+  initStartupGuides() {
+    const donate = document.getElementById('donateDialog');
+    if (donate) {
+      const close = () => donate.classList.remove('active');
+      document.getElementById('donateCloseTop')?.addEventListener('click', close);
+      document.getElementById('donateLaterBtn')?.addEventListener('click', close);
+      document.getElementById('donateDoneBtn')?.addEventListener('click', () => {
+        close();
+        window.electronAPI?.setDonationDismissed?.().catch(() => {});
+      });
+      document.getElementById('donateStoryLink')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.electronAPI?.openExternal?.('https://www.yfyw.top/opensource/from-atd-to-lstx.html');
+      });
+    }
+
+    const welcome = document.getElementById('welcomeDialog');
+    if (welcome) {
+      const close = () => welcome.classList.remove('active');
+      document.getElementById('welcomeCloseTop')?.addEventListener('click', close);
+      document.getElementById('welcomeLaterBtn')?.addEventListener('click', close);
+      document.getElementById('welcomeWatchBtn')?.addEventListener('click', () => {
+        close();
+        window.electronAPI?.openExternal?.('https://www.bilibili.com/video/BV137g56WEm9/');
+      });
+    }
+  }
+
+  async checkStartupGuides() {
+    const api = window.electronAPI;
+    if (!api?.getLaunchState) return;
+    let state = null;
+    try {
+      state = await api.getLaunchState();
+    } catch (e) {
+      console.warn('获取启动引导状态失败:', e);
+      return;
+    }
+    if (!state) return;
+
+    // 等主界面稳定后再弹，避免遮住首屏加载
+    await new Promise(r => setTimeout(r, 1200));
+
+    if (state.firstLaunch) {
+      document.getElementById('welcomeDialog')?.classList.add('active');
+      return;
+    }
+    // 使用满 3 天且未点「我已捐助」：主页弹出捐助弹窗（每次启动一次）
+    if (!state.donationDismissed && Number(state.daysUsed) >= 3 && this.isHomeActive()) {
+      document.getElementById('donateDialog')?.classList.add('active');
+    }
   }
 
   initBlockRenderer() {

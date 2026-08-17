@@ -50,6 +50,7 @@
       "src/**/*",
       "styles/**/*",
       "assets/default-sounds/**/*",
+      "assets/pay-qrcode/**/*",
       "assets/freeWatermark.mp3",
       "assets/icon.png",
       "package.json"
