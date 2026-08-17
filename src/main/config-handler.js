@@ -23,14 +23,23 @@ const { ensureDir } = require('./utils');
 const { getLogDir } = require('./logger');
 const SHORTCUT_DEFAULTS = require('../shortcut-defaults');
 
-const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+// 注意：settingsPath 必须运行时求值——main.js 在 require 本模块之后才
+// setPath('userData')，模块顶层取值会拿到切换前的旧目录（产品名目录）
+function getSettingsPath() {
+  return path.join(app.getPath('userData'), 'settings.json');
+}
 
 function getDefaultSettings() {
   return {
     proxyMode: 'system',
     proxyUrl: '',
 
-    shortcuts: getDefaultShortcuts()
+    shortcuts: getDefaultShortcuts(),
+
+    // 启动引导状态：首次启动日期（首次调用 get-launch-state 时写入）
+    // 与捐助弹窗「我已捐助」永久关闭标记
+    firstLaunchDate: null,
+    donationDismissed: false
   };
 }
 
@@ -40,6 +49,7 @@ function getDefaultShortcuts() {
 
 function loadSettings() {
   try {
+    const settingsPath = getSettingsPath();
     if (fs.existsSync(settingsPath)) {
       const data = fs.readFileSync(settingsPath, 'utf-8');
       return { ...getDefaultSettings(), ...JSON.parse(data || '{}') };
@@ -52,6 +62,7 @@ function loadSettings() {
 
 function saveSettings(settings) {
   try {
+    const settingsPath = getSettingsPath();
     ensureDir(path.dirname(settingsPath));
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
     return true;
@@ -110,6 +121,33 @@ function registerConfigHandlers(ipcMain) {
   ipcMain.handle('get-shortcuts', async () => getShortcuts());
   ipcMain.handle('save-shortcuts', async (event, shortcuts) => {
     return { success: saveShortcuts(shortcuts) };
+  });
+
+  // 启动引导状态：首次启动时写入 firstLaunchDate 并返回 firstLaunch=true，
+  // 之后返回已使用天数与捐助弹窗关闭标记，供渲染层决定弹新手教程还是捐助弹窗
+  ipcMain.handle('get-launch-state', async () => {
+    const settings = loadSettings();
+    const firstLaunch = !settings.firstLaunchDate;
+    if (firstLaunch) {
+      settings.firstLaunchDate = new Date().toISOString();
+      saveSettings(settings);
+    }
+    const daysUsed = Math.floor(
+      (Date.now() - new Date(settings.firstLaunchDate).getTime()) / 86400000
+    );
+    return {
+      firstLaunch,
+      firstLaunchDate: settings.firstLaunchDate,
+      donationDismissed: !!settings.donationDismissed,
+      daysUsed
+    };
+  });
+
+  // 捐助弹窗「我已捐助」：永久关闭，之后每次启动不再弹
+  ipcMain.handle('set-donation-dismissed', async () => {
+    const settings = loadSettings();
+    settings.donationDismissed = true;
+    return { success: saveSettings(settings) };
   });
 
   // 缓存管理：大小统计 / 分类清除 / 打开日志目录
