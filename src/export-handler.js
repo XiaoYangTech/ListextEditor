@@ -17,7 +17,7 @@
  */
 
 // 水印音频开头宣传文案（与 freeWatermark.mp3 的语音内容一致）：
-// 水印勾选时写入 LRC 字幕开头，随水印播放逐句显示，正文时间轴整体后移水印时长
+// 水印勾选时整体作为一行写入 LRC 字幕开头，正文时间轴整体后移水印时长
 const WATERMARK_LRC_TEXT =
   '本听力材料使用亿方听力大师免费制作，制作高质量听力材料。' +
   '就用亿方听力大师，会搭积木就会做听力，操作简单易学，所有功能全部免费使用。' +
@@ -145,8 +145,8 @@ class ExportHandler {
   }
 
   // 由逐片段时长与台词文本生成 LRC 字幕内容
-  // watermark：{ text, duration }——水印置音频开头时，先写水印文案（按句拆分、
-  // 按字数比例分摊水印时长），正文时间轴从水印结束处起算，保证与音频对齐
+  // watermark：{ text, duration }——水印置音频开头时，水印文案整体作为一行字幕
+  // 从 00:00.00 起显示，正文时间轴从水印结束处起算，保证与音频对齐
   _buildLrc(segmentTexts, durations, watermark) {
     const fmt = (sec) => {
       const m = Math.floor(sec / 60);
@@ -158,15 +158,7 @@ class ExportHandler {
     const wmDuration = Number(watermark?.duration) || 0;
     const wmText = (watermark?.text || '').trim();
     if (wmText && wmDuration > 0) {
-      const sentences = wmText.split(/(?<=[。！？])/).map(s => s.trim()).filter(Boolean);
-      const totalChars = sentences.reduce((sum, s) => sum + s.length, 0) || 1;
-      let acc = 0;
-      for (let i = 0; i < sentences.length; i++) {
-        lines.push(`${fmt(acc)}${sentences[i]}`);
-        acc = i === sentences.length - 1
-          ? wmDuration
-          : acc + (wmDuration * sentences[i].length) / totalChars;
-      }
+      lines.push(`${fmt(0)}${wmText}`);
       t = wmDuration;
     }
     for (let i = 0; i < durations.length; i++) {
