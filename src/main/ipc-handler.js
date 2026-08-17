@@ -419,10 +419,37 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
   ensureDir(path.dirname(targetPath));
   await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', rawOutput]);
 
-  // 【免费模式】不再拼接免费版水印（渲染层也已恒定传 skipWatermark=true）
+  // 【免费模式】水印改为可选：skipWatermark 由渲染层复选框决定；水印从结尾改到开头拼接
+  if (!skipWatermark) {
+    // 打包后水印在 app.asar 内，ffmpeg 是外部进程读不了 asar 虚拟路径，
+    // 先用 Electron 的 fs（能读 asar）把水印落到任务目录，再交给 ffmpeg
+    let wmData = null;
+    for (const p of [
+      path.join(app.getAppPath(), 'assets', 'freeWatermark.mp3'),
+      path.join(process.cwd(), 'assets', 'freeWatermark.mp3')
+    ]) {
+      try { wmData = fs.readFileSync(p); break; } catch {}
+    }
+
+    if (wmData) {
+      const wmLocal = path.join(jobDir, 'watermark.mp3');
+      fs.writeFileSync(wmLocal, wmData);
+      const wmList = path.join(jobDir, 'wm_concat.txt');
+      // 水印置开头：先水印后正文
+      fs.writeFileSync(wmList,
+        "file '" + wmLocal.replace(/'/g, "''") + "'\n" +
+        "file '" + rawOutput.replace(/'/g, "''") + "'\n", 'utf-8');
+      await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', wmList,
+        '-metadata', 'title=亿方听力大师',
+        '-metadata', 'artist=官网lstx.yfyw.top',
+        '-metadata', 'album=本音频使用亿方听力大师免费制作',
+        '-c', 'copy', targetPath]);
+      return { success: true, filePath: targetPath, durations: options.withDurations ? durations : undefined };
+    }
+    console.error('[导出] 水印文件缺失，导出将不带水印');
+  }
+  // 原付费逻辑：水印拼在结尾（已由上方开头拼接版替代，保留备查）
   // if (!skipWatermark) {
-  //   // 打包后水印在 app.asar 内，ffmpeg 是外部进程读不了 asar 虚拟路径，
-  //   // 先用 Electron 的 fs（能读 asar）把水印落到任务目录，再交给 ffmpeg
   //   let wmData = null;
   //   for (const p of [
   //     path.join(app.getAppPath(), 'assets', 'freeWatermark.mp3'),
@@ -430,7 +457,6 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
   //   ]) {
   //     try { wmData = fs.readFileSync(p); break; } catch {}
   //   }
-  //
   //   if (wmData) {
   //     const wmLocal = path.join(jobDir, 'watermark.mp3');
   //     fs.writeFileSync(wmLocal, wmData);
@@ -446,7 +472,11 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
   //   console.error('[导出] 免费版水印文件缺失，导出将不带水印');
   // }
 
-  await runFfmpeg(['-y', '-i', rawOutput, '-metadata', 'artist=亿方听力大师', '-c', 'copy', targetPath]);
+  await runFfmpeg(['-y', '-i', rawOutput,
+    '-metadata', 'title=亿方听力大师',
+    '-metadata', 'artist=官网lstx.yfyw.top',
+    '-metadata', 'album=本音频使用亿方听力大师免费制作',
+    '-c', 'copy', targetPath]);
   return { success: true, filePath: targetPath, durations: options.withDurations ? durations : undefined };
 }
 

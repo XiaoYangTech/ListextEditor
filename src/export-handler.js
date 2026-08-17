@@ -107,9 +107,12 @@ class ExportHandler {
       }
       if (dirInput) dirInput.value = this.exportDir || '';
       if (info) info.textContent = '';
-      // 【免费模式】无水印，隐藏免费版水印提示
+      // 【免费模式】隐藏免费版水印警告条（水印改为下方复选框可选）
       if (warn) warn.style.display = 'none';
       // if (warn) warn.style.display = window.entitlement?.isPro ? 'none' : 'block';
+      // 水印复选框每次打开默认勾选，用户可自行取消
+      const wmBox = document.getElementById('exportWatermark');
+      if (wmBox) wmBox.checked = true;
       this._refreshLrcGate();
       dialog.classList.add('active');
     });
@@ -447,8 +450,9 @@ class ExportHandler {
       this._updateProgress(80, '正在合成 MP3...');
       // 合成阶段无法中途取消，收起取消按钮避免误导
       document.getElementById('exportProgressCancel').style.display = 'none';
-      // 【免费模式】一律去水印
-      const skipWatermark = true;
+      // 【免费模式】水印改为可选：勾选在音频开头加水印（默认），取消勾选则不加
+      const skipWatermark = !document.getElementById('exportWatermark')?.checked;
+      // const skipWatermark = true;
       // 以下为原付费水印判定：仅真正的付费会员去水印，导出前先刷新权益
       // await window.entitlement?.refresh();
       // const skipWatermark = window.entitlement?.isPro === true;
