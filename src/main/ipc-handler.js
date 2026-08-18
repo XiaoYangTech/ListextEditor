@@ -442,9 +442,9 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
         "file '" + wmLocal.replace(/'/g, "''") + "'\n" +
         "file '" + rawOutput.replace(/'/g, "''") + "'\n", 'utf-8');
       await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', wmList,
-        '-metadata', 'title=亿方听力大师',
+        '-metadata', 'title=本音频使用亿方听力大师免费制作',
         '-metadata', 'artist=官网lstx.yfyw.top',
-        '-metadata', 'album=本音频使用亿方听力大师免费制作',
+        '-metadata', 'album=亿方听力大师',
         '-c', 'copy', targetPath]);
       return {
         success: true,
@@ -480,9 +480,9 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
   // }
 
   await runFfmpeg(['-y', '-i', rawOutput,
-    '-metadata', 'title=亿方听力大师',
+    '-metadata', 'title=本音频使用亿方听力大师免费制作',
     '-metadata', 'artist=官网lstx.yfyw.top',
-    '-metadata', 'album=本音频使用亿方听力大师免费制作',
+    '-metadata', 'album=亿方听力大师',
     '-c', 'copy', targetPath]);
   return { success: true, filePath: targetPath, durations: options.withDurations ? durations : undefined };
 }
