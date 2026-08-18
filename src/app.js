@@ -103,9 +103,15 @@ class ListextEditor {
       const close = () => welcome.classList.remove('active');
       document.getElementById('welcomeCloseTop')?.addEventListener('click', close);
       document.getElementById('welcomeLaterBtn')?.addEventListener('click', close);
-      document.getElementById('welcomeWatchBtn')?.addEventListener('click', () => {
+      const openTutorial = () => {
         close();
         window.electronAPI?.openExternal?.('https://www.bilibili.com/video/BV137g56WEm9/');
+      };
+      document.getElementById('welcomeWatchBtn')?.addEventListener('click', openTutorial);
+      // 蓝字教程标题也可直接点开（拦截默认导航，走系统浏览器）
+      document.getElementById('welcomeVideoLink')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        openTutorial();
       });
     }
   }
