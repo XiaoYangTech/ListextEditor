@@ -84,7 +84,7 @@ class ListextEditor {
     }).catch(() => {});
   }
 
-  // 启动引导：首次打开弹新手教程；使用满 3 天后每次启动在主页弹捐助弹窗
+  // 启动引导：首次打开弹新手教程；使用满 3 天未捐助时每次启动在主页弹捐助弹窗
   // （点「我已捐助」后永久不再弹）
   initStartupGuides() {
     const donate = document.getElementById('donateDialog');
@@ -95,10 +95,6 @@ class ListextEditor {
       document.getElementById('donateDoneBtn')?.addEventListener('click', () => {
         close();
         window.electronAPI?.setDonationDismissed?.().catch(() => {});
-      });
-      document.getElementById('donateStoryLink')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        window.electronAPI?.openExternal?.('https://www.yfyw.top/opensource/from-atd-to-lstx.html');
       });
     }
 
