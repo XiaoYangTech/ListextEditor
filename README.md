@@ -106,6 +106,18 @@ npm run build:all          # 全平台串行构建
 - 用户导入的音效写入用户目录（`userData/sounds-user`），与默认库隔离
 - 用户配置写入 `userData`，不污染安装目录
 
+## 免费运营与赞助
+
+自 v1.1.9 起，亿方听力大师进入**免费运营模式**：全部功能免费开放，无会员、无配额、无强制水印。软件的持续运营与维护需要成本，如果觉得本软件好用，欢迎扫码捐助，支持项目继续走下去。
+
+<p align="center">
+  <img src="assets/pay-qrcode/alipay.png" width="180" alt="支付宝收款码">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="assets/pay-qrcode/weixin.png" width="180" alt="微信收款码">
+  <br>
+  <sub>支付宝 · 微信</sub>
+</p>
+
 ## 许可证与免责声明
 
 本项目基于 [GPL-3.0](LICENSE) 开源。
