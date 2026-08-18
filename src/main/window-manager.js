@@ -235,6 +235,7 @@ function createMenu() {
       label: '帮助',
       submenu: [
         { id: 'help-website', label: '访问软件官网', click: () => openExternal('https://www.yfyw.top') },
+        { id: 'help-video-tutorial', label: '官方视频教程', click: () => openExternal('https://www.bilibili.com/video/BV137g56WEm9/') },
         { id: 'help-docs', label: '软件知识库文档', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/space/7664618862058458330?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home') },
         { id: 'help-syntax', label: 'Listext语法说明', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/J1EQwIfuFi6pQTk9BytcwhumnFb?fromScene=spaceOverview') },
         { id: 'help-ai-prompt', label: 'AI一键导入听力原文', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/LKkCwl7AvidXngkvJlkcCxg9nGd?fromScene=spaceOverview') },
