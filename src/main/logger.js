@@ -150,6 +150,20 @@ function wrapConsole(level) {
   };
 }
 
+// 包装 ipcMain.handle：任何 IPC 处理器抛出的异常都落盘后原样抛出。
+// 渲染进程拿到的仍是 rejection，行为不变；主进程侧不再出现"渲染层报错、日志里啥也没有"
+function patchIpcHandle() {
+  const origHandle = ipcMain.handle.bind(ipcMain);
+  ipcMain.handle = (channel, listener) => origHandle(channel, async (event, ...args) => {
+    try {
+      return await listener(event, ...args);
+    } catch (e) {
+      write('ERROR', [`[IPC异常] ${channel}:`, e?.stack || e?.message || String(e)]);
+      throw e;
+    }
+  });
+}
+
 function initLogger() {
   ensureLogDir();
   cleanOldLogs();
@@ -167,6 +181,7 @@ function initLogger() {
   wrapConsole('log');
   wrapConsole('warn');
   wrapConsole('error');
+  patchIpcHandle();
   process.on('uncaughtException', (e) => write('FATAL', [e]));
   process.on('unhandledRejection', (e) => write('FATAL', [e]));
   ipcMain.handle('append-log', (event, level, args) => {

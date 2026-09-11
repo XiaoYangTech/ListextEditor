@@ -17,10 +17,10 @@
  */
 
 const { app, BrowserWindow, ipcMain } = require('electron');
-const { createMainWindow, getMainWindow } = require('./src/main/window-manager');
+const { createMainWindow } = require('./src/main/window-manager');
 const { registerIpcHandlers } = require('./src/main/ipc-handler');
 const { registerConfigHandlers, loadSettings, applyProxySettings } = require('./src/main/config-handler');
-const { registerApiHandlers, apiClient } = require('./src/main/api-client');
+const { registerApiHandlers } = require('./src/main/api-client');
 const { setupCrypto } = require('./src/main/utils');
 
 // Setup global polyfills
@@ -68,10 +68,6 @@ async function initApp() {
   registerConfigHandlers(ipcMain);
   registerApiHandlers();
 
-  apiClient.onAuthLost = () => {
-    getMainWindow()?.webContents?.send('auth-lost');
-  };
-
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       bindDevToolsShortcut(createMainWindow());
@@ -80,6 +76,14 @@ async function initApp() {
 }
 
 initApp();
+
+// 进程级异常落盘：渲染进程崩溃、GPU/网络等子进程退出（日志体系补齐）
+app.on('render-process-gone', (event, webContents, details) => {
+  console.error('[进程] 渲染进程异常退出:', details?.reason, `exitCode=${details?.exitCode}`);
+});
+app.on('child-process-gone', (event, details) => {
+  console.error('[进程] 子进程异常退出:', details?.type, details?.reason, `exitCode=${details?.exitCode}`);
+});
 
 app.on('window-all-closed', () => {
   // 窗口全关后没有 UI 能操作文件：立即放掉所有文件锁。

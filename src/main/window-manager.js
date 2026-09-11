@@ -73,6 +73,23 @@ function getAppTitle() {
   return `${meta.name} v${meta.version} ${osName}`;
 }
 
+// 窗口级异常统一落盘（日志体系补齐）：过去白屏/无响应/preload 报错无任何记录
+function attachWindowDiagnostics(win, label) {
+  if (!win?.webContents) return;
+  win.webContents.on('did-fail-load', (e, code, desc, url) => {
+    console.error(`[${label}] 页面加载失败:`, code, desc, url);
+  });
+  win.webContents.on('render-process-gone', (e, details) => {
+    console.error(`[${label}] 渲染进程退出:`, details?.reason, `exitCode=${details?.exitCode}`);
+  });
+  win.webContents.on('unresponsive', () => console.error(`[${label}] 渲染进程无响应`));
+  win.webContents.on('responsive', () => console.log(`[${label}] 渲染进程已恢复响应`));
+  win.webContents.on('preload-error', (e, preloadPath, error) => {
+    console.error(`[${label}] preload 脚本报错:`, preloadPath, error?.stack || error?.message || String(error));
+  });
+  win.on('unresponsive', () => console.error(`[${label}] 窗口无响应`));
+}
+
 function createMainWindow() {
   let isClosing = false;
 
@@ -96,6 +113,8 @@ function createMainWindow() {
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.setTitle(getAppTitle());
   });
+
+  attachWindowDiagnostics(mainWindow, '主窗口');
 
   const editContextMenu = Menu.buildFromTemplate([
     { role: 'undo',      label: '撤销' },
@@ -296,6 +315,7 @@ function openSettingsWindow() {
   settingsWindow.loadFile('pages/settings.html');
   settingsWindow.setMenu(null);
   settingsWindow.setMenuBarVisibility(false);
+  attachWindowDiagnostics(settingsWindow, '设置窗口');
   settingsWindow.on('closed', () => { settingsWindow = null; });
 }
 

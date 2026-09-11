@@ -26,6 +26,27 @@ const { DEFAULT_EDGE_VOICE } = require('./src/listext-constants');
 
 const tempDir = path.join(os.tmpdir(), 'ListextEditor');
 
+// preload 的 console 既不进日志文件、也无法被渲染层的转发脚本拦截（独立上下文）：
+// 这里把 warn/error 经 append-log IPC 落盘，避免 EdgeTTS/代理等 preload 报错"啥也没记录"
+(function bridgePreloadConsole() {
+  const serialize = (a) => {
+    if (a instanceof Error) return a.stack || a.message;
+    if (typeof a === 'object' && a !== null) {
+      try { return JSON.stringify(a); } catch { return String(a); }
+    }
+    return String(a);
+  };
+  for (const level of ['warn', 'error']) {
+    const orig = console[level].bind(console);
+    console[level] = (...args) => {
+      orig(...args);
+      try {
+        ipcRenderer.invoke('append-log', level, [`[preload] ${args.map(serialize).join(' ')}`]);
+      } catch { /* 日志失败不影响业务 */ }
+    };
+  }
+})();
+
 // 手动代理时 EdgeTTS 的 WebSocket 也要走代理。
 // 注意一：LISTEXT_PROXY 设在主进程渲染进程读不到，须经 IPC 取设置。
 // 注意二：preload 里 window/document 存在，MsEdgeTTS 会把自己误判为浏览器环境
@@ -80,16 +101,6 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
     }
     ensureDir(tempDir);
     rawVoice = voice || DEFAULT_EDGE_VOICE;
-
-    const ent = await ipcRenderer.invoke('api-get-entitlement');
-    const isPro = ent?.plan === 'pro' && !ent?.expired;
-    const isFreeDisplay = ent?.free_display?.enabled;
-    if (!isPro && !isFreeDisplay) {
-      // 免费版放行：全部中文（含港澳台及方言口音）+ 美式英语
-      if (!rawVoice.startsWith('zh-') && !rawVoice.startsWith('en-US')) {
-        return { success: false, error: '该发音人音色是专业版功能，请升级后使用' };
-      }
-    }
 
     const outputPath = path.join(tempDir, `tts_${Date.now()}.mp3`);
 
@@ -226,22 +237,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchAnnouncements: () => ipcRenderer.invoke('api-announcements'),
   fetchRoutines: () => ipcRenderer.invoke('api-routines'),
 
-  login: (email, pw, deviceName, osName, removeDeviceId) => ipcRenderer.invoke('api-login', email, pw, deviceName, osName, removeDeviceId),
-  logout: () => ipcRenderer.invoke('api-logout'),
-  getProfile: () => ipcRenderer.invoke('api-profile'),
-  getDevices: () => ipcRenderer.invoke('api-devices'),
-  removeDevice: (id) => ipcRenderer.invoke('api-remove-device', id),
-  isLoggedIn: () => ipcRenderer.invoke('api-is-logged-in'),
-  getEntitlement: (force) => ipcRenderer.invoke('api-get-entitlement', !!force),
-  getUser: () => ipcRenderer.invoke('api-get-user'),
-
-  getExportQuota: () => ipcRenderer.invoke('api-export-quota'),
-  consumeExport: () => ipcRenderer.invoke('api-export-consume'),
   pasteFromClipboard: () => ipcRenderer.invoke('paste-from-clipboard'),
-  getStatus: () => ipcRenderer.invoke('api-status'),
   fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
-
-  onAuthLost: (callback) => ipcRenderer.on('auth-lost', () => callback()),
 
   checkUpdate: () => ipcRenderer.invoke('check-update'),
   onCheckUpdate: (callback) => ipcRenderer.on('check-update', () => callback()),
