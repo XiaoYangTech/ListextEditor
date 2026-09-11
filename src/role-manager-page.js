@@ -90,7 +90,7 @@ class RoleManagerPage {
   // 语言标识：特殊地区/方言定制 + Intl.DisplayNames 自动生成（全语种覆盖）
   _localeLabel(v) {
     const SPECIAL = {
-      'zh-CN': '中文（简体）', 'zh-TW': '中文（中国台湾）', 'zh-HK': '中文（香港）',
+      'zh-CN': '中文（简体）', 'zh-TW': '中文（中国台湾）', 'zh-HK': '中文（中国香港）',
       'en-US': '英语（美式）', 'en-GB': '英语（英式）',
       'zh-CN-liaoning-XiaobeiNeural': '中文（辽宁话）',
       'zh-CN-shaanxi-XiaoniNeural': '中文（陕西话）'
@@ -111,8 +111,11 @@ class RoleManagerPage {
       if (parts[1]) {
         try { region = this._dnRegion.of(parts[1]) || ''; } catch { region = ''; }
       }
-      // 涉台地区名统一规范（Intl 会输出「台湾」，须覆盖为「中国台湾」）
-      if (parts[1] === 'TW' || region === '台湾') region = '中国台湾';
+      // 港澳台地区名统一规范：Intl 会输出「台湾/香港/澳门」，一律加「中国」前缀
+      const REGION_FIX = { TW: '中国台湾', HK: '中国香港', MO: '中国澳门' };
+      const REGION_NAME_FIX = { '台湾': '中国台湾', '香港': '中国香港', '澳门': '中国澳门' };
+      if (REGION_FIX[parts[1]]) region = REGION_FIX[parts[1]];
+      else if (REGION_NAME_FIX[region]) region = REGION_NAME_FIX[region];
       return region ? `${langName}（${region}）` : langName;
     } catch { return ''; }
   }
