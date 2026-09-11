@@ -58,27 +58,37 @@ class ListextEditor {
     }).catch(() => {});
   }
 
-  // 启动引导：首次打开弹新手教程；使用满 3 天未捐助时每次启动在主页弹捐助弹窗
-  // （点「我已捐助」后永久不再弹）
+  // 启动弹窗：新手引导 → 启动公告 → 捐助引导，串行显示
+  // 同一时刻只允许一个启动弹窗，避免多个弹窗重叠、互相遮挡导致无法操作
   initStartupGuides() {
+    this._startupQueue = [];
+    this._startupDialogOpen = false;
+    this._activePopup = null;
+
     const donate = document.getElementById('donateDialog');
     if (donate) {
-      const close = () => donate.classList.remove('active');
-      document.getElementById('donateCloseTop')?.addEventListener('click', close);
-      document.getElementById('donateLaterBtn')?.addEventListener('click', close);
+      const closeDonate = () => {
+        donate.classList.remove('active');
+        this._startupDialogClosed();
+      };
+      document.getElementById('donateCloseTop')?.addEventListener('click', closeDonate);
+      document.getElementById('donateLaterBtn')?.addEventListener('click', closeDonate);
       document.getElementById('donateDoneBtn')?.addEventListener('click', () => {
-        close();
+        closeDonate();
         window.electronAPI?.setDonationDismissed?.().catch(() => {});
       });
     }
 
     const welcome = document.getElementById('welcomeDialog');
     if (welcome) {
-      const close = () => welcome.classList.remove('active');
-      document.getElementById('welcomeCloseTop')?.addEventListener('click', close);
-      document.getElementById('welcomeLaterBtn')?.addEventListener('click', close);
+      const closeWelcome = () => {
+        welcome.classList.remove('active');
+        this._startupDialogClosed();
+      };
+      document.getElementById('welcomeCloseTop')?.addEventListener('click', closeWelcome);
+      document.getElementById('welcomeLaterBtn')?.addEventListener('click', closeWelcome);
       const openTutorial = () => {
-        close();
+        closeWelcome();
         window.electronAPI?.openExternal?.('https://www.bilibili.com/video/BV137g56WEm9/');
       };
       document.getElementById('welcomeWatchBtn')?.addEventListener('click', openTutorial);
@@ -88,31 +98,108 @@ class ListextEditor {
         openTutorial();
       });
     }
+
+    const popup = document.getElementById('popupDialog');
+    if (popup) {
+      document.getElementById('popupCloseTop')?.addEventListener('click', () => this._closePopup(false));
+      document.getElementById('popupDismissBtn')?.addEventListener('click', () => this._closePopup(true));
+      // 「我知道了 / 打开链接」按钮的行为按公告类型在 _fillPopupDialog 中设置
+    }
+  }
+
+  // 启动弹窗公告的「已读」本地记录：popup_once 或用户点「不再提示」后不再弹出
+  _popupSeenKey(id) { return `lstx_popup_seen_${id}`; }
+  _isPopupSeen(id) {
+    try { return localStorage.getItem(this._popupSeenKey(id)) === '1'; } catch { return false; }
+  }
+  _markPopupSeen(id) {
+    try { localStorage.setItem(this._popupSeenKey(id), '1'); } catch { /* 忽略存储失败 */ }
   }
 
   async checkStartupGuides() {
     const api = window.electronAPI;
     if (!api?.getLaunchState) return;
-    let state = null;
-    try {
-      state = await api.getLaunchState();
-    } catch (e) {
-      console.warn('获取启动引导状态失败:', e);
-      return;
-    }
-    if (!state) return;
+
+    // 并行拉取：引导状态 + 启动弹窗公告（互不阻塞，任一失败不影响另一个）
+    const [state, popups] = await Promise.all([
+      api.getLaunchState().catch((e) => { console.warn('获取启动引导状态失败:', e); return null; }),
+      api.fetchPopups ? api.fetchPopups().catch(() => null) : Promise.resolve(null)
+    ]);
 
     // 等主界面稳定后再弹，避免遮住首屏加载
     await new Promise(r => setTimeout(r, 1200));
 
-    if (state.firstLaunch) {
-      document.getElementById('welcomeDialog')?.classList.add('active');
+    // 队列顺序：新手引导 → 启动公告 → 捐助引导
+    const queue = [];
+    if (state?.firstLaunch) queue.push({ el: 'welcomeDialog' });
+    for (const p of (Array.isArray(popups) ? popups : [])) {
+      if (!p?.id || this._isPopupSeen(p.id)) continue;
+      queue.push({ el: 'popupDialog', popup: p });
+    }
+    if (!state?.firstLaunch && !state?.donationDismissed
+        && Number(state?.daysUsed) >= 3 && this.isHomeActive()) {
+      queue.push({ el: 'donateDialog' });
+    }
+
+    this._startupQueue = queue;
+    this._showNextStartupDialog();
+  }
+
+  _showNextStartupDialog() {
+    if (this._startupDialogOpen) return;
+    const next = this._startupQueue.shift();
+    if (!next) return;
+
+    // 已有其他弹窗（报错提示/导出框/角色管理器等）打开时排队等待，绝不叠加显示
+    if (document.querySelector('.dialog.active')) {
+      this._startupQueue.unshift(next);
+      setTimeout(() => this._showNextStartupDialog(), 900);
       return;
     }
-    // 使用满 3 天且未点「我已捐助」：主页弹出捐助弹窗（每次启动一次）
-    if (!state.donationDismissed && Number(state.daysUsed) >= 3 && this.isHomeActive()) {
-      document.getElementById('donateDialog')?.classList.add('active');
+
+    const el = document.getElementById(next.el);
+    if (!el) { this._showNextStartupDialog(); return; }
+    if (next.popup) this._fillPopupDialog(next.popup);
+    this._startupDialogOpen = true;
+    el.classList.add('active');
+  }
+
+  _startupDialogClosed() {
+    this._startupDialogOpen = false;
+    // 稍作间隔再弹下一个，避免视觉上两个弹窗连续闪烁
+    setTimeout(() => this._showNextStartupDialog(), 300);
+  }
+
+  _fillPopupDialog(p) {
+    const title = document.getElementById('popupDialogTitle');
+    const body = document.getElementById('popupDialogContent');
+    const hint = document.getElementById('popupDialogHint');
+    const confirm = document.getElementById('popupConfirmBtn');
+    const isUrl = p.kind === 'url';
+
+    this._activePopup = p;
+    if (title) title.textContent = p.title || '公告';
+    if (body) body.textContent = isUrl ? '点击下方按钮打开相关页面。' : (p.content || '');
+    if (hint) {
+      const showHint = !!p.popup_once;
+      hint.style.display = showHint ? 'block' : 'none';
+      if (showHint) hint.textContent = '该公告仅提示一次，关闭后不再自动弹出。';
     }
+    if (confirm) {
+      confirm.textContent = isUrl ? '打开链接' : '我知道了';
+      confirm.onclick = () => {
+        if (isUrl && p.content) window.electronAPI?.openExternal?.(p.content);
+        this._closePopup(false);
+      };
+    }
+  }
+
+  _closePopup(markSeen) {
+    const p = this._activePopup;
+    if (p && (markSeen || p.popup_once)) this._markPopupSeen(p.id);
+    this._activePopup = null;
+    document.getElementById('popupDialog')?.classList.remove('active');
+    this._startupDialogClosed();
   }
 
   initBlockRenderer() {

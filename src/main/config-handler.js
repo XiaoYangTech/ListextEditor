@@ -39,7 +39,10 @@ function getDefaultSettings() {
     // 启动引导状态：首次启动日期（首次调用 get-launch-state 时写入）
     // 与捐助弹窗「我已捐助」永久关闭标记
     firstLaunchDate: null,
-    donationDismissed: false
+    donationDismissed: false,
+
+    // 匿名设备标识（人数统计用）：仅本机随机串，不含任何账号信息
+    anonDeviceKey: ''
   };
 }
 
@@ -69,6 +72,21 @@ function saveSettings(settings) {
   } catch (error) {
     console.error('保存设置失败:', error);
     return false;
+  }
+}
+
+// 匿名设备标识：首次调用时本地生成并落盘，之后长期复用（人数统计按此去重）
+function getOrCreateAnonDeviceKey() {
+  try {
+    const settings = loadSettings();
+    if (settings.anonDeviceKey) return settings.anonDeviceKey;
+    const key = 'le_' + require('crypto').randomBytes(16).toString('hex');
+    settings.anonDeviceKey = key;
+    saveSettings(settings);
+    return key;
+  } catch (e) {
+    console.error('生成匿名设备标识失败:', e.message);
+    return '';
   }
 }
 
@@ -199,6 +217,7 @@ function registerConfigHandlers(ipcMain) {
 
 module.exports = {
   loadSettings,
+  getOrCreateAnonDeviceKey,
   saveSettings,
   applyProxySettings,
   registerConfigHandlers,

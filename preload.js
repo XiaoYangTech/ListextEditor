@@ -236,6 +236,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchBanners: () => ipcRenderer.invoke('api-banners'),
   fetchAnnouncements: () => ipcRenderer.invoke('api-announcements'),
   fetchRoutines: () => ipcRenderer.invoke('api-routines'),
+  fetchPopups: () => ipcRenderer.invoke('api-popups'),
 
   pasteFromClipboard: () => ipcRenderer.invoke('paste-from-clipboard'),
   fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),

@@ -18,11 +18,12 @@
 
 /**
  * 官网公开数据客户端（免费运营模式）
- * 仅保留无需登录的公开接口：公告 / 例行维护 / 首页轮播 / 版本信息。
- * 付费与用户体系（登录、设备、权益、导出配额）已随免费运营模式整体移除。
+ * 保留无需登录的公开接口：公告 / 启动弹窗公告 / 例程模板库 / 首页轮播 / 版本信息 / 匿名设备上报。
+ * 付费与用户体系（登录、设备令牌、权益、导出配额）已随免费运营模式整体移除。
  */
 
 const { ipcMain } = require('electron');
+const os = require('os');
 const { API_BASE_URL } = require('../listext-constants');
 
 class ApiClient {
@@ -48,6 +49,12 @@ class ApiClient {
     return result?.data || result || [];
   }
 
+  // 启动弹窗公告：客户端启动时拉取，命中则主动弹窗（popup_once=1 表示只弹一次）
+  async getPopups() {
+    const result = await this.requestNoAuthApp('popup');
+    return result?.data || result || [];
+  }
+
   async getRoutines() {
     const result = await this.requestNoAuthApp('routines');
     return result?.data || result || [];
@@ -62,13 +69,53 @@ class ApiClient {
     const result = await this.requestNoAuthApp('app_info');
     return result?.data || result;
   }
+
+  // 匿名设备上报：人数统计的唯一数据源，只有随机设备标识 + 系统信息，不含任何账号信息
+  async reportAnonymousPing() {
+    let deviceKey = '';
+    try {
+      deviceKey = require('./config-handler').getOrCreateAnonDeviceKey();
+    } catch (e) {
+      console.error('[匿名上报] 设备标识不可用:', e.message);
+      return null;
+    }
+    if (!deviceKey) return null;
+    const url = `${this.appBaseUrl}/api.php?route=client_ping`;
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify({
+          device_key: deviceKey,
+          os: `${process.platform} ${os.release()} ${process.arch}`,
+          device_name: os.hostname()
+        })
+      });
+      return await response.json();
+    } catch (e) {
+      // 上报失败不影响任何功能，仅记日志
+      console.warn('[匿名上报] 失败:', e?.cause?.code || e?.code || '', e.message);
+      return null;
+    }
+  }
 }
 
 const apiClient = new ApiClient();
 
+// 启动后上报一次，此后每 8 分钟一次；失败静默，绝不阻塞或打断用户
+function startAnonymousPing(intervalMs = 8 * 60 * 1000) {
+  const run = () => { apiClient.reportAnonymousPing().catch(() => {}); };
+  setTimeout(run, 3000);
+  setInterval(run, intervalMs);
+}
+
 function registerApiHandlers() {
   ipcMain.handle('api-announcements', async () => {
     return await apiClient.getAnnouncements();
+  });
+
+  ipcMain.handle('api-popups', async () => {
+    return await apiClient.getPopups();
   });
 
   ipcMain.handle('api-routines', async () => {
@@ -88,4 +135,4 @@ function registerApiHandlers() {
   });
 }
 
-module.exports = { apiClient, registerApiHandlers };
+module.exports = { apiClient, registerApiHandlers, startAnonymousPing };

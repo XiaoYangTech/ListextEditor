@@ -20,7 +20,7 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const { createMainWindow } = require('./src/main/window-manager');
 const { registerIpcHandlers } = require('./src/main/ipc-handler');
 const { registerConfigHandlers, loadSettings, applyProxySettings } = require('./src/main/config-handler');
-const { registerApiHandlers } = require('./src/main/api-client');
+const { registerApiHandlers, startAnonymousPing } = require('./src/main/api-client');
 const { setupCrypto } = require('./src/main/utils');
 
 // Setup global polyfills
@@ -67,6 +67,9 @@ async function initApp() {
   registerIpcHandlers();
   registerConfigHandlers(ipcMain);
   registerApiHandlers();
+
+  // 匿名设备上报（人数统计）：启动后一次 + 每 8 分钟一次，纯匿名、失败静默
+  startAnonymousPing();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
