@@ -419,7 +419,7 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
   ensureDir(path.dirname(targetPath));
   await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', rawOutput]);
 
-  // 【免费模式】水印改为可选：skipWatermark 由渲染层复选框决定；水印从结尾改到开头拼接
+  // 水印为可选：skipWatermark 由渲染层复选框决定；加水印时拼在音频开头
   if (!skipWatermark) {
     // 打包后水印在 app.asar 内，ffmpeg 是外部进程读不了 asar 虚拟路径，
     // 先用 Electron 的 fs（能读 asar）把水印落到任务目录，再交给 ffmpeg
