@@ -48,10 +48,6 @@ class ExportHandler {
         document.getElementById('exportDir').value = dir;
       }
     });
-    document.getElementById('exportUpgradeLink')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.api?.openExternal?.(window.LISTEXT_CONSTANTS?.API_BASE_URL);
-    });
     confirmBtn?.addEventListener('click', () => {
       dialog.classList.remove('active');
       const fileName = (document.getElementById('exportFileName')?.value?.trim() || this._defaultFileName())
@@ -101,47 +97,21 @@ class ExportHandler {
 
   showExportDialog() {
     const dialog = document.getElementById('exportDialog');
-    if (!dialog) { this._ensureAuthForExport(() => this.doExport(null)); return; }
+    if (!dialog) { this.doExport(null); return; }
 
-    this._ensureAuthForExport(async () => {
-      const fileName = document.getElementById('exportFileName');
-      const dirInput = document.getElementById('exportDir');
-      const info = document.getElementById('exportInfo');
-      const warn = document.getElementById('exportWatermarkWarn');
+    const fileName = document.getElementById('exportFileName');
+    const dirInput = document.getElementById('exportDir');
+    const info = document.getElementById('exportInfo');
 
-      if (fileName) {
-        fileName.value = this._defaultFileName();
-      }
-      if (dirInput) dirInput.value = this.exportDir || '';
-      if (info) info.textContent = '';
-      // 【免费模式】隐藏免费版水印警告条（水印改为下方复选框可选）
-      if (warn) warn.style.display = 'none';
-      // if (warn) warn.style.display = window.entitlement?.isPro ? 'none' : 'block';
-      // 水印复选框每次打开默认勾选，用户可自行取消
-      const wmBox = document.getElementById('exportWatermark');
-      if (wmBox) wmBox.checked = true;
-      this._refreshLrcGate();
-      dialog.classList.add('active');
-    });
-  }
-
-  // 【免费模式】LRC 字幕免费可用，不再拦截勾选
-  _refreshLrcGate() {
-    if (window.LISTEXT_CONSTANTS?.FREE_MODE) return;
-    // 以下为原付费门控逻辑：非专业版点击时拦截勾选并引导升级（不置灰，否则点击无反馈）
-    const lrcBox = document.getElementById('exportLrc');
-    if (!lrcBox) return;
-    lrcBox.checked = false;
-    if (!lrcBox.dataset.gateBound) {
-      lrcBox.dataset.gateBound = '1';
-      lrcBox.addEventListener('click', () => {
-        if (!window.entitlement?.isPro) {
-          // click 事件先于勾选状态更新触发，下一 tick 再复位并引导升级
-          setTimeout(() => { lrcBox.checked = false; }, 0);
-          window.entitlement?.showVipToast?.('LRC 字幕导出');
-        }
-      });
+    if (fileName) {
+      fileName.value = this._defaultFileName();
     }
+    if (dirInput) dirInput.value = this.exportDir || '';
+    if (info) info.textContent = '';
+    // 水印复选框每次打开默认勾选，用户可自行取消
+    const wmBox = document.getElementById('exportWatermark');
+    if (wmBox) wmBox.checked = true;
+    dialog.classList.add('active');
   }
 
   // 由逐片段时长与台词文本生成 LRC 字幕内容
@@ -167,52 +137,6 @@ class ExportHandler {
       t += Number(durations[i]) || 0;
     }
     return lines.join('\r\n') + '\r\n';
-  }
-
-  async _ensureAuthForExport(onSuccess) {
-    // 【免费模式】无需登录与配额校验，直接放行
-    if (window.LISTEXT_CONSTANTS?.FREE_MODE) { onSuccess(); return; }
-    /* 以下为原付费门控逻辑（登录校验 + 权益判定 + 免费配额检查）
-    const loggedIn = await this.api?.isLoggedIn();
-    if (!loggedIn) {
-      window.app?.authManager?.showLoginDialog('请登录后使用导出功能');
-      return;
-    }
-    // 打开导出前强制刷新订阅状态，避免用陈旧权益判断水印/专业版门控
-    await window.entitlement?.refresh(true);
-    const ent = await this.api?.getEntitlement();
-    // 远端下线/会话过期时服务端返回 401，主进程已随之清除登录态：
-    // 立即引导重新登录，不再走配额检查（否则会被误判为“次数用完”）
-    if (!(await this.api?.isLoggedIn())) {
-      window.app?.authManager?.showLoginDialog('登录已失效，请重新登录后使用导出功能');
-      return;
-    }
-    const isPro = ent?.plan === 'pro' && !ent?.expired;
-    const isFreeDisplay = ent?.free_display?.enabled;
-
-    if (!isPro && !isFreeDisplay) {
-      let quota = null;
-      try {
-        quota = await this.api?.getExportQuota();
-        if (quota && typeof quota.remaining === 'number' && quota.remaining > 0) {
-          onSuccess();
-          return;
-        }
-      } catch (e) {
-        console.error('导出配额查询失败:', e);
-      }
-      // 配额查询期间同样可能因 401 被清除登录态，再校验一次
-      if (!(await this.api?.isLoggedIn())) {
-        window.app?.authManager?.showLoginDialog('登录已失效，请重新登录后使用导出功能');
-        return;
-      }
-      const limitText = typeof quota?.limit === 'number' ? `${quota.limit}次` : '';
-      window.app?.uiManager?.showInfoDialog?.('提示', `本月免费版${limitText}带水印导出次数已用完，请购买会员后继续使用。`);
-      return;
-    }
-
-    onSuccess();
-    */
   }
 
   updateStatus(text) {
@@ -465,12 +389,8 @@ class ExportHandler {
       this._updateProgress(80, '正在合成 MP3...');
       // 合成阶段无法中途取消，收起取消按钮避免误导
       document.getElementById('exportProgressCancel').style.display = 'none';
-      // 【免费模式】水印改为可选：勾选在音频开头加水印（默认），取消勾选则不加
+      // 水印可选：勾选在音频开头加水印（默认），取消勾选则不加
       const skipWatermark = !document.getElementById('exportWatermark')?.checked;
-      // const skipWatermark = true;
-      // 以下为原付费水印判定：仅真正的付费会员去水印，导出前先刷新权益
-      // await window.entitlement?.refresh();
-      // const skipWatermark = window.entitlement?.isPro === true;
       // LRC 字幕勾选即生成（与水印复选框互相独立：水印置开头时，
       // 字幕开头同样写水印文案，正文时间轴按主进程返回的水印时长整体后移）
       const wantLrc = !!document.getElementById('exportLrc')?.checked;
@@ -500,10 +420,6 @@ class ExportHandler {
 
       if (result?.success) {
         this._updateProgress(95, '正在保存...');
-        // 【免费模式】不再向服务端扣减导出次数
-        // await api.consumeExport?.().catch((e) => {
-        //   console.error('导出次数扣减:', e);
-        // });
         this._updateProgress(100, '导出完成');
         this.updateStatus(lrcPath ? '导出完成（含 LRC 字幕）' : '导出完成');
         console.log('[动作] 导出完成:', targetPath, lrcPath ? `（字幕: ${lrcPath}）` : '');
