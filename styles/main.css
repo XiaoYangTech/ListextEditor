@@ -856,6 +856,11 @@ body.toolbar-left .toolbar {
   display: flex;
 }
 
+/* 系统提示类弹窗必须高于业务弹窗（角色管理器等）：普通 .dialog 同为 z-index 1000，
+   DOM 靠后的业务弹窗会压在上面，导致报错提示被遮挡、只露出一角 */
+#infoDialog { z-index: 5000; }
+#unsavedDialog { z-index: 5100; }
+
 .dialog-content {
   background: var(--md-surface);
   border-radius: 8px;
@@ -967,8 +972,6 @@ body.toolbar-left .toolbar {
 .rm-meta { font-size: 12px; color: var(--md-on-surface-variant); margin-top: 4px; }
 .rm-actions { display: flex; gap: 8px; }
 
-.rm-vip-bar { background: linear-gradient(135deg, #fff3e0, #ffe0b2); border: 1px solid #ffcc02; border-radius: 6px; padding: 8px 12px; font-size: 12px; color: #e65100; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
-
 /* 角色管理器自定义发音人下拉（语言标识+分组+跑马灯） */
 .rm-select { position: relative; }
 .rm-select-face { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--md-divider); border-radius: 6px; background: var(--md-surface); cursor: pointer; font-size: 13px; }
@@ -984,8 +987,6 @@ body.toolbar-left .toolbar {
 .rm-select-item:hover { background: rgba(25, 118, 210, 0.08); }
 .rm-select-item.active { color: var(--md-primary); font-weight: 600; background: rgba(25, 118, 210, 0.06); }
 .rm-select-hint { margin-top: 6px; font-size: 11px; color: #e65100; }
-.rm-upgrade-link { color: #e65100; font-weight: 600; text-decoration: none; white-space: nowrap; }
-.rm-upgrade-link:hover { text-decoration: underline; }
 
 .rr-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--md-divider); border-radius: 6px; margin-bottom: 6px; cursor: pointer; flex-wrap: wrap; }
 .rr-item:hover { background: #fafafa; }
@@ -1760,38 +1761,7 @@ body.toolbar-left .toolbar {
   background: #B71C1C !important;
 }
 
-/* Auth: Login Dialog */
-.login-reason { background: #fff3e0; border: 1px solid #ffcc02; padding: 8px 12px; border-radius: 6px; font-size: 12px; color: #e65100; margin-bottom: 12px; }
-.login-error { background: #ffebee; color: #b00020; padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-top: 8px; }
-
-/* Auth: Device List */
-.device-list { display: flex; flex-direction: column; gap: 6px; }
-.device-radio { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border: 1px solid var(--md-divider); border-radius: 6px; cursor: pointer; font-size: 13px; word-break: break-all; }
-.device-radio:hover { background: #f5f5f5; }
-.device-radio input[type="radio"] { margin: 2px 0 0; flex-shrink: 0; }
-.device-info { flex: 1; min-width: 0; }
-.device-name { font-weight: 500; }
-.device-meta { font-size: 11px; color: var(--md-on-surface-variant); margin-top: 2px; }
-
-/* Auth: Account Menu */
-.account-menu { position: fixed; min-width: 240px; background: var(--md-surface); border: 1px solid var(--md-divider); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); z-index: 1001; overflow: hidden; }
-.am-user { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
-.am-username { font-size: 14px; font-weight: 500; }
-.am-email { font-size: 12px; color: var(--md-on-surface-variant); }
-.am-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
-.am-avatar-icon { font-size: 40px; color: #BDBDBD; }
-.am-divider { height: 1px; background: var(--md-divider); }
-.am-info { padding: 8px 16px; font-size: 13px; color: var(--md-on-surface-variant); }
-.am-quota { cursor: default; }
-.am-banner { background: linear-gradient(135deg, #ff9800, #f44336); color: #fff; padding: 8px 16px; font-size: 12px; text-align: center; font-weight: 500; }
-.am-btn { display: block; width: 100%; border: none; background: transparent; padding: 10px 16px; font-size: 13px; cursor: pointer; text-align: left; color: var(--md-on-surface); }
-.am-btn:hover { background: #f5f5f5; }
-.am-btn-pro { color: #e65100; font-weight: 500; }
-.am-btn-logout { color: var(--md-error); }
-.am-btn-logout:hover { background: #ffebee; }
-
-.vip-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff9800, #e65100); color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 13px; z-index: 2000; opacity: 0; transition: opacity .3s; pointer-events: none; }
-.vip-toast.show { opacity: 1; }
+/* 付费与用户体系（登录/设备/账户菜单/会员提示）已随免费运营模式整体移除 */
 
 .export-progress-bar { width: 100%; height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden; }
 .export-progress-fill { width: 0%; height: 100%; background: var(--md-primary); border-radius: 5px; transition: width 0.3s ease; }

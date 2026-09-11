@@ -90,7 +90,7 @@ class RoleManagerPage {
   // 语言标识：特殊地区/方言定制 + Intl.DisplayNames 自动生成（全语种覆盖）
   _localeLabel(v) {
     const SPECIAL = {
-      'zh-CN': '中文（简体）', 'zh-TW': '中文（台湾）', 'zh-HK': '中文（香港）',
+      'zh-CN': '中文（简体）', 'zh-TW': '中文（中国台湾）', 'zh-HK': '中文（香港）',
       'en-US': '英语（美式）', 'en-GB': '英语（英式）',
       'zh-CN-liaoning-XiaobeiNeural': '中文（辽宁话）',
       'zh-CN-shaanxi-XiaoniNeural': '中文（陕西话）'
@@ -111,6 +111,8 @@ class RoleManagerPage {
       if (parts[1]) {
         try { region = this._dnRegion.of(parts[1]) || ''; } catch { region = ''; }
       }
+      // 涉台地区名统一规范（Intl 会输出「台湾」，须覆盖为「中国台湾」）
+      if (parts[1] === 'TW' || region === '台湾') region = '中国台湾';
       return region ? `${langName}（${region}）` : langName;
     } catch { return ''; }
   }
@@ -272,13 +274,7 @@ class RoleManagerPage {
         : v.startsWith('en-') ? 1
         : (/^(ja|ru|es)-/.test(v) ? 2 : 3);
       const enRank = (v) => v.startsWith('en-US') ? 0 : v.startsWith('en-GB') ? 1 : 2;
-      let voices = (res?.voices || []).sort((a, b) => rank(a) - rank(b) || enRank(a) - enRank(b) || a.localeCompare(b));
-      // 【免费模式】全部语种发音人开放，不再按权益过滤
-      // const isUnlocked = window.entitlement?.isUnlocked();
-      // if (!isUnlocked) {
-      //   // 免费版放行：全部中文（含港澳台及方言口音）+ 全部英语
-      //   voices = voices.filter(v => v.startsWith('zh-') || v.startsWith('en-') || v === preserveVoice);
-      // }
+      const voices = (res?.voices || []).sort((a, b) => rank(a) - rank(b) || enRank(a) - enRank(b) || a.localeCompare(b));
       // 选中：编辑已有角色保持其音色；新建默认英文 Jenny，都没有退列表首位
       const selected = (preserveVoice && voices.includes(preserveVoice))
         ? preserveVoice
@@ -300,19 +296,8 @@ class RoleManagerPage {
     // 角色与代码中的 <role> 标签全镜像同步，不再区分来源
     const allRoles = await this.getRoles();
     const total = allRoles.length;
-    // 【免费模式】不再展示免费版/升级专业版提示栏
-    // const isUnlocked = window.entitlement?.isUnlocked();
-    // const isFreeDisplay = window.entitlement?.isFreeDisplay;
-    // const siteUrl = window.LISTEXT_CONSTANTS?.API_BASE_URL || 'https://api.yfyw.top';
 
     let html = '';
-
-    // if (!isUnlocked) {
-    //   html += `<div class="rm-vip-bar">
-    //     ${isFreeDisplay ? '🎉 全服限免中' : '📋 免费版'} · 日/俄/西等 30+ 语种需专业版解锁
-    //     <a href="#" class="rm-upgrade-link" onclick="window.electronAPI?.openExternal?.('${siteUrl}');return false">💎 升级专业版</a>
-    //   </div>`;
-    // }
 
     if (!total) {
       html += '<div class="effect-empty">尚未添加角色。可通过此界面添加，或在代码中使用 &lt;role&gt; 标签定义。</div>';
@@ -374,13 +359,6 @@ class RoleManagerPage {
       this._showError('当前平台禁用系统TTS，请改为 EdgeTTS');
       return;
     }
-
-    // 【免费模式】不再拦截非中英语种发音人
-    // if (type === 'edge' && !window.entitlement?.isUnlocked()
-    //     && voice && !voice.startsWith('zh-') && !voice.startsWith('en-')) {
-    //   window.entitlement?.showVipToast('该发音人音色');
-    //   return;
-    // }
 
     const roles = await this.getRoles();
     const payload = { id, name, type, voice };
