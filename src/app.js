@@ -101,19 +101,33 @@ class ListextEditor {
 
     const popup = document.getElementById('popupDialog');
     if (popup) {
-      document.getElementById('popupCloseTop')?.addEventListener('click', () => this._closePopup(false));
-      document.getElementById('popupDismissBtn')?.addEventListener('click', () => this._closePopup(true));
+      document.getElementById('popupCloseTop')?.addEventListener('click', () => this._closePopup('close'));
+      document.getElementById('popupDismissBtn')?.addEventListener('click', () => this._closePopup('today'));
       // 「我知道了 / 打开链接」按钮的行为按公告类型在 _fillPopupDialog 中设置
     }
   }
 
-  // 启动弹窗公告的「已读」本地记录：popup_once 或用户点「不再提示」后不再弹出
+  // 启动弹窗公告的本地记录：
+  // - 已读（popup_once 的公告关闭后永久不再弹）
+  // - 今日不再显示（当天内不再弹，次日恢复）
   _popupSeenKey(id) { return `lstx_popup_seen_${id}`; }
+  _popupSnoozeKey(id) { return `lstx_popup_snooze_${id}`; }
+  _todayStr() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
   _isPopupSeen(id) {
-    try { return localStorage.getItem(this._popupSeenKey(id)) === '1'; } catch { return false; }
+    try {
+      if (localStorage.getItem(this._popupSeenKey(id)) === '1') return true;
+      return localStorage.getItem(this._popupSnoozeKey(id)) === this._todayStr();
+    } catch { return false; }
   }
   _markPopupSeen(id) {
     try { localStorage.setItem(this._popupSeenKey(id), '1'); } catch { /* 忽略存储失败 */ }
+  }
+  _snoozePopupToday(id) {
+    try { localStorage.setItem(this._popupSnoozeKey(id), this._todayStr()); } catch { /* 忽略存储失败 */ }
   }
 
   async checkStartupGuides() {
@@ -181,22 +195,27 @@ class ListextEditor {
     if (title) title.textContent = p.title || '公告';
     if (body) body.textContent = isUrl ? '点击下方按钮打开相关页面。' : (p.content || '');
     if (hint) {
-      const showHint = !!p.popup_once;
-      hint.style.display = showHint ? 'block' : 'none';
-      if (showHint) hint.textContent = '该公告仅提示一次，关闭后不再自动弹出。';
+      hint.style.display = 'block';
+      hint.textContent = p.popup_once
+        ? '该公告仅提示一次，关闭后不再自动弹出；也可选择今日不再显示。'
+        : '关闭后下次启动仍会提示，可选择「今日不再显示」。';
     }
     if (confirm) {
       confirm.textContent = isUrl ? '打开链接' : '我知道了';
       confirm.onclick = () => {
         if (isUrl && p.content) window.electronAPI?.openExternal?.(p.content);
-        this._closePopup(false);
+        this._closePopup('close');
       };
     }
   }
 
-  _closePopup(markSeen) {
+  // mode: 'close' 正常关闭（popup_once 记永久已读）/ 'today' 今日不再显示
+  _closePopup(mode) {
     const p = this._activePopup;
-    if (p && (markSeen || p.popup_once)) this._markPopupSeen(p.id);
+    if (p) {
+      if (mode === 'today') this._snoozePopupToday(p.id);
+      else if (p.popup_once) this._markPopupSeen(p.id);
+    }
     this._activePopup = null;
     document.getElementById('popupDialog')?.classList.remove('active');
     this._startupDialogClosed();
