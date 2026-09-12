@@ -218,6 +218,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectDirectory: (defaultPath) => ipcRenderer.invoke('select-directory', defaultPath),
 
   selectAudioFile: () => ipcRenderer.invoke('select-audio-file'),
+  selectAudioSavePath: (defaultName) => ipcRenderer.invoke('select-audio-save-path', defaultName),
+  mixAudio: (opts) => ipcRenderer.invoke('mix-audio', opts),
   importAudioFile: (filePath) => ipcRenderer.invoke('import-audio-file', filePath),
   selectExportPath: () => ipcRenderer.invoke('select-export-path'),
   platform: process.platform,

@@ -198,6 +198,7 @@ class UIManager {
     });
 
     document.getElementById('btnRoleManager')?.addEventListener('click', () => this.openRoleManager());
+    document.getElementById('btnAudioMixer')?.addEventListener('click', () => this.openAudioMixer());
     document.getElementById('btnBlockSearch')?.addEventListener('click', () => this.searchInBlocks());
 
     this.sectionJumpSelect?.addEventListener('change', () => {
@@ -779,6 +780,12 @@ class UIManager {
     if (!dialog) return;
     dialog.querySelector('.dialog-close')?.addEventListener('click', () => dialog.classList.remove('active'));
   }
+  // 混音小工具：给音频文件加背景音乐
+  openAudioMixer() {
+    if (!window._audioMixer) window._audioMixer = new AudioMixer();
+    window._audioMixer.open();
+  }
+
   async openRoleManager() {
     const dialog = document.getElementById('roleManagerDialog');
     if (!dialog) return;

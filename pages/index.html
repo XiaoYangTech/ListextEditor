@@ -128,6 +128,8 @@
           <button class="add-block-btn" data-type="divider"><span class="material-icons">horizontal_rule</span>分割线</button>
           <div class="divider"></div>
           <button class="add-block-btn" id="btnRoleManager"><span class="material-icons">group</span>角色管理器</button>
+          <div class="divider"></div>
+          <button class="add-block-btn" id="btnAudioMixer" title="给音频文件加背景音乐并导出"><span class="material-icons">library_music</span>加背景音乐</button>
           <div id="blockOnlyItems" style="display:none;">
             <div class="divider"></div>
             <input id="blockSearchInput" class="toolbar-input" type="text" placeholder="搜索内容..." />
@@ -416,6 +418,46 @@
     </div>
   </div>
 
+  <div id="audioMixerDialog" class="dialog">
+    <div class="dialog-content audio-mixer-content">
+      <div class="dialog-header"><h2>给音频加背景音乐</h2><button class="dialog-close" id="audioMixerCloseTop">&times;</button></div>
+      <div class="dialog-body">
+        <div class="form-group">
+          <label>原声文件（人声/朗读音频）</label>
+          <div class="file-row">
+            <input type="text" id="mixVoicePath" readonly placeholder="点击右侧「浏览」选择音频文件">
+            <button class="btn" id="mixPickVoice">浏览</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>背景音乐</label>
+          <div class="file-row">
+            <input type="text" id="mixBgmPath" readonly placeholder="点击右侧「浏览」选择背景音乐">
+            <button class="btn" id="mixPickBgm">浏览</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>原声音量：<span class="mix-vol" id="mixVoiceVolLabel">100%</span></label>
+          <input type="range" class="mix-range" id="mixVoiceVol" min="0" max="200" step="5" value="100">
+        </div>
+        <div class="form-group">
+          <label>背景音乐音量：<span class="mix-vol" id="mixBgmVolLabel">30%</span></label>
+          <input type="range" class="mix-range" id="mixBgmVol" min="0" max="200" step="5" value="30">
+        </div>
+        <div class="form-group mix-options">
+          <label class="mix-ck"><input type="checkbox" id="mixLoopBgm" checked> 背景音乐循环填充至原声长度</label>
+          <label class="mix-ck">结尾淡出 <input type="number" id="mixFadeOut" min="0" max="30" step="1" value="3"> 秒（0 表示不淡出）</label>
+        </div>
+        <div id="mixHint" class="mix-hint">成品时长与原声一致，输出为 MP3；「试听」会先生成临时混音，不写盘到目标文件。</div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-cancel" id="mixCancel">取消</button>
+        <button class="btn" id="mixPreview">试听</button>
+        <button class="btn btn-primary" id="mixExport">导出</button>
+      </div>
+    </div>
+  </div>
+
   <div id="popupDialog" class="dialog">
     <div class="dialog-content popup-content">
       <div class="dialog-header"><h2 id="popupDialogTitle">公告</h2><button class="dialog-close" id="popupCloseTop">&times;</button></div>
@@ -459,6 +501,7 @@
   <script src="../src/tts-renderer.js"></script>
   <script src="../src/tab-manager.js"></script>
   <script src="../src/role-manager-page.js"></script>
+  <script src="../src/audio-mixer.js"></script>
   <script src="../src/role-replace-dialog.js"></script>
   <script src="../src/app.js"></script>
 </body>

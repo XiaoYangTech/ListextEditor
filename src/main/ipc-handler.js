@@ -602,6 +602,72 @@ function registerIpcHandlers() {
     return scanBuiltInSounds();
   });
 
+  // 混音小工具：选择输出文件
+  ipcMain.handle('select-audio-save-path', async (event, defaultName) => {
+    const { dialog, BrowserWindow } = require('electron');
+    const win = BrowserWindow.getFocusedWindow();
+    const result = await dialog.showSaveDialog(win, {
+      filters: [{ name: 'MP3 Audio', extensions: ['mp3'] }],
+      defaultPath: defaultName || '混音输出.mp3'
+    });
+    return result.canceled ? null : result.filePath;
+  });
+
+  // 混音小工具：给音频加背景音乐（可调原声/BGM 音量、BGM 循环填充与结尾淡出）
+  ipcMain.handle('mix-audio', async (event, opts) => {
+    try {
+      const o = opts || {};
+      const voicePath = typeof o.voicePath === 'string' ? o.voicePath : '';
+      const bgmPath = typeof o.bgmPath === 'string' ? o.bgmPath : '';
+      if (!voicePath || !fs.existsSync(voicePath)) return { success: false, error: '原声文件不存在' };
+      if (!bgmPath || !fs.existsSync(bgmPath)) return { success: false, error: '背景音乐文件不存在' };
+
+      const voiceVolume = Math.min(4, Math.max(0, Number(o.voiceVolume ?? 1)));
+      const bgmVolume = Math.min(4, Math.max(0, Number(o.bgmVolume ?? 0.3)));
+      const loopBgm = o.loopBgm !== false;
+      const fadeOut = Math.min(60, Math.max(0, Number(o.fadeOut ?? 3)));
+      const isPreview = !o.targetPath || o.preview === true;
+
+      ensureDir(tempDir);
+      const jobDir = path.join(tempDir, 'mix_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
+      ensureDir(jobDir);
+
+      // 原声时长决定成品长度（duration=first）与 BGM 淡出起点
+      const voiceDur = await probeDuration(voicePath);
+      if (!voiceDur || voiceDur <= 0) return { success: false, error: '无法读取原声时长，请确认文件为有效音频' };
+
+      const bgmFilters = [`volume=${bgmVolume.toFixed(3)}`];
+      if (fadeOut > 0) {
+        const st = Math.max(0, voiceDur - fadeOut);
+        bgmFilters.push(`afade=t=out:st=${st.toFixed(3)}:d=${fadeOut}`);
+      }
+      // normalize=0：避免 amix 默认按输入数衰减整体音量
+      const filter = `[0:a]volume=${voiceVolume.toFixed(3)}[v];[1:a]${bgmFilters.join(',')}[b];[v][b]amix=inputs=2:duration=first:normalize=0[aout]`;
+
+      let outPath;
+      if (isPreview) {
+        outPath = path.join(jobDir, 'preview.mp3');
+      } else {
+        outPath = String(o.targetPath);
+        if (!/\.mp3$/i.test(outPath)) outPath = outPath.replace(/\.[^.\/\\]+$/, '') + '.mp3';
+        ensureDir(path.dirname(outPath));
+      }
+
+      const args = ['-y', '-i', voicePath];
+      if (loopBgm) args.push('-stream_loop', '-1');
+      args.push('-i', bgmPath,
+        '-filter_complex', filter, '-map', '[aout]',
+        '-ac', '2', '-ar', '44100', '-q:a', '2', outPath);
+      await runFfmpeg(args);
+
+      console.log('[混音] 完成:', outPath, `原声${(voiceVolume * 100).toFixed(0)}% BGM${(bgmVolume * 100).toFixed(0)}%`, `时长${voiceDur.toFixed(2)}s`);
+      return { success: true, filePath: outPath, preview: isPreview, duration: voiceDur };
+    } catch (error) {
+      console.error('[混音] 失败:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('get-built-in-paths', async () => {
     return {
       roots: getBuiltInRoots(),
