@@ -16,7 +16,15 @@
     "build:all": "npm run build:win:x64 && npm run build:xinchuang && npm run build:mac",
     "license:headers": "node scripts/add-license-header.js"
   },
-  "keywords": ["electron", "tts", "EdgeTTS", "Blockly", "AI", "listening", "education"],
+  "keywords": [
+    "electron",
+    "tts",
+    "EdgeTTS",
+    "Blockly",
+    "AI",
+    "listening",
+    "education"
+  ],
   "author": "The InspireWorks Development Team",
   "homepage": "https://www.yfyw.top/",
   "license": "GPL-3.0",
@@ -28,7 +36,7 @@
     "@electron/asar": "^4.2.0"
   },
   "dependencies": {
-    "adm-zip": "^0.5.18",
+    "adm-zip": "^0.6.1",
     "ffmpeg-static": "^5.3.0",
     "fs-native-extensions": "^1.5.0",
     "material-icons": "^1.13.14",
@@ -61,7 +69,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -84,11 +94,17 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "deb",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ]
     },
@@ -99,7 +115,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ]
     }
