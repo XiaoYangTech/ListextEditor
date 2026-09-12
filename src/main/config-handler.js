@@ -93,24 +93,20 @@ function getOrCreateAnonDeviceKey() {
 async function applyProxySettings(settings) {
   const mode = settings?.proxyMode || 'system';
   const url = (settings?.proxyUrl || '').trim();
-  if (mode === 'manual' && url) {
-    // 主进程 fetch（undici）走代理；session.setProxy 只影响 Chromium 侧；
-    // preload 的 EdgeTTS 经 get-settings 读取本设置
-    try {
-      const { ProxyAgent, setGlobalDispatcher } = require('undici');
-      setGlobalDispatcher(new ProxyAgent(url));
-    } catch (e) { console.error('设置全局代理失败:', e.message); }
-    await session.defaultSession.setProxy({ proxyRules: url });
-    return;
-  }
+  // 代理统一交给 Chromium：渲染层请求与主进程的 net.fetch 都遵循 session 代理设置。
+  // 不再使用 undici（它只是开发环境的传递依赖，打包后不存在，曾导致
+  // 「恢复直连失败: Cannot find module 'undici'」）。
+  // preload 的 EdgeTTS 通过 get-settings 读取本设置，自行构造代理 agent。
   try {
-    const { Agent, setGlobalDispatcher } = require('undici');
-    setGlobalDispatcher(new Agent());
-  } catch (e) { console.error('恢复直连失败:', e.message); }
-  if (mode === 'direct') {
-    await session.defaultSession.setProxy({ mode: 'direct' });
-  } else {
-    await session.defaultSession.setProxy({ mode: 'system' });
+    if (mode === 'manual' && url) {
+      await session.defaultSession.setProxy({ proxyRules: url });
+    } else if (mode === 'direct') {
+      await session.defaultSession.setProxy({ mode: 'direct' });
+    } else {
+      await session.defaultSession.setProxy({ mode: 'system' });
+    }
+  } catch (e) {
+    console.error('应用代理设置失败:', e.message);
   }
 }
 

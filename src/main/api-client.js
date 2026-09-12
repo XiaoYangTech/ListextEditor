@@ -22,7 +22,7 @@
  * 付费与用户体系（登录、设备令牌、权益、导出配额）已随免费运营模式整体移除。
  */
 
-const { ipcMain } = require('electron');
+const { ipcMain, net } = require('electron');
 const os = require('os');
 const { API_BASE_URL } = require('../listext-constants');
 
@@ -35,7 +35,9 @@ class ApiClient {
   async requestNoAuthApp(route) {
     const url = `${this.appBaseUrl}/api.php?route=${route}`;
     try {
-      const response = await fetch(url);
+      // 走 Electron 的 net.fetch（Chromium 网络栈）：代理设置由 session 统一生效，
+      // 不依赖未打包进 asar 的 undici（打包版曾因此报 Cannot find module 'undici'）
+      const response = await net.fetch(url);
       return await response.json();
     } catch (e) {
       // 网络失败落日志，避免"首页空白但啥也没报"
@@ -82,7 +84,7 @@ class ApiClient {
     if (!deviceKey) return null;
     const url = `${this.appBaseUrl}/api.php?route=client_ping`;
     try {
-      const response = await fetch(url, {
+      const response = await net.fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify({

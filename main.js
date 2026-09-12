@@ -33,6 +33,14 @@ setupCrypto();
   app.setPath('userData', path.join(app.getPath('appData'), 'ListextEditor'));
 }
 
+// Linux 上部分机器缺少或不兼容 VA-API 驱动时，Chromium 会打印
+// 「libva error: vaGetDriverNameByIndex() failed」「vaInitialize failed」等警告；
+// 这只是硬件解码不可用（会自动回退软件渲染），不影响任何功能。
+// 需要彻底静音时：LISTEXT_DISABLE_GPU=1 listexteditor（或加 --disable-gpu 参数）。
+if (process.platform === 'linux' && process.env.LISTEXT_DISABLE_GPU === '1') {
+  app.disableHardwareAcceleration();
+}
+
 // F12 toggle DevTools
 // 打包生产默认禁用 F12；后门：开发环境、LISTEXT_DEVTOOLS=1、或 --devtools 参数
 function bindDevToolsShortcut(win) {
