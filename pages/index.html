@@ -442,9 +442,14 @@
           <label>背景音乐音量：<span class="mix-vol" id="mixBgmVolLabel">30%</span></label>
           <input type="range" class="mix-range" id="mixBgmVol" min="0" max="200" step="5" value="30">
         </div>
-        <div class="form-group mix-options">
-          <label class="mix-ck"><input type="checkbox" id="mixLoopBgm" checked> 背景音乐循环填充至原声长度</label>
-          <label class="mix-ck">结尾淡出 <input type="number" id="mixFadeOut" min="0" max="30" step="1" value="3"> 秒（0 表示不淡出）</label>
+        <div class="form-group mix-row">
+          <input type="checkbox" class="mix-box" id="mixLoopBgm" checked>
+          <label for="mixLoopBgm" class="mix-inline">背景音乐循环填充至原声长度</label>
+        </div>
+        <div class="form-group mix-row">
+          <label for="mixFadeOut" class="mix-inline">结尾淡出</label>
+          <input type="number" class="mix-num" id="mixFadeOut" min="0" max="30" step="1" value="3">
+          <label for="mixFadeOut" class="mix-inline">秒（0 表示不淡出）</label>
         </div>
         <div id="mixHint" class="mix-hint">成品时长与原声一致，输出为 MP3；「试听」会先生成临时混音，不写盘到目标文件。</div>
       </div>
