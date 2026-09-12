@@ -194,6 +194,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onExportAudio: (callback) => ipcRenderer.on('export-audio', (event, filePath) => callback(filePath)),
 
   onShowAbout: (callback) => ipcRenderer.on('show-about', () => callback()),
+  onOpenAudioMixer: (callback) => ipcRenderer.on('open-audio-mixer', () => callback()),
 
   onShowSettings: (callback) => ipcRenderer.on('show-settings', () => callback()),
   onRequestCloseCheck: (callback) => ipcRenderer.on('request-close-check', () => callback()),

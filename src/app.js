@@ -275,6 +275,8 @@ class ListextEditor {
 
     window.electronAPI.onShowAbout(() => this.uiManager.showAboutDialog());
     window.electronAPI.onShowSettings(() => this.uiManager.showSettingsDialog());
+    // 菜单栏「工具 → 给音频加背景音乐」
+    window.electronAPI.onOpenAudioMixer?.(() => this.uiManager.openAudioMixer());
 
     window.electronAPI.onMenuEdit(async (action) => {
       if (this.isTextInputActive()) {

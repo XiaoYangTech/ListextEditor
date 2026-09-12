@@ -251,6 +251,12 @@ function createMenu() {
       ]
     },
     {
+      label: '工具',
+      submenu: [
+        { id: 'tool-audio-mixer', label: '给音频加背景音乐…', accelerator: 'CmdOrCtrl+Shift+B', click: () => sendToMain('open-audio-mixer') }
+      ]
+    },
+    {
       label: '帮助',
       submenu: [
         { id: 'help-website', label: '访问软件官网', click: () => openExternal('https://www.yfyw.top') },
