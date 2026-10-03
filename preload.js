@@ -21,6 +21,7 @@ const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { execFile } = require('child_process');
 const { ensureDir, isNetworkError, extractErrorCode, sleep } = require('./src/main/utils');
 const { DEFAULT_EDGE_VOICE } = require('./src/listext-constants');
 
@@ -136,6 +137,113 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
   }
 }
 
+// ---------- 本地语音（Windows SAPI5 / OneCore；macOS 与 Linux 不使用系统 TTS） ----------
+// 枚举与合成统一走 PowerShell 桥 local-tts.ps1：
+//   * Windows 11 自然音色（Microsoft Xiaoxiao / Aria 等）只对 System.Speech 可见，
+//     Chromium 的 speechSynthesis 完全看不到；
+//   * OneCore 独有的音色经典 SAPI5 选不到，脚本内部自动改用 WinRT。
+// 解释器与脚本路径都不写死：按候选顺序逐个探测，任一可用即可，适配不同用户环境。
+const LOCAL_TTS_CANDIDATES = () => [
+  process.env.LISTEXT_LOCAL_TTS_SCRIPT, // 用户/运维可覆盖
+  process.resourcesPath ? path.join(process.resourcesPath, 'local-tts.ps1') : '',
+  path.join(__dirname, 'src', 'main', 'local-tts.ps1'),
+].filter(Boolean);
+
+function localTtsScriptPath() {
+  const candidates = LOCAL_TTS_CANDIDATES();
+  for (const p of candidates) {
+    try { if (fs.existsSync(p)) return p; } catch { /* 继续探测下一个 */ }
+  }
+  return candidates[candidates.length - 1] || '';
+}
+
+function powerShellCandidates() {
+  const windir = process.env.SystemRoot || process.env.windir || '';
+  return [...new Set([
+    process.env.LISTEXT_POWERSHELL,
+    windir && path.join(windir, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+    windir && path.join(windir, 'SysWOW64', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+    'powershell.exe', // 交给 PATH
+    'pwsh.exe',       // 只装了 PowerShell 7 的环境
+  ].filter(Boolean))];
+}
+
+// 依次尝试候选解释器：脚本自身失败会返回 JSON（直接采信），解释器不可用才换下一个
+function execLocalTts(args, timeout) {
+  const script = localTtsScriptPath();
+  const attempts = powerShellCandidates();
+  return new Promise((resolve) => {
+    let index = 0;
+    const tryNext = (lastError) => {
+      if (index >= attempts.length) {
+        resolve({ ok: false, error: lastError || '未找到可用的 PowerShell' });
+        return;
+      }
+      const exe = attempts[index++];
+      execFile(exe, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script, ...args],
+        { windowsHide: true, timeout, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8' },
+        (error, stdout, stderr) => {
+          const out = String(stdout || '').trim();
+          if (out) {
+            try { resolve(JSON.parse(out)); return; } catch { /* 非 JSON 输出，换下一个解释器 */ }
+          }
+          const detail = String(stderr || '').trim() || (error && error.message) || '';
+          tryNext(detail.slice(0, 300));
+        });
+    };
+    tryNext('');
+  });
+}
+
+let localVoicesCache = { at: 0, voices: null };
+
+async function listLocalVoices() {
+  if (process.platform !== 'win32') return { success: true, voices: [] };
+  if (localVoicesCache.voices && Date.now() - localVoicesCache.at < 60000) {
+    return { success: true, voices: localVoicesCache.voices };
+  }
+  const res = await execLocalTts(['-Action', 'List'], 30000);
+  const raw = Array.isArray(res) ? res : (res && res.name ? [res] : []);
+  const voices = raw
+    .filter(v => v && v.name)
+    .map(v => ({ name: String(v.name), lang: String(v.lang || ''), gender: String(v.gender || ''), engine: String(v.engine || 'sapi') }));
+  if (voices.length) localVoicesCache = { at: Date.now(), voices };
+  return voices.length
+    ? { success: true, voices }
+    : { success: false, voices: [], error: (res && res.error) || '未获取到本地发音人' };
+}
+
+async function synthesizeLocalTTS(text, voice, rate = 1.0) {
+  if (process.platform !== 'win32') {
+    return { success: false, error: '当前平台已禁用系统TTS，请改用 EdgeTTS 角色' };
+  }
+  const content = String(text || '');
+  if (!content.trim()) return { success: false, error: '朗读内容为空' };
+  const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const textPath = path.join(tempDir, `sapi_text_${stamp}.txt`);
+  const wavPath = path.join(tempDir, `sapi_${stamp}.wav`);
+  try {
+    ensureDir(tempDir);
+    // 文本经 UTF-8 文件中转，避免命令行参数在不同区域设置下被转码
+    fs.writeFileSync(textPath, content, 'utf8');
+    const args = ['-Action', 'Say', '-TextFile', textPath, '-Rate', String(Number(rate) || 1.0), '-Out', wavPath];
+    if (voice) args.push('-Voice', String(voice));
+    const res = await execLocalTts(args, 120000);
+    if (res && res.ok && res.path && fs.existsSync(res.path) && fs.statSync(res.path).size > 1024) {
+      // fallback：本机没有该音色，脚本改用系统默认音色（如实上报，不静默替换）
+      return { success: true, path: res.path, fallback: !!res.fallback, requested: res.requested || voice || '', notes: res.notes || '' };
+    }
+    const reason = (res && res.error) || '本地语音合成失败';
+    logToFile('error', ['[本地TTS] 合成失败', `voice=${voice || '(系统默认)'}`, reason]);
+    return { success: false, error: `本地语音合成失败：${reason}` };
+  } catch (error) {
+    logToFile('error', ['[本地TTS] 异常', `voice=${voice}`, String(error?.stack || error?.message || error)]);
+    return { success: false, error: `本地语音合成异常：${error.message || error}` };
+  } finally {
+    try { fs.unlinkSync(textPath); } catch { /* 临时文件可能已不存在 */ }
+  }
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   saveFile: (filePath, content, meta) => ipcRenderer.invoke('save-file', filePath, content, meta),
   openProjectFile: (filePath) => ipcRenderer.invoke('open-project-file', filePath),
@@ -151,6 +259,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getBuiltInPaths: () => ipcRenderer.invoke('get-built-in-paths'),
 
   synthesizeTTS,
+  listLocalVoices,
+  synthesizeLocalTTS,
   synthesizeBatch: async (items) => {
     const results = [];
     for (const item of items) {
