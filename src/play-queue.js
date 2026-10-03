@@ -214,6 +214,9 @@ class PlayQueue {
       this.currentIndex++;
     }
 
+    // 旧队列（gen 已过期）在这里退出：既不能改共享的 isPlaying，也不能上报「播放完成」，
+    // 否则会出现「先提示播放完成、随后新队列的音频才开始播」的怪象
+    if (gen !== this._playGen) return;
     this.isPlaying = false;
     if (this.onComplete) this.onComplete();
   }
