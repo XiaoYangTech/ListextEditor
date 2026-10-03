@@ -21,7 +21,7 @@ const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const { ensureDir, isNetworkError, extractErrorCode, sleep } = require('./src/main/utils');
 const { DEFAULT_EDGE_VOICE } = require('./src/listext-constants');
 
@@ -195,6 +195,98 @@ function execLocalTts(args, timeout) {
   });
 }
 
+// ---------- 常驻合成进程 ----------
+// powershell.exe 冷启动在本机约 1.7s，按次启动等于每次合成都要重付这笔钱（实测 3.1s/次）。
+// 改为常驻（-Action Serve）：启动+预热只付一次，之后每次只剩合成本身（实测 0.2~0.8s）。
+// 父进程退出时 stdin 关闭 → 脚本收到 EOF 自行收摊，不留孤儿进程。
+let localTtsWorker = null;       // { child, waiters:Set, buf, dead }
+let localTtsWorkerTried = false; // 一次都没成功就不再反复尝试，直接走一次性调用
+
+function localTtsWorkerEnsure() {
+  if (process.platform !== 'win32') return null;
+  if (localTtsWorker && !localTtsWorker.dead) return localTtsWorker;
+  if (localTtsWorkerTried) return null;
+  localTtsWorkerTried = true;
+  const script = localTtsScriptPath();
+  for (const exe of powerShellCandidates()) {
+    try {
+      const child = spawn(exe,
+        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script, '-Action', 'Serve'],
+        { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+      const w = { child, waiters: new Set(), buf: '', dead: false };
+      child.stdout.setEncoding('utf8');
+      child.stdout.on('data', (chunk) => {
+        w.buf += chunk;
+        let idx;
+        while ((idx = w.buf.indexOf('\n')) >= 0) {
+          const line = w.buf.slice(0, idx).trim();
+          w.buf = w.buf.slice(idx + 1);
+          if (!line) continue;
+          // 调用方串行发送请求，所以响应按先到先得配对
+          const settle = w.waiters.values().next().value;
+          if (!settle) continue;
+          w.waiters.delete(settle);
+          let msg;
+          try { msg = JSON.parse(line); } catch { msg = { ok: false, error: 'bad json from bridge: ' + line.slice(0, 120) }; }
+          settle(msg);
+        }
+      });
+      child.stderr.setEncoding('utf8');
+      child.stderr.on('data', (d) => logToFile('warn', ['[本地TTS] 桥 stderr', String(d).trim().slice(0, 300)]));
+      const onGone = () => {
+        w.dead = true;
+        if (localTtsWorker === w) localTtsWorker = null;
+        for (const settle of [...w.waiters]) settle(null); // null → 调用方回退到一次性调用
+        w.waiters.clear();
+      };
+      child.on('exit', onGone);
+      child.on('error', onGone);
+      localTtsWorker = w;
+      return w;
+    } catch { /* 换下一个解释器候选 */ }
+  }
+  return null;
+}
+
+function localTtsWorkerCall(req, timeout) {
+  const w = localTtsWorkerEnsure();
+  if (!w) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = (val) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      w.waiters.delete(settle);
+      resolve(val);
+    };
+    const timer = setTimeout(() => {
+      settle(null);
+      try { w.child.kill(); } catch { /* 忽略 */ }
+    }, timeout || 60000);
+    w.waiters.add(settle);
+    try { w.child.stdin.write(JSON.stringify(req) + '\n'); } catch { settle(null); }
+  });
+}
+
+// 常驻优先，失败则回退一次性调用（解释器被安全策略拦截等环境仍可用）
+async function localTtsCall(req, timeout) {
+  const viaWorker = await localTtsWorkerCall(req, timeout);
+  if (viaWorker) return viaWorker;
+  if (req.cmd === 'list') return execLocalTts(['-Action', 'List'], 30000);
+  const args = ['-Action', 'Say', '-TextFile', req.textFile, '-Rate', String(req.rate), '-Out', req.out];
+  if (req.voice) args.push('-Voice', req.voice);
+  return execLocalTts(args, timeout || 120000);
+}
+
+// 预热常驻进程（打开角色管理器时调用，等用户真正试听时就不必再等启动）
+function warmLocalTts() {
+  if (process.platform !== 'win32') return Promise.resolve(false);
+  return localTtsWorkerCall({ cmd: 'list' }, 30000).then(Boolean).catch(() => false);
+}
+
+process.on('exit', () => { try { localTtsWorker?.child?.kill(); } catch { /* 忽略 */ } });
+
 let localVoicesCache = { at: 0, voices: null };
 
 async function listLocalVoices() {
@@ -202,8 +294,8 @@ async function listLocalVoices() {
   if (localVoicesCache.voices && Date.now() - localVoicesCache.at < 60000) {
     return { success: true, voices: localVoicesCache.voices };
   }
-  const res = await execLocalTts(['-Action', 'List'], 30000);
-  const raw = Array.isArray(res) ? res : (res && res.name ? [res] : []);
+  const res = await localTtsCall({ cmd: 'list' }, 30000);
+  const raw = res && Array.isArray(res.voices) ? res.voices : (Array.isArray(res) ? res : (res && res.name ? [res] : []));
   const voices = raw
     .filter(v => v && v.name)
     .map(v => ({ name: String(v.name), lang: String(v.lang || ''), gender: String(v.gender || ''), engine: String(v.engine || 'sapi') }));
@@ -213,12 +305,41 @@ async function listLocalVoices() {
     : { success: false, voices: [], error: (res && res.error) || '未获取到本地发音人' };
 }
 
+// 合成结果缓存：同一音色+语速+文本再次试听/重复导出时直接复用（导出结束会清临时目录，命中前校验文件仍在）
+const localTtsCache = new Map();
+const LOCAL_TTS_CACHE_MAX = 200;
+
+function localTtsTextHash(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return `${(h >>> 0).toString(36)}_${s.length}`;
+}
+
+function hasCjk(s) { return /[\u3400-\u9fff]/.test(s); }
+
+// 经典 SAPI5 音色只能读自己语言的文本，跨语言时会静默产出空文件（46 字节 WAV）
+function describeLocalTtsError(res, voice, text) {
+  const lang = String((res && res.lang) || '');
+  if (res && res.error === 'empty audio output') {
+    const name = voice || lang || '系统默认音色';
+    if (/^en/i.test(lang) && hasCjk(text)) return `发音人「${name}」是英语音色，无法朗读中文，请改用中文音色（如 Microsoft Xiaoxiao）`;
+    if (/^zh/i.test(lang) && !hasCjk(text)) return `发音人「${name}」是中文音色，无法朗读纯英文，请改用英语音色（如 Microsoft Aria / Jenny）`;
+    return `发音人「${name}」未产出音频（该音色可能不支持这段文本的语言）`;
+  }
+  return (res && res.error) || '本地语音合成失败';
+}
+
 async function synthesizeLocalTTS(text, voice, rate = 1.0) {
   if (process.platform !== 'win32') {
     return { success: false, error: '当前平台已禁用系统TTS，请改用 EdgeTTS 角色' };
   }
   const content = String(text || '');
   if (!content.trim()) return { success: false, error: '朗读内容为空' };
+
+  const cacheKey = `${voice || ''}|${Number(rate) || 1}|${localTtsTextHash(content)}`;
+  const hitPath = localTtsCache.get(cacheKey);
+  if (hitPath && fs.existsSync(hitPath)) return { success: true, path: hitPath, cached: true };
+
   const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const textPath = path.join(tempDir, `sapi_text_${stamp}.txt`);
   const wavPath = path.join(tempDir, `sapi_${stamp}.wav`);
@@ -226,16 +347,16 @@ async function synthesizeLocalTTS(text, voice, rate = 1.0) {
     ensureDir(tempDir);
     // 文本经 UTF-8 文件中转，避免命令行参数在不同区域设置下被转码
     fs.writeFileSync(textPath, content, 'utf8');
-    const args = ['-Action', 'Say', '-TextFile', textPath, '-Rate', String(Number(rate) || 1.0), '-Out', wavPath];
-    if (voice) args.push('-Voice', String(voice));
-    const res = await execLocalTts(args, 120000);
+    const res = await localTtsCall({ cmd: 'say', voice: voice || '', textFile: textPath, rate: Number(rate) || 1.0, out: wavPath }, 120000);
     if (res && res.ok && res.path && fs.existsSync(res.path) && fs.statSync(res.path).size > 1024) {
+      if (localTtsCache.size >= LOCAL_TTS_CACHE_MAX) localTtsCache.clear();
+      localTtsCache.set(cacheKey, res.path);
       // fallback：本机没有该音色，脚本改用系统默认音色（如实上报，不静默替换）
       return { success: true, path: res.path, fallback: !!res.fallback, requested: res.requested || voice || '', notes: res.notes || '' };
     }
-    const reason = (res && res.error) || '本地语音合成失败';
-    logToFile('error', ['[本地TTS] 合成失败', `voice=${voice || '(系统默认)'}`, reason]);
-    return { success: false, error: `本地语音合成失败：${reason}` };
+    const reason = describeLocalTtsError(res, voice, content);
+    logToFile('error', ['[本地TTS] 合成失败', `voice=${voice || '(系统默认)'}`, `lang=${(res && res.lang) || '?'}`, reason]);
+    return { success: false, error: reason };
   } catch (error) {
     logToFile('error', ['[本地TTS] 异常', `voice=${voice}`, String(error?.stack || error?.message || error)]);
     return { success: false, error: `本地语音合成异常：${error.message || error}` };
@@ -261,6 +382,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   synthesizeTTS,
   listLocalVoices,
   synthesizeLocalTTS,
+  warmLocalTts,
   synthesizeBatch: async (items) => {
     const results = [];
     for (const item of items) {
