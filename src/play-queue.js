@@ -232,28 +232,7 @@ class PlayQueue {
         const res = await window.electronAPI.synthesizeTTS(task.text, voiceName, ratePercent);
         if (gen !== this._playGen || !this.isPlaying) return; // 停止/新播放后丢弃迟到结果，不再开播
         if (res?.success && res.path) {
-          await new Promise((resolve, reject) => {
-            const audio = new Audio();
-            this.currentAudio = audio;
-            this.activeAudios.add(audio);
-            audio.src = this.toFileUrl(res.path);
-            let settled = false;
-            const finish = (isError, e) => {
-              if (settled) return;
-              settled = true;
-              if (this._ttsSettle === onStop) this._ttsSettle = null;
-              if (this.currentAudio === audio) this.currentAudio = null;
-              this.activeAudios.delete(audio);
-              if (!isError || !this.isPlaying) resolve();
-              else reject(e);
-            };
-            // stop() 时主动结算，避免 executeQueue 永久挂起
-            const onStop = () => { try { audio.pause(); } catch {} finish(false); };
-            this._ttsSettle = onStop;
-            audio.onended = () => finish(false);
-            audio.onerror = (e) => finish(true, e);
-            audio.play().catch(e => finish(true, e));
-          });
+          await this._playAudioFile(res.path, gen);
           return;
         }
         const err = new Error(res?.error || 'EdgeTTS 合成失败');
@@ -274,15 +253,62 @@ class PlayQueue {
       return;
     }
 
-    return this.playLocalTTS(task);
+    return this.playLocalTTS(task, gen);
   }
 
-  async playLocalTTS(task) {
+  // 播放一段音频文件；stop() 时主动结算，避免 executeQueue 永久挂起（EdgeTTS 与本地 TTS 共用）
+  _playAudioFile(filePath, gen) {
+    return new Promise((resolve, reject) => {
+      const audio = new Audio();
+      this.currentAudio = audio;
+      this.activeAudios.add(audio);
+      audio.src = this.toFileUrl(filePath);
+      let settled = false;
+      const finish = (isError, e) => {
+        if (settled) return;
+        settled = true;
+        if (this._ttsSettle === onStop) this._ttsSettle = null;
+        if (this.currentAudio === audio) this.currentAudio = null;
+        this.activeAudios.delete(audio);
+        const stale = gen !== undefined && gen !== this._playGen;
+        if (!isError || !this.isPlaying || stale) resolve();
+        else reject(e);
+      };
+      const onStop = () => { try { audio.pause(); } catch {} finish(false); };
+      this._ttsSettle = onStop;
+      audio.onended = () => finish(false);
+      audio.onerror = (e) => finish(true, e);
+      audio.play().catch(e => finish(true, e));
+    });
+  }
+
+  async playLocalTTS(task, gen) {
     const platform = window.electronAPI?.platform;
     if (platform === 'linux' || platform === 'darwin') {
       const msg = '当前平台已禁用系统TTS，请改用 EdgeTTS 角色';
       if (this.onTtsError) this.onTtsError(msg);
       throw new Error(msg);
+    }
+
+    const voiceName = this.resolveVoice(task);
+
+    // 首选本机合成桥（PowerShell/System.Speech）：Chromium 看不到 Windows 自然音色，
+    // 只有桥能覆盖全部本地音色（自然音色 + 经典 SAPI5 + OneCore）
+    if (window.electronAPI?.synthesizeLocalTTS) {
+      const res = await window.electronAPI
+        .synthesizeLocalTTS(task.text || '', voiceName, task.rate || 1.0)
+        .catch((e) => ({ success: false, error: e?.message || String(e) }));
+      if (gen !== this._playGen || !this.isPlaying) return;
+      if (res?.success && res.path) {
+        await this._playAudioFile(res.path, gen);
+        return;
+      }
+      // 桥不可用但 Chromium 能朗读该音色（例如 PowerShell 被安全策略拦住）→ 继续走 Chromium
+      if (!this.canSpeakVoice(voiceName)) {
+        const msg = res?.error || '系统TTS合成失败';
+        if (this.onTtsError) this.onTtsError(msg);
+        throw new Error(msg);
+      }
     }
 
     return new Promise((resolve, reject) => {
@@ -293,8 +319,7 @@ class PlayQueue {
       const utterance = new SpeechSynthesisUtterance(task.text);
       const voices = speechSynthesis.getVoices();
       let targetVoice = null;
-      const voiceName = this.resolveVoice(task);
-      if (voiceName) targetVoice = voices.find(v => v.name === voiceName) || null;
+      if (voiceName) targetVoice = this.findSpeakableVoice(voices, voiceName);
       if (targetVoice) {
         utterance.voice = targetVoice;
         utterance.lang = targetVoice.lang;
@@ -304,6 +329,34 @@ class PlayQueue {
       utterance.onerror = (e) => reject(e);
       speechSynthesis.speak(utterance);
     });
+  }
+
+  // Chromium 可见的本地音色（名字做归一化，兼容注册表长名与 WinRT 短名）
+  _chromiumLocalVoices() {
+    try {
+      if (!('speechSynthesis' in window)) return [];
+      return speechSynthesis.getVoices().filter(v => v.localService);
+    } catch { return []; }
+  }
+
+  _normalizeVoiceName(name) {
+    return String(name || '').split(' - ')[0].trim().toLowerCase();
+  }
+
+  findSpeakableVoice(voices, voiceName) {
+    const want = this._normalizeVoiceName(voiceName);
+    if (!want) return null;
+    return voices.find(v => this._normalizeVoiceName(v.name) === want)
+      || voices.find(v => this._normalizeVoiceName(v.name).includes(want))
+      || voices.find(v => want.includes(this._normalizeVoiceName(v.name)))
+      || null;
+  }
+
+  canSpeakVoice(voiceName) {
+    const voices = this._chromiumLocalVoices();
+    if (!voices.length) return false;
+    if (!voiceName) return true;
+    return !!this.findSpeakableVoice(voices, voiceName);
   }
 
   async playSilence(task) {

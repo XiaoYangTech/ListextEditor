@@ -191,6 +191,44 @@ class ListextEditor {
     this._showNextStartupDialog();
   }
 
+  // 本机全部可用本地发音人：Chromium 可见音色 ∪ 本地桥（经典 SAPI5 / Windows 自然音色 / OneCore）
+  // 不同机器装了什么音色、叫什么名字都不一样，所以名字归一化后去重、两个来源互为补充：
+  // Chromium 能直接朗读的优先保留，桥负责补上 Chromium 看不见的那批（如 Microsoft Xiaoxiao）
+  async getAllLocalVoices() {
+    const norm = (n) => String(n || '').split(' - ')[0].trim().toLowerCase();
+    const seen = new Set();
+    const merged = [];
+    const push = (name, lang, engine) => {
+      const key = norm(name);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      merged.push({ name, lang: lang || '', engine });
+    };
+    try {
+      const voices = await this.getChromiumLocalVoices();
+      voices.forEach(v => push(v.name, v.lang, 'chromium'));
+    } catch { /* 忽略：Chromium 列表拿不到时只靠本地桥 */ }
+    try {
+      const res = await window.electronAPI?.listLocalVoices?.();
+      (res?.voices || []).forEach(v => push(v.name, v.lang, v.engine || 'sapi'));
+    } catch { /* 忽略：本地桥不可用时退回 Chromium 列表 */ }
+    return merged;
+  }
+
+  // Chromium speechSynthesis 在本机可见的本地音色
+  getChromiumLocalVoices() {
+    return new Promise((resolve) => {
+      if (!('speechSynthesis' in window)) { resolve([]); return; }
+      try { speechSynthesis.getVoices(); } catch { /* ignored */ }
+      const finish = (voices) => resolve(Array.from(voices || []).filter(v => v.localService));
+      const immediate = speechSynthesis.getVoices();
+      if (immediate.length) { finish(immediate); return; }
+      const handler = () => { speechSynthesis.removeEventListener('voiceschanged', handler); finish(speechSynthesis.getVoices()); };
+      speechSynthesis.addEventListener('voiceschanged', handler);
+      setTimeout(() => finish(speechSynthesis.getVoices()), 3000);
+    });
+  }
+
   _fillPopupDialog(p) {
     const title = document.getElementById('popupDialogTitle');
     const body = document.getElementById('popupDialogContent');

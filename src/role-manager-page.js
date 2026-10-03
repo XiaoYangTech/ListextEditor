@@ -242,6 +242,13 @@ class RoleManagerPage {
   }
 
   async getLocalVoices() {
+    // 统一走 app：合并 Chromium 可见音色与本机全部 SAPI5 音色（含自然音色）
+    if (window.app?.getAllLocalVoices) {
+      try {
+        const merged = await window.app.getAllLocalVoices();
+        if (merged.length) return merged;
+      } catch { /* 回退到 Chromium 列表 */ }
+    }
     if (!('speechSynthesis' in window)) return [];
     try { speechSynthesis.getVoices(); } catch { /* ignored */ }
     return await new Promise(resolve => {

@@ -51,6 +51,13 @@ class CodeEditor {
   async loadLocalVoices() {
     if (this.localVoices.length) return;
     if (window.electronAPI?.platform !== 'win32') return;
+    // 统一走 app：合并 Chromium 可见音色与本机全部 SAPI5 音色（含自然音色）
+    if (window.app?.getAllLocalVoices) {
+      try {
+        this.localVoices = (await window.app.getAllLocalVoices()).map(v => v.name);
+        if (this.localVoices.length) return;
+      } catch { /* 回退到 Chromium 列表 */ }
+    }
     if (!('speechSynthesis' in window)) return;
     try { speechSynthesis.getVoices(); } catch { /* ignored */ }
     const finish = (voices) => {

@@ -102,7 +102,15 @@ class FileManager {
     return { roles: normalized, notes };
   }
 
-  getLocalVoices() {
+  async getLocalVoices() {
+    // 统一走 app：合并 Chromium 可见音色与本机全部 SAPI5 音色（含自然音色），
+    // 否则工程里引用的本地音色会被误判为「本机不可用」
+    if (window.app?.getAllLocalVoices) {
+      try {
+        const merged = await window.app.getAllLocalVoices();
+        if (merged.length) return merged;
+      } catch { /* 回退到 Chromium 列表 */ }
+    }
     return new Promise(resolve => {
       if (!('speechSynthesis' in window)) { resolve([]); return; }
       try { speechSynthesis.getVoices(); } catch { /* ignored */ }
