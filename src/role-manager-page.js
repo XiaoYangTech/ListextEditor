@@ -55,11 +55,9 @@ class RoleManagerPage {
       // 用户在这段时间里看到的仍是上一次的 EdgeTTS 列表（实测切换后最长约 3 秒）
       if (this._voicePanel) this._voicePanel.style.display = 'none';
       const wrap0 = document.getElementById('roleVoiceCustom');
-      if (wrap0) wrap0.style.display = type === 'edge' ? '' : 'none';
-      if (this.roleVoice) {
-        this.roleVoice.style.display = type === 'edge' ? 'none' : '';
-        this.roleVoice.innerHTML = '<option value="">加载中...</option>';
-      }
+      const faceInner = wrap0 && wrap0.querySelector('.rm-select-face-inner');
+      if (faceInner) faceInner.textContent = '加载中…';
+      if (this.roleVoice) this.roleVoice.innerHTML = '<option value="">加载中...</option>';
       if (type === 'local') await this.getLocalVoices();
       await this.populateVoices();
     };
@@ -132,13 +130,33 @@ class RoleManagerPage {
     } catch { return ''; }
   }
 
-  _voiceText(v) {
-    const label = this._localeLabel(v);
-    return label ? `${label} · ${v}` : v;
+  _voiceText(v, locale, gender) {
+    const label = this._localeLabel(locale || v);
+    const genderText = gender === 'Female' ? '女声' : (gender === 'Male' ? '男声' : '');
+    const head = label ? `${label} · ${v}` : v;
+    return genderText ? `${head} · ${genderText}` : head;
+  }
+
+  // 语言归类：中文（含港澳台及方言） → 英语（美式/英式靠前） → 日/俄/西 → 其他语言
+  _voiceGroupIndex(locale) {
+    const s = String(locale || '');
+    if (/^zh/i.test(s)) return 0;
+    if (/^en/i.test(s)) return 1;
+    return /^(ja|ru|es)/i.test(s) ? 2 : 3;
+  }
+
+  _sortVoiceDescs(voices) {
+    const enRank = (locale) => /^en-US/i.test(locale) ? 0 : /^en-GB/i.test(locale) ? 1 : 2;
+    return [...voices].sort((a, b) =>
+      this._voiceGroupIndex(a.locale) - this._voiceGroupIndex(b.locale)
+      || enRank(a.locale) - enRank(b.locale)
+      || String(a.locale || '').localeCompare(String(b.locale || ''))
+      || String(a.value).localeCompare(String(b.value)));
   }
 
   // 自定义发音人下拉：分组 + 语言标识 + 收起状态跑马灯；面板挂 body 级 fixed 定位可伸出对话框
-  _buildVoiceDropdown(voices, selected) {
+  // voices 为描述对象数组：[{ value, locale, gender }]（EdgeTTS 与系统 TTS 共用同一套交互）
+  _buildVoiceDropdown(voices, selected, emptyHint) {
     let wrap = document.getElementById('roleVoiceCustom');
     if (!wrap) {
       wrap = document.createElement('div');
@@ -154,13 +172,15 @@ class RoleManagerPage {
     document.body.appendChild(panel);
     this._voicePanel = panel;
 
-    const rank = (v) => v.startsWith('zh-') ? 0 : v.startsWith('en-') ? 1 : (/^(ja|ru|es)-/.test(v) ? 2 : 3);
     const groupNames = ['中文', '英语', '日语 / 俄语 / 西班牙语', '其他语言'];
+    const list = this._sortVoiceDescs(voices);
+
     // 加载失败/为空：占位 + 点击重试
-    if (!voices.length) {
+    if (!list.length) {
+      const hint = emptyHint || '未获取到发音人，点击重试加载';
       wrap.innerHTML = `
-        <div class="rm-select-face rm-select-face-retry" id="roleVoiceFace" title="未获取到 EdgeTTS 发音人，点击重试">
-          <span class="rm-select-face-text"><span class="rm-select-face-inner" style="color:var(--md-on-surface-variant);">未获取到发音人，点击重试加载</span></span>
+        <div class="rm-select-face rm-select-face-retry" id="roleVoiceFace" title="${this.escapeHtml(hint)}">
+          <span class="rm-select-face-text"><span class="rm-select-face-inner" style="color:var(--md-on-surface-variant);">${this.escapeHtml(hint)}</span></span>
           <span class="material-icons">refresh</span>
         </div>`;
       wrap.querySelector('#roleVoiceFace').addEventListener('click', (e) => {
@@ -170,20 +190,22 @@ class RoleManagerPage {
       });
       return;
     }
+
+    const textOf = new Map(list.map(d => [d.value, this._voiceText(d.value, d.locale, d.gender)]));
     let panelHtml = '';
-    let lastRank = -1;
-    for (const v of voices) {
-      const r = rank(v);
-      if (r !== lastRank) { panelHtml += `<div class="rm-select-group">${groupNames[r]}</div>`; lastRank = r; }
-      panelHtml += `<div class="rm-select-item${v === selected ? ' active' : ''}" data-v="${v}">${this._voiceText(v)}</div>`;
+    let lastGroup = -1;
+    for (const d of list) {
+      const g = this._voiceGroupIndex(d.locale);
+      if (g !== lastGroup) { panelHtml += `<div class="rm-select-group">${groupNames[g]}</div>`; lastGroup = g; }
+      panelHtml += `<div class="rm-select-item${d.value === selected ? ' active' : ''}" data-v="${this.escapeHtml(d.value)}">${this.escapeHtml(textOf.get(d.value))}</div>`;
     }
     wrap.innerHTML = `
       <div class="rm-select-face" id="roleVoiceFace">
-        <span class="rm-select-face-text"><span class="rm-select-face-inner">${this._voiceText(selected)}</span></span>
+        <span class="rm-select-face-text"><span class="rm-select-face-inner">${this.escapeHtml(textOf.get(selected) || this._voiceText(selected))}</span></span>
         <span class="material-icons">arrow_drop_down</span>
       </div>
     `;
-    panel.innerHTML = panelHtml || '<div class="rm-select-group">无可用发音人</div>';
+    panel.innerHTML = panelHtml;
 
     const face = wrap.querySelector('#roleVoiceFace');
     const closePanel = () => { panel.style.display = 'none'; };
@@ -229,7 +251,7 @@ class RoleManagerPage {
       item.addEventListener('click', () => {
         const v = item.dataset.v;
         this.roleVoice.value = v;
-        wrap.querySelector('.rm-select-face-inner').textContent = this._voiceText(v);
+        wrap.querySelector('.rm-select-face-inner').textContent = textOf.get(v) || this._voiceText(v);
         panel.querySelectorAll('.rm-select-item').forEach(i => i.classList.toggle('active', i === item));
         closePanel();
         this._updateFaceMarquee(wrap);
@@ -276,42 +298,47 @@ class RoleManagerPage {
 
   async populateVoices(preserveVoice = '') {
     const type = this.roleType.value;
-    // Edge 用自定义下拉，其他类型恢复原生 select 并收起 body 级面板
     const wrap0 = document.getElementById('roleVoiceCustom');
-    if (wrap0) wrap0.style.display = type === 'edge' ? '' : 'none';
-    if (this._voicePanel) this._voicePanel.style.display = type === 'edge' ? this._voicePanel.style.display : 'none';
-    this.roleVoice.style.display = type === 'edge' ? 'none' : '';
+    if (this._voicePanel) this._voicePanel.style.display = 'none';
     this.roleVoice.innerHTML = '<option value="">加载中...</option>';
 
+    // macOS/Linux 明确禁用系统 TTS：不提供本地发音人列表
     if (type === 'local' && this.disableLocalTts) {
+      if (wrap0) wrap0.style.display = 'none';
+      this.roleVoice.style.display = '';
       this.roleVoice.innerHTML = '<option value="">当前平台禁用系统TTS</option>';
       return;
     }
 
+    // 两种类型都用自定义下拉（语言标识 + 分组 + 跑马灯），原生 select 隐藏仅作数据容器
+    if (wrap0) wrap0.style.display = '';
+    this.roleVoice.style.display = 'none';
+
     if (type === 'edge' && window.electronAPI?.listEdgeVoices) {
       const res = await window.electronAPI.listEdgeVoices();
-      // 排序：中文（含港澳台及方言） → 英语（全部地区） → 日/俄/西 → 其他语言；
-      // 英语组内美式/英式靠前，其他地区口音排后面
-      const rank = (v) => v.startsWith('zh-') ? 0
-        : v.startsWith('en-') ? 1
-        : (/^(ja|ru|es)-/.test(v) ? 2 : 3);
-      const enRank = (v) => v.startsWith('en-US') ? 0 : v.startsWith('en-GB') ? 1 : 2;
-      const voices = (res?.voices || []).sort((a, b) => rank(a) - rank(b) || enRank(a) - enRank(b) || a.localeCompare(b));
+      const voices = res?.voices || [];
       // 选中：编辑已有角色保持其音色；新建默认英文 Jenny，都没有退列表首位
       const selected = (preserveVoice && voices.includes(preserveVoice))
         ? preserveVoice
         : (voices.includes('en-US-JennyNeural') ? 'en-US-JennyNeural' : (voices[0] || ''));
-      // 原生 select 隐藏仅作数据存储，自定义下拉（语言标识+分组+跑马灯）接管交互
-      this.roleVoice.innerHTML = voices.map(v => `<option value="${v}">${v}</option>`).join('');
+      this.roleVoice.innerHTML = voices.map(v => `<option value="${this.escapeHtml(v)}">${this.escapeHtml(v)}</option>`).join('');
       this.roleVoice.value = selected;
-      this._buildVoiceDropdown(voices, selected);
+      // Edge 音色名自带地区码（如 zh-CN-XiaoxiaoNeural），语言标识可由名字推导
+      this._buildVoiceDropdown(voices.map(v => ({ value: v, locale: v })), selected, '未获取到 EdgeTTS 发音人，点击重试加载');
       return;
     }
 
     const voices = await this.getLocalVoices();
-    this.roleVoice.innerHTML = voices.length
-      ? voices.map(v => `<option value="${v.name}">${v.name} (${v.lang})</option>`).join('')
+    const descs = this._sortVoiceDescs(voices.map(v => ({ value: v.name, locale: v.lang || v.name, gender: v.gender || '' })));
+    // 选中：编辑已有角色保持其音色；新建取排序首位（中文在前，避免默认英语音色读中文只得到空音频）
+    const selected = (preserveVoice && descs.some(d => d.value === preserveVoice))
+      ? preserveVoice
+      : (descs[0]?.value || '');
+    this.roleVoice.innerHTML = descs.length
+      ? descs.map(d => `<option value="${this.escapeHtml(d.value)}">${this.escapeHtml(d.value)}</option>`).join('')
       : '<option value="">未获取到本地发音人</option>';
+    this.roleVoice.value = selected;
+    this._buildVoiceDropdown(descs, selected, '未获取到本地发音人，点击重试加载');
   }
 
   async renderRoles() {

@@ -198,13 +198,21 @@ class ListextEditor {
   // Chromium 能直接朗读的优先保留，桥负责补上 Chromium 看不见的那批（如 Microsoft Xiaoxiao）
   async getAllLocalVoices() {
     const norm = (n) => String(n || '').split(' - ')[0].trim().toLowerCase();
-    const seen = new Set();
+    const byKey = new Map();
     const merged = [];
-    const push = (name, lang, engine) => {
+    const push = (name, lang, engine, gender) => {
       const key = norm(name);
-      if (!key || seen.has(key)) return;
-      seen.add(key);
-      merged.push({ name, lang: lang || '', engine });
+      if (!key) return;
+      const existing = byKey.get(key);
+      if (existing) {
+        // 同名音色已存在：补齐另一方缺的信息（Chromium 不提供性别，桥提供）
+        if (!existing.gender && gender) existing.gender = gender;
+        if (!existing.lang && lang) existing.lang = lang;
+        return;
+      }
+      const entry = { name, lang: lang || '', engine, gender: gender || '' };
+      byKey.set(key, entry);
+      merged.push(entry);
     };
     try {
       const voices = await this.getChromiumLocalVoices();
@@ -212,7 +220,7 @@ class ListextEditor {
     } catch { /* 忽略：Chromium 列表拿不到时只靠本地桥 */ }
     try {
       const res = await window.electronAPI?.listLocalVoices?.();
-      (res?.voices || []).forEach(v => push(v.name, v.lang, v.engine || 'sapi'));
+      (res?.voices || []).forEach(v => push(v.name, v.lang, v.engine || 'sapi', v.gender));
     } catch { /* 忽略：本地桥不可用时退回 Chromium 列表 */ }
     return merged;
   }
