@@ -43,6 +43,9 @@
     "directories": {
       "output": "dist"
     },
+    "extraResources": [
+      { "from": "src/main/local-tts.ps1", "to": "local-tts.ps1" }
+    ],
     "files": [
       "main.js",
       "preload.js",

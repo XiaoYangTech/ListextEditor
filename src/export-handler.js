@@ -303,10 +303,14 @@ class ExportHandler {
         this._updateProgress(taskPct, `正在处理任务 ${i + 1}/${totalTasks}...`);
 
         if (task.type === 'tts') {
-          const voice = effectiveQueue.resolveVoice(task) || LISTEXT_CONSTANTS.DEFAULT_EDGE_VOICE;
+          // 本地角色（系统 TTS / SAPI5）走本机合成桥：EdgeTTS 用不了本地音色名（会直接失败、
+          // 导致整个导出被取消），而 Chromium 又看不到 Windows 自然音色
+          const isLocal = task.ttsType === 'local';
+          const voice = effectiveQueue.resolveVoice(task) || (isLocal ? '' : LISTEXT_CONSTANTS.DEFAULT_EDGE_VOICE);
           const rate = effectiveQueue.convertRateToEdge(task.rate || 1.0);
           const preview = (task.text || '').slice(0, 10);
-          this._logProgress(`[${i + 1}/${totalTasks}] 合成中："${preview}…"`);
+          const voiceHint = isLocal ? `（本地音色 ${voice || '系统默认'}）` : '';
+          this._logProgress(`[${i + 1}/${totalTasks}] 合成中${voiceHint}："${preview}…"`);
           let res = null;
           let retryTask = false;
           const maxAttempts = 3;
@@ -315,7 +319,9 @@ class ExportHandler {
             if (attempt > 1) {
               this._updateProgress(taskPct, `正在处理任务 ${i + 1}/${totalTasks}（第 ${attempt}/${maxAttempts} 次重试）...`);
             }
-            res = await api.synthesizeTTS(task.text || '', voice, rate);
+            res = isLocal
+              ? await api.synthesizeLocalTTS(task.text || '', voice, task.rate || 1.0)
+              : await api.synthesizeTTS(task.text || '', voice, rate);
             if (this._cancelRequested) { await this._abortExport(api); return; }
             if (res?.success && res.path) break;
             const reason = res?.error || '未知原因';
@@ -343,6 +349,9 @@ class ExportHandler {
             break;
           }
           if (retryTask) { i--; continue; }
+          if (res?.fallback) {
+            this._logProgress(`[${i + 1}/${totalTasks}] 注意：本机没有音色「${res.requested || voice}」，该段已用系统默认音色代替`);
+          }
           segments.push({ type: 'file', path: res.path });
           segmentTexts.push(task.text || '');
         } else if (task.type === 'effect') {
