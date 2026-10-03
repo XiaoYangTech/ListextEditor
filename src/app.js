@@ -32,6 +32,8 @@ class ListextEditor {
     this.loadDefaultContent();
     this.initStartupGuides();
     this.checkStartupGuides();
+    // 空闲时预热本机语音合成桥（Windows）：首次试听/导出时不必再等 PowerShell 冷启动
+    setTimeout(() => { try { window.electronAPI?.warmLocalTts?.(); } catch { /* 忽略 */ } }, 6000);
   }
 
   init() {

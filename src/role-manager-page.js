@@ -50,10 +50,22 @@ class RoleManagerPage {
     this.roleList = document.getElementById('roleList');
 
     this._onTypeChange = async () => {
-      if (this.roleType.value === 'local') await this.getLocalVoices();
+      const type = this.roleType.value;
+      // 先把上一次的下拉收起来并显示加载态：本地发音人要向本机桥查询，若等结果回来再刷新，
+      // 用户在这段时间里看到的仍是上一次的 EdgeTTS 列表（实测切换后最长约 3 秒）
+      if (this._voicePanel) this._voicePanel.style.display = 'none';
+      const wrap0 = document.getElementById('roleVoiceCustom');
+      if (wrap0) wrap0.style.display = type === 'edge' ? '' : 'none';
+      if (this.roleVoice) {
+        this.roleVoice.style.display = type === 'edge' ? 'none' : '';
+        this.roleVoice.innerHTML = '<option value="">加载中...</option>';
+      }
+      if (type === 'local') await this.getLocalVoices();
       await this.populateVoices();
     };
     this.roleType.addEventListener('change', this._onTypeChange);
+    // 预热本机合成常驻进程：等用户真正试听时就不必再等 PowerShell 启动
+    window.electronAPI?.warmLocalTts?.();
     this.btnSave.addEventListener('click', () => this.saveRole());
     this.btnClear.addEventListener('click', () => this.clearForm());
   }
