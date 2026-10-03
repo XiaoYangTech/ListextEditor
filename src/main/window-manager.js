@@ -266,6 +266,7 @@ function createMenu() {
         { id: 'help-ai-prompt', label: 'AI一键导入听力原文', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/LKkCwl7AvidXngkvJlkcCxg9nGd?fromScene=spaceOverview') },
         { type: 'separator' },
         { id: 'help-author-bilibili', label: '关注作者B站', click: () => openExternal('https://space.bilibili.com/413043448') },
+        { id: 'help-donate', label: '捐助本软件', click: () => sendToMain('open-donate') },
         { type: 'separator' },
         { id: 'help-check-update', label: '检查更新', click: () => sendToMain('check-update') },
         { id: 'help-open-logs', label: '打开日志目录', click: () => {

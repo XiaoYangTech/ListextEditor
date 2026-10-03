@@ -183,6 +183,14 @@ class ListextEditor {
     setTimeout(() => this._showNextStartupDialog(), 300);
   }
 
+  // 帮助菜单「捐助本软件」：复用启动弹窗队列，自动排队等待其它弹窗关闭，不写「已捐助」标记
+  openDonateDialog() {
+    if (!document.getElementById('donateDialog')) return;
+    if (!this._startupQueue) this._startupQueue = [];
+    this._startupQueue.push({ el: 'donateDialog' });
+    this._showNextStartupDialog();
+  }
+
   _fillPopupDialog(p) {
     const title = document.getElementById('popupDialogTitle');
     const body = document.getElementById('popupDialogContent');
@@ -271,6 +279,8 @@ class ListextEditor {
     window.electronAPI.onShowSettings(() => this.uiManager.showSettingsDialog());
     // 菜单栏「工具 → 给音频加背景音乐」
     window.electronAPI.onOpenAudioMixer?.(() => this.uiManager.openAudioMixer());
+    // 菜单栏「帮助 → 捐助本软件」
+    window.electronAPI.onOpenDonate?.(() => this.openDonateDialog());
 
     window.electronAPI.onMenuEdit(async (action) => {
       if (this.isTextInputActive()) {
