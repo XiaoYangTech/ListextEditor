@@ -279,15 +279,19 @@ class UIManager {
     }
   }
 
-  // 分节默认标题：预设里没填时自动编号（第 1 部分、第 2 部分…），避免所有分节都叫「分节标题」
+  // 分节默认标题：预设里没填时自动生成一个不重复的随机短标题，用户无需手写
+  // （不用「第 N 部分」这类编号：插入/删除/移动分节后容易撞号，随机短码永远唯一）
   _nextSectionTitle() {
+    const pool = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 去掉易混的 I/O/0/1
+    const make = () => `分节-${Array.from({ length: 4 }, () => pool[Math.floor(Math.random() * pool.length)]).join('')}`;
     try {
       const content = this.app?.getContent?.() || '';
-      const count = (content.match(/<section\b/gi) || []).length;
-      return `第 ${count + 1} 部分`;
-    } catch {
-      return '第 1 部分';
-    }
+      for (let i = 0; i < 20; i++) {
+        const title = make();
+        if (!content.includes(`title="${title}"`)) return title;
+      }
+    } catch { /* 读取正文失败时仍给出随机标题 */ }
+    return make();
   }
 
   async handleAddBlock(type, insertBefore = false, forceDialog = false) {

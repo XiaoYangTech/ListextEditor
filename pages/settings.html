@@ -255,7 +255,7 @@
             </div>
             <div class="hint">
               Alt+点击积木按钮始终强制弹出属性窗口，方便临时改一次。<br>
-              音效块始终会弹出音效选择：音效随工程变化，不纳入预设。不弹窗模式下，朗读块使用当前工程的第一个角色，分节标题留空时自动编号（第 1 部分、第 2 部分…）。
+              音效块始终会弹出音效选择：音效随工程变化，不纳入预设。不弹窗模式下，朗读块使用当前工程的第一个角色，分节标题留空时自动生成随机标题（如 分节-K7Q2，不重复）。
             </div>
           </div>
         </div>
@@ -274,8 +274,8 @@
             <input id="presetRepeatCount" type="number" min="1" max="20" step="1" placeholder="默认 2">
           </div>
           <div class="form-group">
-            <label>分节块默认标题（留空 = 自动编号：第 1 部分、第 2 部分…）</label>
-            <input id="presetSectionTitle" type="text" maxlength="60" placeholder="留空自动编号">
+            <label>分节块默认标题（留空 = 自动生成随机标题，如 分节-K7Q2，无需手写）</label>
+            <input id="presetSectionTitle" type="text" maxlength="60" placeholder="留空自动生成">
           </div>
           <div class="hint">角色与音效不纳入预设：每个工程的音色、音效都不一样。预设只影响新建积木的缺省值，不改动已有积木。</div>
         </div>
