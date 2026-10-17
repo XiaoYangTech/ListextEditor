@@ -112,6 +112,9 @@
       <div class="nav-item" data-page="layout">
         <span>布局</span>
       </div>
+      <div class="nav-item" data-page="presets">
+        <span>预设</span>
+      </div>
       <div class="nav-item" data-page="proxy">
         <span>网络代理</span>
       </div>
@@ -238,6 +241,49 @@
             </div>
             <div class="hint">修改后即时生效</div>
           </div>
+        </div>
+      </div>
+
+      <!-- 预设设置页 -->
+      <div id="presets-page" class="settings-page">
+        <div class="card">
+          <div class="card-title">添加积木时</div>
+          <div class="form-group">
+            <div class="radio-group" style="flex-direction:column;align-items:flex-start;gap:10px;">
+              <label><input type="radio" name="insertMode" value="follow" checked> 跟随当前行为（勾选「记住本属性」后不再弹窗，没用过就弹窗）</label>
+              <label><input type="radio" name="insertMode" value="ask"> 每次都弹出属性设置窗口（忽略「记住本属性」）</label>
+              <label><input type="radio" name="insertMode" value="preset"> 不弹出属性设置窗口，直接用下面的预设值</label>
+            </div>
+            <div class="hint">
+              Alt+点击积木按钮始终强制弹出属性窗口，方便临时改一次。<br>
+              音效块始终会弹出音效选择：音效随工程变化，不纳入预设。不弹窗模式下，朗读块使用当前工程的第一个角色。
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">缺省预设值</div>
+          <div class="form-group">
+            <label>朗读块默认语速（0.5 - 2.0，留空跟随默认 1.0）</label>
+            <input id="presetSayRate" type="number" min="0.5" max="2" step="0.1" placeholder="默认 1.0">
+          </div>
+          <div class="form-group">
+            <label>停顿块默认时长（秒，留空跟随默认 10）</label>
+            <input id="presetPauseDuration" type="number" min="1" max="600" step="1" placeholder="默认 10">
+          </div>
+          <div class="form-group">
+            <label>重复块默认次数（留空跟随默认 2）</label>
+            <input id="presetRepeatCount" type="number" min="1" max="20" step="1" placeholder="默认 2">
+          </div>
+          <div class="form-group">
+            <label>分节块默认标题（留空跟随默认「分节标题」）</label>
+            <input id="presetSectionTitle" type="text" maxlength="60" placeholder="默认「分节标题」">
+          </div>
+          <div class="hint">角色与音效不纳入预设：每个工程的音色、音效都不一样。预设只影响新建积木的缺省值，不改动已有积木。</div>
+        </div>
+        <div class="footer">
+          <span id="presetSavedMsg" style="font-size:12px;color:var(--md-success);margin-right:auto;"></span>
+          <button id="btnResetPresets" class="btn btn-outline">清除预设（恢复默认）</button>
+          <button id="btnSavePresets" class="btn btn-primary">保存预设</button>
         </div>
       </div>
 

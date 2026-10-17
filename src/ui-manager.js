@@ -255,33 +255,63 @@ class UIManager {
       : '<option value="" disabled selected>跳转到分节...</option>';
   }
 
-  handleAddBlock(type, insertBefore = false, forceDialog = false) {
+  // 读取「设置 → 预设」里的积木插入方式与缺省值（每次现读，设置窗口改完立即生效）
+  async _getBlockPresets() {
+    const fallback = { insertMode: 'follow', sayRate: null, pauseDuration: null, repeatCount: null, sectionTitle: null };
+    try {
+      const settings = await window.electronAPI?.getSettings?.();
+      const p = settings?.blockPresets || {};
+      const num = (v, min, max) => {
+        const n = Number(v);
+        return Number.isFinite(n) && n >= min && n <= max ? n : null;
+      };
+      return {
+        insertMode: ['follow', 'ask', 'preset'].includes(p.insertMode) ? p.insertMode : 'follow',
+        sayRate: num(p.sayRate, 0.5, 2),
+        pauseDuration: num(p.pauseDuration, 1, 600),
+        repeatCount: Number.isInteger(Number(p.repeatCount)) ? num(p.repeatCount, 1, 20) : null,
+        sectionTitle: typeof p.sectionTitle === 'string' && p.sectionTitle.trim() ? p.sectionTitle.trim() : null
+      };
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  async handleAddBlock(type, insertBefore = false, forceDialog = false) {
     if (this.app.currentMode === 'code') {
-      this.handleAddToCode(type, forceDialog);
+      await this.handleAddToCode(type, forceDialog);
       return;
     }
     if (!this.app.renderer) return;
 
+    const presets = await this._getBlockPresets();
+    // ask：每次弹窗（忽略会话记忆）；preset：不弹窗直接用预设值；follow：沿用现有「记住本属性」会话记忆
+    const mustAsk = forceDialog || presets.insertMode === 'ask';
+    const silent = presets.insertMode === 'preset' && !forceDialog;
     const opts = { insertBefore };
+    const commit = () => {
+      this.app.fileManager.markUnsaved();
+      this.refreshSectionJump();
+    };
+    const addSay = (roleId, rate) => { this.app.renderer.addBlock('say', { ...opts, roleId, rate }); commit(); };
+    const addPause = (duration) => { this.app.renderer.addBlock('pause', { ...opts, duration }); commit(); };
+    const addSection = (title) => { this.app.renderer.addBlock('section', { ...opts, title }); commit(); };
+
     if (type === 'pause') {
+      if (silent) { addPause(presets.pauseDuration || LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION); return; }
       const rememberedPause = this._getSessionDefaults('pause');
-      if (rememberedPause && !forceDialog) {
+      if (rememberedPause && !mustAsk) {
         // 有会话记忆：不再弹窗，直接按记忆属性添加（Alt+点击可强制弹窗重设）
-        this.app.renderer.addBlock('pause', { ...opts, duration: rememberedPause.duration });
-        this.app.fileManager.markUnsaved();
-        this.refreshSectionJump();
+        addPause(rememberedPause.duration);
         return;
       }
-      this.showSilenceDialog((duration) => {
-        this.app.renderer.addBlock('pause', { ...opts, duration });
-        this.app.fileManager.markUnsaved();
-        this.refreshSectionJump();
-      });
+      this.showSilenceDialog(addPause);
       return;
     }
     if (type === 'fx') {
+      // 音效随工程变化、且必须有具体音效，不纳入预设：没有会话记忆时始终弹音效选择
       const rememberedFx = this._getSessionDefaults('fx');
-      if (rememberedFx && !forceDialog) {
+      if (rememberedFx && !mustAsk) {
         (async () => {
           // 记忆的音效已被删除则清记忆并回退弹窗
           const tabFx = window.app?.tabManager?.getActiveTab()?.effects || [];
@@ -291,8 +321,7 @@ class UIManager {
           }
           if (ok) {
             this.app.renderer.addBlock('fx', { ...opts, effectId: rememberedFx.effectId, duration: rememberedFx.duration, fade: rememberedFx.fade });
-            this.app.fileManager.markUnsaved();
-            this.refreshSectionJump();
+            commit();
           } else {
             this._setSessionDefaults('fx', null);
             this.handleAddBlock('fx', insertBefore, true);
@@ -306,55 +335,58 @@ class UIManager {
           return;
         }
         this.app.renderer.addBlock('fx', { ...opts, effectId, duration, fade });
-        this.app.fileManager.markUnsaved();
-        this.refreshSectionJump();
+        commit();
       });
       return;
     }
     if (type === 'say') {
+      if (silent) {
+        // 角色不纳入预设：不弹窗时用当前工程的第一个角色（与弹窗默认选中项一致）
+        const rolesNow = window.app?.tabManager?.getActiveTab()?.roles || [];
+        addSay(rolesNow[0]?.id || '', presets.sayRate || 1.0);
+        return;
+      }
       const rememberedSay = this._getSessionDefaults('say');
-      if (rememberedSay && !forceDialog) {
+      if (rememberedSay && !mustAsk) {
         const rolesNow = window.app?.tabManager?.getActiveTab()?.roles || [];
         let roleId = rememberedSay.roleId || '';
         // 记忆的角色被删时回落到第一个角色（有角色的话）
         if (roleId && !rolesNow.some(r => r.id === roleId)) roleId = rolesNow[0]?.id || '';
-        this.app.renderer.addBlock('say', { ...opts, roleId, rate: rememberedSay.rate || 1.0 });
-        this.app.fileManager.markUnsaved();
-        this.refreshSectionJump();
+        addSay(roleId, rememberedSay.rate || 1.0);
         return;
       }
-      this.showSayAddDialog((roleId, rate) => {
-        this.app.renderer.addBlock('say', { ...opts, roleId, rate });
-        this.app.fileManager.markUnsaved();
-        this.refreshSectionJump();
-      });
+      this.showSayAddDialog(addSay);
       return;
     }
     if (type === 'repeat') {
-      this.app.renderer.addBlock('repeat', opts);
+      this.app.renderer.addBlock('repeat', { ...opts, repeatCount: presets.repeatCount || LISTEXT_CONSTANTS.DEFAULT_REPEAT_COUNT });
     } else if (type === 'section') {
-      this.showSectionAddDialog((title) => {
-        this.app.renderer.addBlock('section', { ...opts, title });
-        this.app.fileManager.markUnsaved();
-        this.refreshSectionJump();
-      });
+      if (silent) { addSection(presets.sectionTitle || '分节标题'); return; }
+      this.showSectionAddDialog(addSection);
       return;
     } else {
       const block = this.app.renderer.addBlock(type, opts);
       block?.querySelector?.('textarea')?.focus();
     }
 
-    this.app.fileManager.markUnsaved();
-    this.refreshSectionJump();
+    commit();
   }
 
-  handleAddToCode(type, forceDialog = false) {
+  async handleAddToCode(type, forceDialog = false) {
     const editor = this.app.codeEditor;
     if (!editor) return;
 
+    const presets = await this._getBlockPresets();
+    const mustAsk = forceDialog || presets.insertMode === 'ask';
+    const silent = presets.insertMode === 'preset' && !forceDialog;
+
     if (type === 'pause') {
+      if (silent) {
+        editor.insertCodeAtCursor(`<pause dur="${presets.pauseDuration || LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION}">`);
+        return;
+      }
       const rememberedPause = this._getSessionDefaults('pause');
-      if (rememberedPause && !forceDialog) {
+      if (rememberedPause && !mustAsk) {
         editor.insertCodeAtCursor(`<pause dur="${rememberedPause.duration}">`);
         return;
       }
@@ -362,6 +394,7 @@ class UIManager {
         editor.insertCodeAtCursor(`<pause dur="${duration}">`);
       });
     } else if (type === 'fx') {
+      // 音效不纳入预设：代码模式也始终弹音效选择
       this.showEffectDialog((effectId, duration, fade) => {
         if (!effectId) {
           this.app.updateStatus('请先选择音效');
@@ -378,8 +411,13 @@ class UIManager {
         if (rate && rate !== 1.0) attrs += ` rate="${rate}"`;
         editor.insertCodeAtCursor(`<say${attrs}></say>`, -6);
       };
+      if (silent) {
+        const rolesNow = window.app?.tabManager?.getActiveTab()?.roles || [];
+        insertSay(rolesNow[0]?.id || '', presets.sayRate || 1.0);
+        return;
+      }
       const rememberedSay = this._getSessionDefaults('say');
-      if (rememberedSay && !forceDialog) {
+      if (rememberedSay && !mustAsk) {
         const rolesNow = window.app?.tabManager?.getActiveTab()?.roles || [];
         let roleId = rememberedSay.roleId || '';
         if (roleId && !rolesNow.some(r => r.id === roleId)) roleId = ''; // 角色被删回落
@@ -388,8 +426,13 @@ class UIManager {
       }
       this.showSayAddDialog(insertSay);
     } else if (type === 'repeat') {
-      editor.insertCodeAtCursor('<repeat count="2">\n  \n</repeat>', -4);
+      const count = presets.repeatCount || LISTEXT_CONSTANTS.DEFAULT_REPEAT_COUNT;
+      editor.insertCodeAtCursor(`<repeat count="${count}">\n  \n</repeat>`, -4);
     } else if (type === 'section') {
+      if (silent) {
+        editor.insertCodeAtCursor(`<section title="${presets.sectionTitle || '分节标题'}">`);
+        return;
+      }
       this.showSectionAddDialog((title) => {
         editor.insertCodeAtCursor(`<section title="${title}">`);
       });

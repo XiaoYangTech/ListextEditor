@@ -29,12 +29,38 @@ function getSettingsPath() {
   return path.join(app.getPath('userData'), 'settings.json');
 }
 
+// 积木插入预设：只存与工程无关的缺省值（语速/停顿时长/重复次数/分节标题）。
+// 角色与音效随工程变化，不纳入预设。
+// insertMode：follow=沿用现有「记住本属性」会话记忆；ask=每次弹属性窗口；preset=不弹窗直接用预设值
+function getDefaultBlockPresets() {
+  return { insertMode: 'follow', sayRate: null, pauseDuration: null, repeatCount: null, sectionTitle: null };
+}
+
+function normalizeBlockPresets(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const numIn = (v, min, max) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= min && n <= max ? n : null;
+  };
+  const title = typeof src.sectionTitle === 'string' ? src.sectionTitle.trim() : '';
+  return {
+    insertMode: ['follow', 'ask', 'preset'].includes(src.insertMode) ? src.insertMode : 'follow',
+    sayRate: numIn(src.sayRate, 0.5, 2),
+    pauseDuration: numIn(src.pauseDuration, 1, 600),
+    repeatCount: Number.isInteger(Number(src.repeatCount)) ? numIn(src.repeatCount, 1, 20) : null,
+    sectionTitle: title ? title.slice(0, 60) : null
+  };
+}
+
 function getDefaultSettings() {
   return {
     proxyMode: 'system',
     proxyUrl: '',
 
     shortcuts: getDefaultShortcuts(),
+
+    // 积木插入预设（设置 → 预设）
+    blockPresets: getDefaultBlockPresets(),
 
     // 启动引导状态：首次启动日期（首次调用 get-launch-state 时写入）
     // 与捐助弹窗「我已捐助」永久关闭标记
@@ -126,6 +152,7 @@ function registerConfigHandlers(ipcMain) {
 
   ipcMain.handle('save-settings', async (event, settings) => {
     const merged = { ...getDefaultSettings(), ...(settings || {}) };
+    merged.blockPresets = normalizeBlockPresets(merged.blockPresets);
     const success = saveSettings(merged);
     if (success) await applyProxySettings(merged);
     return { success };
@@ -219,5 +246,7 @@ module.exports = {
   registerConfigHandlers,
   getShortcuts,
   saveShortcuts,
-  getDefaultShortcuts
+  getDefaultShortcuts,
+  getDefaultBlockPresets,
+  normalizeBlockPresets
 };

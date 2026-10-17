@@ -55,11 +55,13 @@ class SettingsManager {
     const titles = {
       shortcuts: '快捷键',
       layout: '布局',
+      presets: '预设',
       proxy: '网络代理',
       cache: '缓存管理'
     };
     document.getElementById('page-title').textContent = titles[page] || '';
     if (page === 'cache') this.loadCacheStats();
+    if (page === 'presets') this.loadPresets();
   }
 
   formatBytes(n) {
@@ -120,8 +122,83 @@ class SettingsManager {
     this.loadLayout();
     await Promise.all([
       this.loadShortcuts(),
-      this.loadProxy()
+      this.loadProxy(),
+      this.loadPresets()
     ]);
+  }
+
+  // ---- 预设：积木插入方式的全局缺省值（角色/音效随工程变化，不纳入）----
+  async loadPresets() {
+    if (!window.electronAPI?.getSettings) return;
+    try {
+      const settings = await window.electronAPI.getSettings();
+      const p = settings?.blockPresets || {};
+      document.querySelectorAll('input[name="insertMode"]').forEach(r => {
+        r.checked = r.value === (p.insertMode || 'follow');
+      });
+      const setVal = (id, v) => {
+        const el = document.getElementById(id);
+        if (el) el.value = (v === null || v === undefined) ? '' : String(v);
+      };
+      setVal('presetSayRate', p.sayRate);
+      setVal('presetPauseDuration', p.pauseDuration);
+      setVal('presetRepeatCount', p.repeatCount);
+      const titleEl = document.getElementById('presetSectionTitle');
+      if (titleEl) titleEl.value = p.sectionTitle || '';
+    } catch (e) { console.error('读取预设失败:', e); }
+  }
+
+  _collectPresets() {
+    const numOrNull = (id) => {
+      const raw = document.getElementById(id)?.value;
+      if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : null;
+    };
+    const inRange = (id, min, max) => {
+      const n = numOrNull(id);
+      return n !== null && n >= min && n <= max ? n : null;
+    };
+    return {
+      insertMode: document.querySelector('input[name="insertMode"]:checked')?.value || 'follow',
+      sayRate: inRange('presetSayRate', 0.5, 2),
+      pauseDuration: inRange('presetPauseDuration', 1, 600),
+      repeatCount: inRange('presetRepeatCount', 1, 20),
+      sectionTitle: (document.getElementById('presetSectionTitle')?.value || '').trim().slice(0, 60) || null
+    };
+  }
+
+  async savePresets() {
+    if (!window.electronAPI?.saveSettings || !window.electronAPI?.getSettings) return;
+    const current = await window.electronAPI.getSettings();
+    console.log('[动作] 保存积木预设:', this._collectPresets());
+    const res = await window.electronAPI.saveSettings({ ...current, blockPresets: this._collectPresets() });
+    if (!res?.success) { alert('保存预设失败'); return; }
+    await this.loadPresets(); // 回读主进程校验后的值（越界会被归一为「跟随默认」）
+    this._flashPresetSaved('已保存');
+  }
+
+  async resetPresets() {
+    if (!window.electronAPI?.saveSettings || !window.electronAPI?.getSettings) return;
+    const ok = window.confirm('清除全部预设并恢复默认？\n\n插入方式将回到「跟随当前行为」，各默认值回到程序默认（已有积木不受影响）。');
+    if (!ok) return;
+    const current = await window.electronAPI.getSettings();
+    console.log('[动作] 清除积木预设（恢复默认）');
+    const res = await window.electronAPI.saveSettings({
+      ...current,
+      blockPresets: { insertMode: 'follow', sayRate: null, pauseDuration: null, repeatCount: null, sectionTitle: null }
+    });
+    if (!res?.success) { alert('恢复默认失败'); return; }
+    await this.loadPresets();
+    this._flashPresetSaved('已恢复默认');
+  }
+
+  _flashPresetSaved(text) {
+    const el = document.getElementById('presetSavedMsg');
+    if (!el) return;
+    el.textContent = text;
+    clearTimeout(this._presetSavedTimer);
+    this._presetSavedTimer = setTimeout(() => { el.textContent = ''; }, 3000);
   }
 
   async loadShortcuts() {
@@ -289,6 +366,9 @@ class SettingsManager {
   bindEvents() {
     document.getElementById('btnSaveShortcuts')?.addEventListener('click', () => this.saveShortcuts());
     document.getElementById('btnResetShortcuts')?.addEventListener('click', () => this.resetShortcuts());
+
+    document.getElementById('btnSavePresets')?.addEventListener('click', () => this.savePresets());
+    document.getElementById('btnResetPresets')?.addEventListener('click', () => this.resetPresets());
 
     document.getElementById('btnSaveProxy')?.addEventListener('click', () => this.saveProxy());
     document.getElementById('btnReloadProxy')?.addEventListener('click', () => this.loadProxy());

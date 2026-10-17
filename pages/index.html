@@ -268,6 +268,14 @@
           <input type="checkbox" id="exportWatermark" checked style="width:auto;">
           <label for="exportWatermark" style="margin:0;font-weight:400;">在音频开头添加水印音频（可取消勾选）</label>
         </div>
+        <div class="form-group">
+          <label style="display:flex;justify-content:space-between;align-items:center;">
+            <span>音质损伤（模拟考场喇叭）</span>
+            <span id="exportDegradeValue" style="font-weight:400;color:#757575;">0% · 原声</span>
+          </label>
+          <input type="range" id="exportDegrade" min="0" max="100" step="5" value="0">
+          <div class="hint" style="font-size:12px;color:#757575;margin-top:6px;">0 = 原声；数值越大越接近劣质考场喇叭：低频缺失、发闷、压缩失真；60% 以上转为单声道，80% 以上进一步降低采样率与码率。</div>
+        </div>
         <div id="exportInfo" style="font-size:12px;color:#757575;margin-top:4px;"></div>
       </div>
       <div class="dialog-footer">

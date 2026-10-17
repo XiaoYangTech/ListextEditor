@@ -48,6 +48,18 @@ class ExportHandler {
         document.getElementById('exportDir').value = dir;
       }
     });
+    // 音质损伤滑块：实时把数值显示成「x% · 强度描述」
+    const degradeInput = document.getElementById('exportDegrade');
+    const degradeLabel = document.getElementById('exportDegradeValue');
+    const renderDegradeLabel = () => {
+      if (!degradeLabel) return;
+      const v = Math.max(0, Math.min(100, Math.round(Number(degradeInput?.value) || 0)));
+      const hint = v === 0 ? '原声' : v < 30 ? '轻微劣化' : v < 60 ? '明显发闷' : v < 85 ? '严重劣化' : '全损音质';
+      degradeLabel.textContent = `${v}% · ${hint}`;
+    };
+    degradeInput?.addEventListener('input', renderDegradeLabel);
+    this._renderDegradeLabel = renderDegradeLabel;
+
     confirmBtn?.addEventListener('click', () => {
       dialog.classList.remove('active');
       const fileName = (document.getElementById('exportFileName')?.value?.trim() || this._defaultFileName())
@@ -111,6 +123,8 @@ class ExportHandler {
     // 水印复选框每次打开默认勾选，用户可自行取消
     const wmBox = document.getElementById('exportWatermark');
     if (wmBox) wmBox.checked = true;
+    // 音质损伤滑块保留上次的值（同一工程连续导出时不用反复拖），仅刷新显示文字
+    this._renderDegradeLabel?.();
     dialog.classList.add('active');
   }
 
@@ -403,8 +417,12 @@ class ExportHandler {
       // LRC 字幕勾选即生成（与水印复选框互相独立：水印置开头时，
       // 字幕开头同样写水印文案，正文时间轴按主进程返回的水印时长整体后移）
       const wantLrc = !!document.getElementById('exportLrc')?.checked;
-      this._updateProgress(80, wantLrc ? '正在合成 MP3（含字幕时间轴）...' : '正在合成 MP3...');
-      const result = await api.composeMp3(targetPath, segments, skipWatermark, wantLrc ? { withDurations: true } : undefined);
+      // 音质损伤（0-100）：由导出对话框滑块决定；>0 时主进程会额外过一遍「考场喇叭」滤镜链
+      const degrade = Math.max(0, Math.min(100, Math.round(Number(document.getElementById('exportDegrade')?.value) || 0)));
+      if (degrade > 0) this._logProgress(`音质损伤 ${degrade}%（模拟考场喇叭）`);
+      this._updateProgress(80, (wantLrc ? '正在合成 MP3（含字幕时间轴）' : '正在合成 MP3')
+        + (degrade > 0 ? '，并做音质劣化' : '') + '...');
+      const result = await api.composeMp3(targetPath, segments, skipWatermark, { withDurations: wantLrc, degrade });
       await api.cleanupTemp?.();
 
       // 合成成功后写 LRC（与 MP3 同名同目录）；写盘失败不影响 MP3 交付

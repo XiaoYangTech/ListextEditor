@@ -371,6 +371,45 @@ async function probeDuration(file) {
   return 0;
 }
 
+// 导出音频的 ID3 标签（水印分支 / 无水印分支 / 音质劣化分支共用）
+const MP3_METADATA_ARGS = [
+  '-metadata', 'title=本音频使用亿方听力大师免费制作',
+  '-metadata', 'artist=官网lstx.yfyw.top',
+  '-metadata', 'album=亿方听力大师'
+];
+
+// 音质损伤（模拟考场喇叭）：0=原声；数值越高，低频缺失越重、高频越闷、压缩失真越明显，
+// 60% 以上转单声道，80% 以上进一步降低采样率与码率。
+function buildDegradeFilter(level) {
+  const l = Math.max(1, Math.min(100, Math.round(Number(level) || 0)));
+  const t = l / 100;
+  const hp = Math.round(120 + t * 380);   // 120 → 500 Hz：小喇叭放不出低频
+  const lp = Math.round(7500 - t * 5200); // 7500 → 2300 Hz：高频发闷
+  const chain = [
+    `highpass=f=${hp}`,
+    `lowpass=f=${lp}`,
+    'acompressor=threshold=-20dB:ratio=3:attack=10:release=150'
+  ];
+  if (l >= 40) chain.push(`volume=${(1.4 + t * 1.1).toFixed(2)}`); // 功放拧到底
+  if (l >= 70) chain.push('alimiter=limit=0.9');                  // 削波/压缩感
+  return {
+    af: chain.join(','),
+    ac: l >= 60 ? 1 : 2,
+    ar: l >= 80 ? 16000 : (l >= 50 ? 22050 : 32000),
+    abr: l >= 80 ? '48k' : (l >= 50 ? '64k' : '96k')
+  };
+}
+
+// 把已合成的成品整体劣化：滤镜链改变不了容器里的编码参数，必须重编码
+async function degradeAudio(inputPath, outputPath, level) {
+  const cfg = buildDegradeFilter(level);
+  await runFfmpeg(['-y', '-i', inputPath, '-af', cfg.af,
+    '-ac', String(cfg.ac), '-ar', String(cfg.ar),
+    '-c:a', 'libmp3lame', '-b:a', cfg.abr,
+    ...MP3_METADATA_ARGS, outputPath]);
+  return cfg;
+}
+
 async function composeMp3(targetPath, segments, skipWatermark = false, options = {}) {
   ensureDir(tempDir);
   const jobDir = path.join(tempDir, 'compose_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
@@ -419,6 +458,13 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
   ensureDir(path.dirname(targetPath));
   await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', rawOutput]);
 
+  // 音质损伤（0-100）：>0 时先合成未劣化的成品，再整体过一遍劣化滤镜链输出到目标文件；
+  // =0 走原来的 -c copy 快路径，输出与历史版本完全一致。
+  const degrade = Math.max(0, Math.min(100, Math.round(Number(options.degrade) || 0)));
+  const muxTarget = degrade > 0 ? path.join(jobDir, 'final_raw.mp3') : targetPath;
+  let watermarkDuration = 0;
+  let muxed = false;
+
   // 水印为可选：skipWatermark 由渲染层复选框决定；加水印时拼在音频开头
   if (!skipWatermark) {
     // 打包后水印在 app.asar 内，ffmpeg 是外部进程读不了 asar 虚拟路径，
@@ -435,33 +481,35 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
       const wmLocal = path.join(jobDir, 'watermark.mp3');
       fs.writeFileSync(wmLocal, wmData);
       // 水印置开头占用的实际时长：LRC 正文时间轴要整体后移这段时长，避免字幕提前
-      const wmDuration = options.withDurations ? await probeDuration(wmLocal) : 0;
+      watermarkDuration = options.withDurations ? await probeDuration(wmLocal) : 0;
       const wmList = path.join(jobDir, 'wm_concat.txt');
       // 水印置开头：先水印后正文
       fs.writeFileSync(wmList,
         "file '" + wmLocal.replace(/'/g, "''") + "'\n" +
         "file '" + rawOutput.replace(/'/g, "''") + "'\n", 'utf-8');
       await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', wmList,
-        '-metadata', 'title=本音频使用亿方听力大师免费制作',
-        '-metadata', 'artist=官网lstx.yfyw.top',
-        '-metadata', 'album=亿方听力大师',
-        '-c', 'copy', targetPath]);
-      return {
-        success: true,
-        filePath: targetPath,
-        durations: options.withDurations ? durations : undefined,
-        watermarkDuration: options.withDurations ? wmDuration : undefined
-      };
+        ...MP3_METADATA_ARGS, '-c', 'copy', muxTarget]);
+      muxed = true;
+    } else {
+      console.error('[导出] 水印文件缺失，导出将不带水印');
     }
-    console.error('[导出] 水印文件缺失，导出将不带水印');
   }
 
-  await runFfmpeg(['-y', '-i', rawOutput,
-    '-metadata', 'title=本音频使用亿方听力大师免费制作',
-    '-metadata', 'artist=官网lstx.yfyw.top',
-    '-metadata', 'album=亿方听力大师',
-    '-c', 'copy', targetPath]);
-  return { success: true, filePath: targetPath, durations: options.withDurations ? durations : undefined };
+  if (!muxed) {
+    await runFfmpeg(['-y', '-i', rawOutput, ...MP3_METADATA_ARGS, '-c', 'copy', muxTarget]);
+  }
+
+  if (muxTarget !== targetPath) {
+    await degradeAudio(muxTarget, targetPath, degrade);
+  }
+
+  return {
+    success: true,
+    filePath: targetPath,
+    durations: options.withDurations ? durations : undefined,
+    watermarkDuration: options.withDurations ? watermarkDuration : undefined,
+    degrade: degrade || undefined
+  };
 }
 
 function registerIpcHandlers() {
