@@ -19,6 +19,10 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { cleanEdition } = require('../build-flags');
+
+// 纯净版标记：渲染层通过 preload 读取该启动参数，决定隐藏作者相关入口
+const CLEAN_ARGS = cleanEdition ? ['--listext-clean=1'] : [];
 
 let mainWindow;
 let settingsWindow = null;
@@ -104,7 +108,8 @@ function createMainWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, '../../preload.js'),
       sandbox: false,
-      webviewTag: true
+      webviewTag: true,
+      additionalArguments: CLEAN_ARGS
     }
   });
 
@@ -259,28 +264,45 @@ function createMenu() {
     },
     {
       label: '帮助',
-      submenu: [
-        { id: 'help-website', label: '访问软件官网', click: () => openExternal('https://www.yfyw.top') },
-        { id: 'help-video-tutorial', label: '官方视频教程', click: () => openExternal('https://www.bilibili.com/video/BV137g56WEm9/') },
-        { id: 'help-docs', label: '软件知识库文档', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/space/7664618862058458330?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home') },
-        { id: 'help-syntax', label: 'Listext语法说明', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/J1EQwIfuFi6pQTk9BytcwhumnFb?fromScene=spaceOverview') },
-        { id: 'help-ai-prompt', label: 'AI一键导入听力原文', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/LKkCwl7AvidXngkvJlkcCxg9nGd?fromScene=spaceOverview') },
-        { type: 'separator' },
-        { id: 'help-author-bilibili', label: '关注作者B站', click: () => openExternal('https://space.bilibili.com/413043448') },
-        { id: 'help-donate', label: '捐助本软件', click: () => sendToMain('open-donate') },
-        { type: 'separator' },
-        { id: 'help-check-update', label: '检查更新', click: () => sendToMain('check-update') },
-        { id: 'help-open-logs', label: '打开日志目录', click: () => {
-          try {
-            const { shell } = require('electron');
-            shell.openPath(require('./logger').getLogDir());
-          } catch (e) { console.error('打开日志目录失败:', e.message); }
-        } },
-        { type: 'separator' },
-        { id: 'help-about', label: '关于',
-          click: () => sendToMain('show-about')
-        }
-      ]
+      // 纯净版：只去掉「官方视频教程」与「关注作者B站」两个自媒体入口，其余（官网/飞书文档/语法/AI导入）保留
+      submenu: cleanEdition
+        ? [
+            { id: 'help-website', label: '访问软件官网', click: () => openExternal('https://www.yfyw.top') },
+            { id: 'help-docs', label: '软件知识库文档', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/space/7664618862058458330?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home') },
+            { id: 'help-syntax', label: 'Listext语法说明', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/J1EQwIfuFi6pQTk9BytcwhumnFb?fromScene=spaceOverview') },
+            { id: 'help-ai-prompt', label: 'AI一键导入听力原文', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/LKkCwl7AvidXngkvJlkcCxg9nGd?fromScene=spaceOverview') },
+            { type: 'separator' },
+            { id: 'help-open-logs', label: '打开日志目录', click: () => {
+              try {
+                const { shell } = require('electron');
+                shell.openPath(require('./logger').getLogDir());
+              } catch (e) { console.error('打开日志目录失败:', e.message); }
+            } },
+            { type: 'separator' },
+            { id: 'help-about', label: '关于', click: () => sendToMain('show-about') }
+          ]
+        : [
+            { id: 'help-website', label: '访问软件官网', click: () => openExternal('https://www.yfyw.top') },
+            { id: 'help-video-tutorial', label: '官方视频教程', click: () => openExternal('https://www.bilibili.com/video/BV137g56WEm9/') },
+            { id: 'help-docs', label: '软件知识库文档', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/space/7664618862058458330?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home') },
+            { id: 'help-syntax', label: 'Listext语法说明', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/J1EQwIfuFi6pQTk9BytcwhumnFb?fromScene=spaceOverview') },
+            { id: 'help-ai-prompt', label: 'AI一键导入听力原文', click: () => openExternal('https://xiaoyangtech.feishu.cn/wiki/LKkCwl7AvidXngkvJlkcCxg9nGd?fromScene=spaceOverview') },
+            { type: 'separator' },
+            { id: 'help-author-bilibili', label: '关注作者B站', click: () => openExternal('https://space.bilibili.com/413043448') },
+            { id: 'help-donate', label: '捐助本软件', click: () => sendToMain('open-donate') },
+            { type: 'separator' },
+            { id: 'help-check-update', label: '检查更新', click: () => sendToMain('check-update') },
+            { id: 'help-open-logs', label: '打开日志目录', click: () => {
+              try {
+                const { shell } = require('electron');
+                shell.openPath(require('./logger').getLogDir());
+              } catch (e) { console.error('打开日志目录失败:', e.message); }
+            } },
+            { type: 'separator' },
+            { id: 'help-about', label: '关于',
+              click: () => sendToMain('show-about')
+            }
+          ]
     }
   ];
 
@@ -311,7 +333,8 @@ function buildChildWindow(options) {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, '../../preload.js'),
-      sandbox: false
+      sandbox: false,
+      additionalArguments: CLEAN_ARGS
     },
     ...options
   });

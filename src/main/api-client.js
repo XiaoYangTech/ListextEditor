@@ -104,8 +104,12 @@ class ApiClient {
 
 const apiClient = new ApiClient();
 
+// 纯净版：所有公开接口（公告/轮播/例程/版本）与匿名上报一律停用，避免暴露作者信息
+const { cleanEdition } = require('../build-flags');
+
 // 启动后上报一次，此后每 8 分钟一次；失败静默，绝不阻塞或打断用户
 function startAnonymousPing(intervalMs = 8 * 60 * 1000) {
+  if (cleanEdition) return; // 纯净版不做过任何匿名上报
   const run = () => { apiClient.reportAnonymousPing().catch(() => {}); };
   setTimeout(run, 3000);
   setInterval(run, intervalMs);
@@ -113,18 +117,22 @@ function startAnonymousPing(intervalMs = 8 * 60 * 1000) {
 
 function registerApiHandlers() {
   ipcMain.handle('api-announcements', async () => {
+    if (cleanEdition) return [];
     return await apiClient.getAnnouncements();
   });
 
   ipcMain.handle('api-popups', async () => {
+    if (cleanEdition) return [];
     return await apiClient.getPopups();
   });
 
   ipcMain.handle('api-routines', async () => {
+    if (cleanEdition) return [];
     return await apiClient.getRoutines();
   });
 
   ipcMain.handle('api-banners', async () => {
+    if (cleanEdition) return [];
     return await apiClient.getBanners();
   });
 
@@ -133,6 +141,7 @@ function registerApiHandlers() {
   });
 
   ipcMain.handle('check-update', async () => {
+    if (cleanEdition) return null; // 纯净版永不提示更新
     return await apiClient.checkUpdate();
   });
 }

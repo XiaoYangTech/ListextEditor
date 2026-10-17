@@ -432,8 +432,9 @@ class ExportHandler {
       this._updateProgress(80, '正在合成 MP3...');
       // 合成阶段无法中途取消，收起取消按钮避免误导
       document.getElementById('exportProgressCancel').style.display = 'none';
-      // 水印可选：勾选在音频开头加水印（默认），取消勾选则不加
-      const skipWatermark = !document.getElementById('exportWatermark')?.checked;
+      // 水印可选：勾选在音频开头加水印（默认），取消勾选则不加；纯净版一律不加（水印音频是作者声音）
+      const cleanEdition = window.electronAPI?.buildFlags?.cleanEdition === true;
+      const skipWatermark = cleanEdition || !document.getElementById('exportWatermark')?.checked;
       // LRC 字幕勾选即生成（与水印复选框互相独立：水印置开头时，
       // 字幕开头同样写水印文案，正文时间轴按主进程返回的水印时长整体后移）
       const wantLrc = !!document.getElementById('exportLrc')?.checked;

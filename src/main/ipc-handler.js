@@ -28,6 +28,7 @@ const { openSettingsWindow } = require('./window-manager');
 const { getBuiltInDir, getBuiltInRoots, scanBuiltInSounds } = require('./sound-handler');
 const fileLocker = require('./file-locker');
 const crypto = require('crypto');
+const { cleanEdition } = require('../build-flags');
 
 const tempDir = path.join(app.getPath('temp'), 'ListextEditor');
 
@@ -395,7 +396,8 @@ async function probeDuration(file) {
 }
 
 // 导出音频的 ID3 标签（水印分支 / 无水印分支 / 音质劣化分支共用）
-const MP3_METADATA_ARGS = [
+// 纯净版不写作者相关标签，避免导出文件带出作者信息
+const MP3_METADATA_ARGS = cleanEdition ? [] : [
   '-metadata', 'title=本音频使用亿方听力大师免费制作',
   '-metadata', 'artist=官网lstx.yfyw.top',
   '-metadata', 'album=亿方听力大师'
@@ -599,7 +601,8 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
   let muxed = false;
 
   // 水印为可选：skipWatermark 由渲染层复选框决定；加水印时拼在音频开头
-  if (!skipWatermark) {
+  // 纯净版一律不加（水印音频是作者声音）
+  if (!skipWatermark && !cleanEdition) {
     // 打包后水印在 app.asar 内，ffmpeg 是外部进程读不了 asar 虚拟路径，
     // 先用 Electron 的 fs（能读 asar）把水印落到任务目录，再交给 ffmpeg
     let wmData = null;

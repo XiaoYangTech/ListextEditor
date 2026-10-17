@@ -932,6 +932,11 @@ class UIManager {
   }
 
   async checkForUpdates(manual = false) {
+    // 纯净版：永不检查更新、永不提示更新
+    if (window.electronAPI?.buildFlags?.cleanEdition) {
+      if (manual) this.showInfoDialog('检查更新', '当前版本为纯净版，不提供在线更新');
+      return;
+    }
     if (!window.electronAPI?.checkUpdate || !window.electronAPI?.getAppInfo) return;
     if (manual) console.log('[动作] 手动检查更新');
     try {

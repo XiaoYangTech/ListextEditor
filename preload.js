@@ -452,6 +452,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   selectDirectory: (defaultPath) => ipcRenderer.invoke('select-directory', defaultPath),
 
+  // 构建开关：纯净版（主进程通过 additionalArguments 传入）
+  buildFlags: {
+    cleanEdition: process.argv.includes('--listext-clean=1')
+  },
+
   selectAudioFile: () => ipcRenderer.invoke('select-audio-file'),
   selectAudioSavePath: (defaultName) => ipcRenderer.invoke('select-audio-save-path', defaultName),
   mixAudio: (opts) => ipcRenderer.invoke('mix-audio', opts),

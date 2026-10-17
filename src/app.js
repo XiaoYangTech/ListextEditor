@@ -18,6 +18,16 @@
 
 class ListextEditor {
   constructor() {
+    // 纯净版开关（构建时写入 build-flags.json，或开发时 LISTEXT_CLEAN=1）：
+    // 隐藏所有与作者/运营相关的入口，停用联网与更新提示，导出不带作者水印
+    this.cleanEdition = window.electronAPI?.buildFlags?.cleanEdition === true;
+    if (this.cleanEdition) {
+      try {
+        document.querySelectorAll('[data-clean-hide]').forEach(el => { el.style.display = 'none'; });
+        document.documentElement.classList.add('clean-edition');
+      } catch { /* 忽略 */ }
+    }
+
     // 日志转发已由 src/log-forward.js（页面首引脚本）完成，覆盖 index 与 settings 两个窗口
     this.parser = new ListextParser();
     this.renderer = null;
@@ -132,6 +142,7 @@ class ListextEditor {
   }
 
   async checkStartupGuides() {
+    if (this.cleanEdition) return; // 纯净版：不弹新手引导/启动公告/捐助弹窗
     const api = window.electronAPI;
     if (!api?.getLaunchState) return;
 
@@ -187,6 +198,7 @@ class ListextEditor {
 
   // 帮助菜单「捐助本软件」：复用启动弹窗队列，自动排队等待其它弹窗关闭，不写「已捐助」标记
   openDonateDialog() {
+    if (this.cleanEdition) return; // 纯净版：不展示捐助弹窗
     if (!document.getElementById('donateDialog')) return;
     if (!this._startupQueue) this._startupQueue = [];
     this._startupQueue.push({ el: 'donateDialog' });

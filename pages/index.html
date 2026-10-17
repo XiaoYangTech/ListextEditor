@@ -50,10 +50,10 @@
             <div class="home-nav-item active" data-section="dashboard">
               <span class="material-icons">dashboard</span>工作台
             </div>
-            <div class="home-nav-item" data-section="announcements">
+            <div class="home-nav-item" data-section="announcements" data-clean-hide>
               <span class="material-icons">notifications</span>系统公告
             </div>
-            <div class="home-nav-item" data-section="templates">
+            <div class="home-nav-item" data-section="templates" data-clean-hide>
               <span class="material-icons">inventory_2</span>例程模板库
             </div>
           </div>
@@ -67,7 +67,7 @@
             </div>
           </div>
           <div class="home-content">
-            <div class="home-banner" id="homeBanner">
+            <div class="home-banner" id="homeBanner" data-clean-hide>
               <div class="home-banner-bg" id="homeBannerBg"></div>
               <div class="home-banner-placeholder" id="homeBannerPlaceholder">
                 <span class="material-icons">image</span>
@@ -85,7 +85,7 @@
                 <div class="home-empty-hint">暂无最近工程，点击「新建工程」开始创作</div>
               </div>
             </div>
-            <div class="home-section" id="homeAnnouncements" style="display:none;flex:1;flex-direction:column;min-height:0">
+            <div class="home-section" id="homeAnnouncements" data-clean-hide style="display:none;flex:1;flex-direction:column;min-height:0">
               <h3 class="home-section-title">系统公告</h3>
               <div class="home-split-panel" id="homeAnnouncePanel">
                 <div class="home-split-list" id="homeAnnounceList">
@@ -96,7 +96,7 @@
                 </div>
               </div>
             </div>
-            <div class="home-section" id="homeTemplates" style="display:none;flex:1;flex-direction:column;min-height:0">
+            <div class="home-section" id="homeTemplates" data-clean-hide style="display:none;flex:1;flex-direction:column;min-height:0">
               <h3 class="home-section-title">例程模板库</h3>
               <div class="home-split-panel" id="homeTemplatePanel">
                 <div class="home-split-list" id="homeTemplateList">
@@ -264,7 +264,7 @@
           <input type="checkbox" id="exportLrc" style="width:auto;">
           <label for="exportLrc" style="margin:0;font-weight:400;">同时生成 LRC 字幕文件</label>
         </div>
-        <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+        <div class="form-group" data-clean-hide style="display:flex;align-items:center;gap:8px;">
           <input type="checkbox" id="exportWatermark" checked style="width:auto;">
           <label for="exportWatermark" style="margin:0;font-weight:400;">在音频开头添加水印音频（可取消勾选）</label>
         </div>
@@ -354,9 +354,9 @@
           GPL-3.0 License
         </p>
 
-        <div class="about-divider"></div>
+        <div class="about-divider" data-clean-hide></div>
 
-        <blockquote class="about-quote">
+        <blockquote class="about-quote" data-clean-hide>
           <p>「但行好事，莫问前程」</p>
           <p class="about-quote-meta">
             ——某科技区UP主在指导亿方运维上一个项目<span class="about-proj">《亿方教材助手》</span>未来发展方向时引用。
@@ -369,7 +369,7 @@
     </div>
   </div>
 
-  <div id="updateDialog" class="dialog">
+  <div id="updateDialog" class="dialog" data-clean-hide>
     <div class="dialog-content dialog-update">
       <div class="update-hero">
         <span class="material-icons update-hero-icon">system_update</span>
@@ -396,7 +396,7 @@
     </div>
   </div>
 
-  <div id="donateDialog" class="dialog">
+  <div id="donateDialog" class="dialog" data-clean-hide>
     <div class="dialog-content donate-content">
       <div class="dialog-header"><h2>赞助亿方听力大师</h2><button class="dialog-close" id="donateCloseTop">&times;</button></div>
       <div class="dialog-body">
@@ -499,7 +499,7 @@
     </div>
   </div>
 
-  <div id="popupDialog" class="dialog">
+  <div id="popupDialog" class="dialog" data-clean-hide>
     <div class="dialog-content popup-content">
       <div class="dialog-header"><h2 id="popupDialogTitle">公告</h2><button class="dialog-close" id="popupCloseTop">&times;</button></div>
       <div class="dialog-body">
@@ -513,7 +513,7 @@
     </div>
   </div>
 
-  <div id="welcomeDialog" class="dialog">
+  <div id="welcomeDialog" class="dialog" data-clean-hide>
     <div class="dialog-content dialog-small welcome-content">
       <div class="dialog-header"><h2>欢迎使用亿方听力大师</h2><button class="dialog-close" id="welcomeCloseTop">&times;</button></div>
       <div class="dialog-body">

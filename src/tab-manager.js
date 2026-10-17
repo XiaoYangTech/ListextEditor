@@ -95,12 +95,16 @@ class TabManager {
     });
 
     this.renderRecentProjects();
-    this.loadBanners();
-    this.loadAnnouncements();
-    this.loadRoutines();
+    // 纯净版：不拉取轮播/公告/例程（这些是作者运营内容）
+    if (!window.electronAPI?.buildFlags?.cleanEdition) {
+      this.loadBanners();
+      this.loadAnnouncements();
+      this.loadRoutines();
+    }
   }
 
   async loadBanners() {
+    if (window.electronAPI?.buildFlags?.cleanEdition) return;
     if (!window.electronAPI?.fetchBanners) return;
     try {
       const list = await window.electronAPI.fetchBanners();
