@@ -62,6 +62,21 @@ class LossyAudioTool {
       });
     });
     this._applyLevelToRange();
+
+    // 主进程回传的处理进度（测响度 → 生成全损音频），避免提示长时间不动
+    if (!this._progressBound) {
+      this._progressBound = true;
+      window.electronAPI.onDegradeAudioProgress?.((p) => this._onProgress(p));
+    }
+  }
+
+  // 处理进度：更新下方提示（只在处理中生效，过滤掉迟到/残留的事件）
+  _onProgress(p) {
+    if (!this._busy || !p || p.stage === 'done') return;
+    const level = this._runLevel ?? this.level;
+    const pct = Number.isFinite(Number(p.percent)) ? Math.round(Number(p.percent)) : null;
+    const stage = p.stage === 'measure' ? '正在测量响度' : '正在生成全损音频';
+    this._setHint(`${stage}${pct != null ? ` ${pct}%` : ''}（损坏程度 ${level}% · ${this._levelText(level)}），请稍候…`);
   }
 
   // 把 this.level 同时写回滑块、文字与下方提示（滑块重写值会强制重绘滑块本身）
@@ -159,6 +174,7 @@ class LossyAudioTool {
     }
 
     this._busy = true;
+    this._runLevel = level;
     this._stopPreview();
     this._setHint(isPreview ? `正在生成 ${level}% 试听…` : `正在全损处理（${level}%）…`);
     try {
@@ -178,6 +194,7 @@ class LossyAudioTool {
       this._setHint('失败：' + (e?.message || e));
     } finally {
       this._busy = false;
+      this._runLevel = null;
     }
   }
 

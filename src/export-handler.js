@@ -76,6 +76,17 @@ class ExportHandler {
     // 导出进度弹窗：显式取消/重试按钮（不再依赖隐藏的 ESC 逻辑）
     document.getElementById('exportProgressCancel')?.addEventListener('click', () => this._requestCancelExport());
     document.getElementById('exportProgressRetry')?.addEventListener('click', () => this._resolveNetworkPause('retry'));
+
+    // 主进程回传的合成/劣化进度：把条形进度从 80% 平滑推进到 98%（长时间停在 80% 会被当成卡住）
+    if (!this._composeProgressBound) {
+      this._composeProgressBound = true;
+      window.electronAPI.onComposeProgress?.((p) => {
+        const dlg = document.getElementById('exportProgressDialog');
+        if (!dlg?.classList.contains('active') || !p) return;
+        const pct = Number.isFinite(Number(p.percent)) ? Math.max(0, Math.min(100, Number(p.percent))) : 0;
+        this._updateProgress(80 + Math.round(pct * 0.14), p.stage || '正在合成 MP3...');
+      });
+    }
   }
 
   _sep() {

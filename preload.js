@@ -456,6 +456,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectAudioSavePath: (defaultName) => ipcRenderer.invoke('select-audio-save-path', defaultName),
   mixAudio: (opts) => ipcRenderer.invoke('mix-audio', opts),
   degradeAudio: (opts) => ipcRenderer.invoke('degrade-audio', opts),
+  onDegradeAudioProgress: (callback) => ipcRenderer.on('degrade-audio-progress', (event, payload) => callback(payload)),
+  onComposeProgress: (callback) => ipcRenderer.on('compose-progress', (event, payload) => callback(payload)),
   importAudioFile: (filePath) => ipcRenderer.invoke('import-audio-file', filePath),
   selectExportPath: () => ipcRenderer.invoke('select-export-path'),
   platform: process.platform,

@@ -20,7 +20,7 @@ const { ipcMain, shell, app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const ffmpegStatic = require('ffmpeg-static');
 const AdmZip = require('adm-zip');
 const { ensureDir } = require('./utils');
@@ -345,6 +345,27 @@ function runFfmpeg(args) {
   });
 }
 
+// 带进度的 ffmpeg 调用：解析 `-progress pipe:1` 输出的 out_time_ms（单位其实是微秒）回调已处理时长
+function runFfmpegStreaming(args, onOutTimeSec) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(resolveFfmpegBin(), args, { windowsHide: true });
+    let stderr = '';
+    proc.stdout.on('data', (buf) => {
+      for (const m of String(buf).matchAll(/out_time_ms=(\d+)/g)) {
+        try { onOutTimeSec?.(Number(m[1]) / 1e6); } catch { /* 忽略进度回调异常 */ }
+      }
+    });
+    // 只为报错保留最后一段输出，避免长任务把内存吃满
+    proc.stderr.on('data', (buf) => { stderr = (stderr + String(buf)).slice(-8000); });
+    proc.on('error', reject);
+    proc.on('close', (code) => {
+      if (code === 0) return resolve({ stderr });
+      const lines = stderr.split('\n').map(l => l.trim()).filter(Boolean);
+      reject(new Error(lines.slice(-5).join('\n') || `ffmpeg 退出码 ${code}`));
+    });
+  });
+}
+
 // ffmpeg 是外部进程，读不了 asar 虚拟路径；asar 内的文件先落临时目录
 function stageIfInAsar(filePath, jobDir, index) {
   if (!filePath || !filePath.includes('.asar')) return filePath;
@@ -429,10 +450,13 @@ async function measureLoudness(filePath, afPrefix) {
 // 把已合成的成品整体劣化：滤镜链改变不了容器里的编码参数，必须重编码。
 // 响度归一化：把滑块进度 t 映射成「源响度 → 0 LUFS」的目标响度（不降低、不越界），
 // 增益后再硬削波，保证音量足够「炸」且与参考梗曲同量级。
-async function degradeAudio(inputPath, outputPath, level) {
+// onProgress({stage, percent}) 用于向渲染层上报进度：measure（测响度）→ encode（生成）→ done
+async function degradeAudio(inputPath, outputPath, level, onProgress) {
   const cfg = buildDegradeFilter(level);
   const t = Math.max(0, Math.min(100, Math.round(Number(level) || 0))) / 100;
+  const report = (stage, percent) => { try { onProgress?.({ stage, percent }); } catch { /* 忽略进度回调异常 */ } };
 
+  report('measure', 5);
   const [srcLufs, chainLufs] = await Promise.all([
     measureLoudness(inputPath, null).catch(() => null),
     measureLoudness(inputPath, cfg.af).catch(() => null)
@@ -446,14 +470,21 @@ async function degradeAudio(inputPath, outputPath, level) {
     targetLufs = Math.max(chainLufs, base + (0 - base) * t);
     gainDb = Math.max(0, Math.min(40, targetLufs - chainLufs));
   }
+  report('encode', 45);
 
   const finalAf = cfg.af
     + (gainDb >= 0.1 ? `,volume=${gainDb.toFixed(1)}dB` : '')
     + ',asoftclip=type=hard:threshold=1.0';
-  await runFfmpeg(['-y', '-i', inputPath, '-af', finalAf,
+  const totalDur = await probeDuration(inputPath);
+  await runFfmpegStreaming(['-y', '-hide_banner', '-nostdin', '-i', inputPath, '-af', finalAf,
     '-ac', String(cfg.ac), '-ar', String(cfg.ar),
     '-c:a', 'libmp3lame', '-b:a', cfg.abr,
-    ...MP3_METADATA_ARGS, outputPath]);
+    ...MP3_METADATA_ARGS, '-progress', 'pipe:1', '-nostats', outputPath], (sec) => {
+    if (!totalDur || totalDur <= 0) return;
+    const ratio = Math.max(0, Math.min(1, sec / totalDur));
+    report('encode', Math.round(45 + ratio * 54));
+  });
+  report('done', 100);
   return {
     ...cfg,
     af: finalAf,
@@ -468,12 +499,15 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
   ensureDir(tempDir);
   const jobDir = path.join(tempDir, 'compose_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
   ensureDir(jobDir);
+  // 合成进度上报（渲染层把条形进度映射到 80%~98%，避免长时间停在 80% 看起来卡住）
+  const report = (percent, stage) => { try { options.onProgress?.({ percent, stage }); } catch { /* 忽略进度回调异常 */ } };
 
   await runFfmpeg(['-version']);
 
   const partPaths = [];
   const durations = []; // options.withDurations 时逐片段探测时长，供上层生成 LRC
   for (let i = 0; i < segments.length; i++) {
+    report(Math.round((i / Math.max(1, segments.length)) * 62), `正在合成片段 ${i + 1}/${segments.length}`);
     const seg = segments[i];
     const part = path.join(jobDir, 'part_' + String(i).padStart(4, '0') + '.mp3');
 
@@ -510,6 +544,7 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
   fs.writeFileSync(listFile, listContent, 'utf-8');
 
   ensureDir(path.dirname(targetPath));
+  report(66, '正在合并音频片段');
   await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', rawOutput]);
 
   // 音质损伤（0-100）：>0 时先合成未劣化的成品，再整体过一遍劣化滤镜链输出到目标文件；
@@ -550,13 +585,20 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
   }
 
   if (!muxed) {
+    report(70, '正在封装输出');
     await runFfmpeg(['-y', '-i', rawOutput, ...MP3_METADATA_ARGS, '-c', 'copy', muxTarget]);
   }
 
   let degradeInfo = null;
   if (muxTarget !== targetPath) {
-    degradeInfo = await degradeAudio(muxTarget, targetPath, degrade);
+    report(72, '正在做音质劣化');
+    degradeInfo = await degradeAudio(muxTarget, targetPath, degrade, ({ stage, percent }) => {
+      // 劣化自身 0~100 映射到 72~98
+      const p = Number.isFinite(Number(percent)) ? Number(percent) : 0;
+      report(72 + Math.round(Math.min(100, Math.max(0, p)) * 0.26), stage === 'measure' ? '正在测量响度' : '正在做音质劣化');
+    });
   }
+  report(100, '完成');
 
   return {
     success: true,
@@ -606,7 +648,9 @@ function registerIpcHandlers() {
   ipcMain.handle('compose-mp3', async (event, targetPath, segments, skipWatermark, options) => {
     try {
       if (!targetPath || !Array.isArray(segments)) return { success: false, error: '参数不完整' };
-      return await composeMp3(targetPath, segments, skipWatermark, options);
+      const sender = event.sender;
+      const onProgress = (p) => { try { if (!sender.isDestroyed()) sender.send('compose-progress', p); } catch { /* 忽略 */ } };
+      return await composeMp3(targetPath, segments, skipWatermark, { ...(options || {}), onProgress });
     } catch (error) {
       console.error('[IPC失败] compose-mp3:', error.message);
       return { success: false, error: error.message };
@@ -794,7 +838,9 @@ function registerIpcHandlers() {
         ensureDir(path.dirname(outPath));
       }
 
-      const cfg = await degradeAudio(inputPath, outPath, level);
+      const cfg = await degradeAudio(inputPath, outPath, level, ({ stage, percent }) => {
+        try { if (!event.sender.isDestroyed()) event.sender.send('degrade-audio-progress', { stage, percent }); } catch { /* 忽略 */ }
+      });
       const duration = await probeDuration(outPath);
       console.log('[全损] 完成:', outPath, `损坏${level}%`, `时长${duration.toFixed(2)}s`);
       return { success: true, filePath: outPath, preview: isPreview, level, duration, params: cfg };
