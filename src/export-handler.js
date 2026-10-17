@@ -54,7 +54,7 @@ class ExportHandler {
     const renderDegradeLabel = () => {
       if (!degradeLabel) return;
       const v = Math.max(0, Math.min(100, Math.round(Number(degradeInput?.value) || 0)));
-      const hint = v === 0 ? '原声' : v < 30 ? '轻微破音' : v < 60 ? '明显炸麦' : v < 90 ? '严重炸麦' : '全损炸麦';
+      const hint = v === 0 ? '原声' : v <= 30 ? '轻微破音' : v <= 60 ? '明显炸麦' : v < 90 ? '严重炸麦' : '全损炸麦';
       degradeLabel.textContent = `${v}% · ${hint}`;
     };
     degradeInput?.addEventListener('input', renderDegradeLabel);

@@ -49,7 +49,7 @@ class LossyAudioTool {
     const syncFromRange = () => {
       const v = Number(range?.value);
       if (Number.isFinite(v)) this.level = Math.max(10, Math.min(100, Math.round(v)));
-      this._syncLevelLabel();
+      this._applyLevelToRange();
     };
     // input 覆盖拖动/键盘，change 兜住个别只触发 change 的情况
     range?.addEventListener('input', syncFromRange);
@@ -64,30 +64,45 @@ class LossyAudioTool {
     this._applyLevelToRange();
   }
 
-  // 把 this.level 同时写回滑块与文字（滑块重写值会强制重绘滑块本身）
+  // 把 this.level 同时写回滑块、文字与下方提示（滑块重写值会强制重绘滑块本身）
   _applyLevelToRange() {
     const range = this._el('lossyLevel');
     if (range) range.value = String(this.level);
     this._syncLevelLabel();
+    this._onLevelChanged();
   }
 
   _level() {
     return this.level;
   }
 
+  // 档位文字：与导出对话框的「音质损伤」用同一套阈值，避免同一数值两处叫法不同
+  // （用 <= 边界，保证快捷档「轻微破音 30 / 明显炸麦 60 / 全损 100」的文字与按钮标签一致）
+  _levelText(lvl = this.level) {
+    return lvl <= 30 ? '轻微破音' : lvl <= 60 ? '明显炸麦' : lvl < 90 ? '严重炸麦' : '全损炸麦';
+  }
+
   _syncLevelLabel() {
-    const lvl = this.level;
     const label = this._el('lossyLevelLabel');
-    if (label) {
-      // 与导出对话框的「音质损伤」用同一套档位阈值，避免同一数值两处叫法不同
-      const hint = lvl < 30 ? '轻微破音' : lvl < 60 ? '明显炸麦' : lvl < 90 ? '严重炸麦' : '全损炸麦';
-      label.textContent = `${lvl}% · ${hint}`;
-    }
+    if (label) label.textContent = `${this.level}% · ${this._levelText()}`;
+  }
+
+  // 下方提示始终跟随当前档位（此前写死“100%”容易看成卡住不动）
+  _baseHint() {
+    return `当前损坏程度 ${this.level}% · ${this._levelText()}。损坏越狠越响，越靠右音量越大（最高档整体响度约 0 LUFS，注意设备音量）。`
+      + '点「试听」听听效果，满意再「一键全损并导出」；输出为 MP3，原文件不会被修改。';
+  }
+
+  // 拖动滑块/点快捷档时：停掉旧的试听（避免听到的还是上一档）并把提示改回当前档位
+  _onLevelChanged() {
+    if (this._busy) return; // 正在生成时保留进度提示
+    this._stopPreview();
+    this._setHint(this._baseHint());
   }
 
   open() {
     this.bind();
-    this._setHint('选一段音频、调损坏程度，先「试听」听听效果，满意再「一键全损并导出」。损坏越狠越响（100% 时整体响度约 0 LUFS，可能非常吵）⚠️ 请先调小设备音量。输出为 MP3，原文件不会被修改。');
+    this._setHint(this._baseHint());
     this._el('lossyToolDialog')?.classList.add('active');
     // 对话框刚从 display:none 变为可见时，range 的滑块偶尔会停在旧位置（轨道已按新值着色）；
     // 下一帧重新写入一次值，强制重绘滑块并同步文字，保证「看到的位置 = 显示的数字」。
@@ -122,7 +137,7 @@ class LossyAudioTool {
     const input = this._el('lossyInputPath');
     if (input) input.value = filePath;
     this._stopPreview();
-    this._setHint('已选择文件，选好损坏程度后点「试听」或「一键全损并导出」。');
+    this._setHint(`已选择文件。当前损坏程度 ${this.level}% · ${this._levelText()}，点「试听」听听效果或直接「一键全损并导出」。`);
   }
 
   _baseName() {
@@ -153,10 +168,10 @@ class LossyAudioTool {
         return;
       }
       if (isPreview) {
-        this._setHint(`试听中（损坏程度 ${level}%），可换档位再次试听。`);
+        this._setHint(`试听中（损坏程度 ${level}% · ${this._levelText(level)}），可换档位再次试听。`);
         this._playPreview(res.filePath);
       } else {
-        this._setHint('导出完成：' + res.filePath);
+        this._setHint(`导出完成（损坏程度 ${level}% · ${this._levelText(level)}）：${res.filePath}`);
         window.app?.uiManager?.showInfoDialog?.('导出完成', `全损音质文件已保存：\n${res.filePath}`);
       }
     } catch (e) {
@@ -171,7 +186,10 @@ class LossyAudioTool {
       const url = String(filePath).replace(/\\/g, '/');
       const proto = url.startsWith('/') ? 'file://' + encodeURI(url) : 'file:///' + encodeURI(url);
       this._previewAudio = new Audio(proto);
-      this._previewAudio.addEventListener('ended', () => { this._previewAudio = null; });
+      this._previewAudio.addEventListener('ended', () => {
+        this._previewAudio = null;
+        if (!this._busy) this._setHint(this._baseHint()); // 试听完提示回到当前档位说明
+      });
       this._previewAudio.play();
     } catch (e) {
       console.error('试听失败:', e);
