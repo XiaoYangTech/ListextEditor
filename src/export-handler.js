@@ -428,7 +428,9 @@ class ExportHandler {
       const wantLrc = !!document.getElementById('exportLrc')?.checked;
       // 音质损伤（0-100）：由导出对话框滑块决定；>0 时主进程会额外过一遍「考场喇叭」滤镜链
       const degrade = Math.max(0, Math.min(100, Math.round(Number(document.getElementById('exportDegrade')?.value) || 0)));
-      if (degrade > 0) this._logProgress(`音质损伤 ${degrade}%（模拟考场喇叭）`);
+      // 注意：这里不要打「音质损伤 N%」这类带百分比的行——它会在整个合成+劣化阶段停在日志里，
+      // 看起来像进度卡在 100% 不动。损坏程度在导出设置里已可见，这里只提示"会做劣化"。
+      if (degrade > 0) this._logProgress('已启用「音质损伤」，合成完成后按设置做劣化处理（模拟考场喇叭）');
       this._updateProgress(80, (wantLrc ? '正在合成 MP3（含字幕时间轴）' : '正在合成 MP3')
         + (degrade > 0 ? '，并做音质劣化' : '') + '...');
       const result = await api.composeMp3(targetPath, segments, skipWatermark, { withDurations: wantLrc, degrade });
