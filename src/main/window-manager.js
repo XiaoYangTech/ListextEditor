@@ -253,7 +253,8 @@ function createMenu() {
     {
       label: '工具',
       submenu: [
-        { id: 'tool-audio-mixer', label: '给音频加背景音乐…', accelerator: 'CmdOrCtrl+Shift+B', click: () => sendToMain('open-audio-mixer') }
+        { id: 'tool-audio-mixer', label: '给音频加背景音乐…', accelerator: 'CmdOrCtrl+Shift+B', click: () => sendToMain('open-audio-mixer') },
+        { id: 'tool-lossy-audio', label: '一键全损音质…', accelerator: 'CmdOrCtrl+Shift+L', click: () => sendToMain('open-lossy-tool') }
       ]
     },
     {

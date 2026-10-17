@@ -845,6 +845,12 @@ class UIManager {
     window._audioMixer.open();
   }
 
+  // 一键全损音质小工具：把已有音频过一遍炸麦劣化
+  openLossyTool() {
+    if (!window._lossyTool) window._lossyTool = new LossyAudioTool();
+    window._lossyTool.open();
+  }
+
   async openRoleManager() {
     const dialog = document.getElementById('roleManagerDialog');
     if (!dialog) return;

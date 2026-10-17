@@ -327,6 +327,8 @@ class ListextEditor {
     window.electronAPI.onShowSettings(() => this.uiManager.showSettingsDialog());
     // 菜单栏「工具 → 给音频加背景音乐」
     window.electronAPI.onOpenAudioMixer?.(() => this.uiManager.openAudioMixer());
+    // 菜单栏「工具 → 一键全损音质」
+    window.electronAPI.onOpenLossyTool?.(() => this.uiManager.openLossyTool());
     // 菜单栏「帮助 → 捐助本软件」
     window.electronAPI.onOpenDonate?.(() => this.openDonateDialog());
 

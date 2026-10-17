@@ -723,6 +723,38 @@ function registerIpcHandlers() {
     }
   });
 
+  // 一键全损音质工具：把已有音频过一遍炸麦劣化滤镜（复用导出「音质损伤」同一套链路）
+  ipcMain.handle('degrade-audio', async (event, opts) => {
+    try {
+      const o = opts || {};
+      const inputPath = typeof o.inputPath === 'string' ? o.inputPath : '';
+      if (!inputPath || !fs.existsSync(inputPath)) return { success: false, error: '音频文件不存在' };
+      const level = Math.max(1, Math.min(100, Math.round(Number(o.level ?? 60))));
+      const isPreview = !o.targetPath || o.preview === true;
+
+      ensureDir(tempDir);
+      const jobDir = path.join(tempDir, 'lossy_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
+      ensureDir(jobDir);
+
+      let outPath;
+      if (isPreview) {
+        outPath = path.join(jobDir, 'preview.mp3');
+      } else {
+        outPath = String(o.targetPath);
+        if (!/\.mp3$/i.test(outPath)) outPath = outPath.replace(/\.[^.\/\\]+$/, '') + '.mp3';
+        ensureDir(path.dirname(outPath));
+      }
+
+      const cfg = await degradeAudio(inputPath, outPath, level);
+      const duration = await probeDuration(outPath);
+      console.log('[全损] 完成:', outPath, `损坏${level}%`, `时长${duration.toFixed(2)}s`);
+      return { success: true, filePath: outPath, preview: isPreview, level, duration, params: cfg };
+    } catch (error) {
+      console.error('[全损] 失败:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('get-built-in-paths', async () => {
     return {
       roots: getBuiltInRoots(),

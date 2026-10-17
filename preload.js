@@ -427,6 +427,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   onShowAbout: (callback) => ipcRenderer.on('show-about', () => callback()),
   onOpenAudioMixer: (callback) => ipcRenderer.on('open-audio-mixer', () => callback()),
+  onOpenLossyTool: (callback) => ipcRenderer.on('open-lossy-tool', () => callback()),
   onOpenDonate: (callback) => ipcRenderer.on('open-donate', () => callback()),
 
   onShowSettings: (callback) => ipcRenderer.on('show-settings', () => callback()),
@@ -454,6 +455,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectAudioFile: () => ipcRenderer.invoke('select-audio-file'),
   selectAudioSavePath: (defaultName) => ipcRenderer.invoke('select-audio-save-path', defaultName),
   mixAudio: (opts) => ipcRenderer.invoke('mix-audio', opts),
+  degradeAudio: (opts) => ipcRenderer.invoke('degrade-audio', opts),
   importAudioFile: (filePath) => ipcRenderer.invoke('import-audio-file', filePath),
   selectExportPath: () => ipcRenderer.invoke('select-export-path'),
   platform: process.platform,

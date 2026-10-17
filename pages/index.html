@@ -469,6 +469,36 @@
     </div>
   </div>
 
+  <div id="lossyToolDialog" class="dialog">
+    <div class="dialog-content audio-mixer-content">
+      <div class="dialog-header"><h2>一键全损音质</h2><button class="dialog-close" id="lossyToolCloseTop">&times;</button></div>
+      <div class="dialog-body">
+        <div class="form-group">
+          <label>音频文件（支持 mp3 / wav / flac / m4a / ogg）</label>
+          <div class="file-row">
+            <input type="text" id="lossyInputPath" readonly placeholder="点击右侧「浏览」选择已有音频">
+            <button class="btn" id="lossyPickInput">浏览</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>损坏程度：<span class="mix-vol" id="lossyLevelLabel">80% · 严重炸麦</span></label>
+          <input type="range" class="mix-range" id="lossyLevel" min="10" max="100" step="5" value="80">
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn btn-outline lossy-quick-btn" data-level="30">轻微破音</button>
+            <button class="btn btn-outline lossy-quick-btn" data-level="60">明显炸麦</button>
+            <button class="btn btn-outline lossy-quick-btn" data-level="100">全损</button>
+          </div>
+        </div>
+        <div id="lossyHint" class="mix-hint">选一段音频、调损坏程度，先「试听」听听效果，满意再「一键全损并导出」。输出为 MP3，原文件不会被修改。</div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-cancel" id="lossyCancel">关闭</button>
+        <button class="btn" id="lossyPreview">试听</button>
+        <button class="btn btn-primary" id="lossyExport">一键全损并导出</button>
+      </div>
+    </div>
+  </div>
+
   <div id="popupDialog" class="dialog">
     <div class="dialog-content popup-content">
       <div class="dialog-header"><h2 id="popupDialogTitle">公告</h2><button class="dialog-close" id="popupCloseTop">&times;</button></div>
@@ -513,6 +543,7 @@
   <script src="../src/tab-manager.js"></script>
   <script src="../src/role-manager-page.js"></script>
   <script src="../src/audio-mixer.js"></script>
+  <script src="../src/lossy-tool.js"></script>
   <script src="../src/role-replace-dialog.js"></script>
   <script src="../src/app.js"></script>
 </body>
