@@ -378,22 +378,25 @@ const MP3_METADATA_ARGS = [
   '-metadata', 'album=亿方听力大师'
 ];
 
-// 音质损伤（炸麦效果）：用增益把信号怼进硬削波，再叠加位深压缩，模拟考场喇叭/劣质麦克风过载的破音。
-// 0=原声；数值越高驱动越猛、削波越狠、位深越低；60% 以上转单声道，85% 以上进一步降采样降码率。
+// 音质损伤（炸麦效果）：先用增益把信号怼进硬削波、叠加位深压缩，再把整体响度拉满，
+// 模拟考场喇叭/劣质麦克风过载的破音。滑块同时控制「失真程度」和「音量」：
+// 损坏越狠 → 削波越重、响度越高（100% 时整体响度拉到约 0 LUFS，与 B 站全损音质梗曲同一量级）。
+// 频响只轻微收窄（参考梗曲 >4kHz 仅低约 2dB），主要靠削波和响度制造「炸」感。
 function buildDegradeFilter(level) {
   const l = Math.max(1, Math.min(100, Math.round(Number(level) || 0)));
   const t = l / 100;
-  const hp = Math.round(180 + t * 220);       // 180 → 400 Hz：小喇叭低频少
-  const lp = Math.round(6500 - t * 3300);     // 6500 → 3200 Hz：高频发闷
-  const driveDb = +(6 + t * 20).toFixed(1);   // +6 → +26 dB：把信号怼过 0 dBFS
-  const clipThreshold = +(1.0 - t * 0.45).toFixed(2); // 1.0 → 0.55：削波越狠越炸
+  const hp = Math.round(120 + t * 180);       // 120 → 300 Hz：轻收低频
+  const lp = Math.round(8000 - t * 2500);     // 8000 → 5500 Hz：轻微收高频（不闷）
+  const driveDb = +(8 + t * 24).toFixed(1);   // +8 → +32 dB：把波形怼成砖墙
+  const clipThreshold = +(1.0 - t * 0.5).toFixed(2); // 1.0 → 0.5：削波越来越狠
+  const ratio = +(4 + t * 2).toFixed(1);      // 4 → 6：动态压得越来越扁
   const chain = [
     `highpass=f=${hp}`,
     `lowpass=f=${lp}`,
-    'acompressor=threshold=-28dB:ratio=4:attack=4:release=90',
-    `volume=${driveDb}dB`
+    `acompressor=threshold=-30dB:ratio=${ratio}:attack=4:release=80`,
+    `volume=${driveDb}dB`,
+    `asoftclip=type=hard:threshold=${clipThreshold}`
   ];
-  if (l >= 20) chain.push(`asoftclip=type=hard:threshold=${clipThreshold}`);
   if (l >= 60) {
     const bits = Math.max(6, Math.round(12 - t * 6)); // 12 → 6 bit，颗粒感/破音
     const mix = +(0.15 + t * 0.35).toFixed(2);
@@ -402,19 +405,63 @@ function buildDegradeFilter(level) {
   return {
     af: chain.join(','),
     ac: l >= 60 ? 1 : 2,
-    ar: l >= 85 ? 16000 : (l >= 50 ? 22050 : 32000),
-    abr: l >= 85 ? '48k' : (l >= 50 ? '64k' : '96k')
+    ar: l >= 85 ? 16000 : (l >= 50 ? 22050 : 44100),
+    abr: l >= 85 ? '48k' : (l >= 50 ? '64k' : '96k'),
+    level: l, driveDb, clipThreshold
   };
 }
 
-// 把已合成的成品整体劣化：滤镜链改变不了容器里的编码参数，必须重编码
+// 解析 ffmpeg ebur128 输出的整体响度（LUFS）：Summary 里以 "I:" 开头的那行
+function parseLoudness(stderr) {
+  const matches = [...String(stderr || '').matchAll(/^\s*I:\s*(-?\d+(?:\.\d+)?)\s*LUFS/gm)];
+  if (!matches.length) return null;
+  const v = Number(matches[matches.length - 1][1]);
+  return Number.isFinite(v) ? v : null;
+}
+
+// 测量一段音频（可选先过滤镜链）的整体响度，供响度归一化用
+async function measureLoudness(filePath, afPrefix) {
+  const af = afPrefix ? `${afPrefix},ebur128=peak=true` : 'ebur128=peak=true';
+  const { stderr } = await runFfmpeg(['-hide_banner', '-nostdin', '-i', filePath, '-af', af, '-f', 'null', '-']);
+  return parseLoudness(stderr);
+}
+
+// 把已合成的成品整体劣化：滤镜链改变不了容器里的编码参数，必须重编码。
+// 响度归一化：把滑块进度 t 映射成「源响度 → 0 LUFS」的目标响度（不降低、不越界），
+// 增益后再硬削波，保证音量足够「炸」且与参考梗曲同量级。
 async function degradeAudio(inputPath, outputPath, level) {
   const cfg = buildDegradeFilter(level);
-  await runFfmpeg(['-y', '-i', inputPath, '-af', cfg.af,
+  const t = Math.max(0, Math.min(100, Math.round(Number(level) || 0))) / 100;
+
+  const [srcLufs, chainLufs] = await Promise.all([
+    measureLoudness(inputPath, null).catch(() => null),
+    measureLoudness(inputPath, cfg.af).catch(() => null)
+  ]);
+
+  let targetLufs = null;
+  let gainDb = 0;
+  if (Number.isFinite(chainLufs)) {
+    // 目标响度：源响度与 0 LUFS 之间按滑块插值；且不低于滤镜链本身的响度（只增不减）
+    const base = Number.isFinite(srcLufs) ? srcLufs : chainLufs;
+    targetLufs = Math.max(chainLufs, base + (0 - base) * t);
+    gainDb = Math.max(0, Math.min(40, targetLufs - chainLufs));
+  }
+
+  const finalAf = cfg.af
+    + (gainDb >= 0.1 ? `,volume=${gainDb.toFixed(1)}dB` : '')
+    + ',asoftclip=type=hard:threshold=1.0';
+  await runFfmpeg(['-y', '-i', inputPath, '-af', finalAf,
     '-ac', String(cfg.ac), '-ar', String(cfg.ar),
     '-c:a', 'libmp3lame', '-b:a', cfg.abr,
     ...MP3_METADATA_ARGS, outputPath]);
-  return cfg;
+  return {
+    ...cfg,
+    af: finalAf,
+    gainDb: Number(gainDb.toFixed(1)),
+    srcLufs,
+    chainLufs: Number.isFinite(chainLufs) ? Number(chainLufs.toFixed(1)) : null,
+    targetLufs: Number.isFinite(targetLufs) ? Number(targetLufs.toFixed(1)) : null
+  };
 }
 
 async function composeMp3(targetPath, segments, skipWatermark = false, options = {}) {
@@ -506,8 +553,9 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
     await runFfmpeg(['-y', '-i', rawOutput, ...MP3_METADATA_ARGS, '-c', 'copy', muxTarget]);
   }
 
+  let degradeInfo = null;
   if (muxTarget !== targetPath) {
-    await degradeAudio(muxTarget, targetPath, degrade);
+    degradeInfo = await degradeAudio(muxTarget, targetPath, degrade);
   }
 
   return {
@@ -515,7 +563,8 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
     filePath: targetPath,
     durations: options.withDurations ? durations : undefined,
     watermarkDuration: options.withDurations ? watermarkDuration : undefined,
-    degrade: degrade || undefined
+    degrade: degrade || undefined,
+    degradeInfo: degradeInfo || undefined
   };
 }
 

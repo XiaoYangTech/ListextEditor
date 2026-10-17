@@ -432,6 +432,9 @@ class ExportHandler {
       this._updateProgress(80, (wantLrc ? '正在合成 MP3（含字幕时间轴）' : '正在合成 MP3')
         + (degrade > 0 ? '，并做音质劣化' : '') + '...');
       const result = await api.composeMp3(targetPath, segments, skipWatermark, { withDurations: wantLrc, degrade });
+      if (result?.degradeInfo?.targetLufs != null) {
+        this._logProgress(`音质劣化完成：响度拉到 ${result.degradeInfo.targetLufs} LUFS（增益 ${result.degradeInfo.gainDb} dB）`);
+      }
       await api.cleanupTemp?.();
 
       // 合成成功后写 LRC（与 MP3 同名同目录）；写盘失败不影响 MP3 交付

@@ -87,7 +87,7 @@ class LossyAudioTool {
 
   open() {
     this.bind();
-    this._setHint('选一段音频、调损坏程度，先「试听」听听效果，满意再「一键全损并导出」。输出为 MP3，原文件不会被修改。');
+    this._setHint('选一段音频、调损坏程度，先「试听」听听效果，满意再「一键全损并导出」。损坏越狠越响（100% 时整体响度约 0 LUFS，可能非常吵）⚠️ 请先调小设备音量。输出为 MP3，原文件不会被修改。');
     this._el('lossyToolDialog')?.classList.add('active');
     // 对话框刚从 display:none 变为可见时，range 的滑块偶尔会停在旧位置（轨道已按新值着色）；
     // 下一帧重新写入一次值，强制重绘滑块并同步文字，保证「看到的位置 = 显示的数字」。

@@ -274,7 +274,7 @@
             <span id="exportDegradeValue" style="font-weight:400;color:#757575;">0% · 原声</span>
           </label>
           <input type="range" id="exportDegrade" min="0" max="100" step="5" value="0">
-          <div class="hint" style="font-size:12px;color:#757575;margin-top:6px;">0 = 原声；数值越大越像劣质考场喇叭：信号被怼到削波破音（炸麦），60% 以上转为单声道、颗粒感更强，85% 以上进一步降低采样率与码率。</div>
+          <div class="hint" style="font-size:12px;color:#757575;margin-top:6px;">0 = 原声；数值越大越像劣质考场喇叭：信号被怼到削波破音（炸麦），<b>音量也随滑块增大</b>（高段整体响度接近 0 LUFS）。60% 以上转为单声道、颗粒感更强，85% 以上进一步降低采样率与码率。⚠️ 高损坏档请先调小设备音量。</div>
         </div>
         <div id="exportInfo" style="font-size:12px;color:#757575;margin-top:4px;"></div>
       </div>
@@ -489,7 +489,7 @@
             <button class="btn btn-outline lossy-quick-btn" data-level="100">全损</button>
           </div>
         </div>
-        <div id="lossyHint" class="mix-hint">选一段音频、调损坏程度，先「试听」听听效果，满意再「一键全损并导出」。输出为 MP3，原文件不会被修改。</div>
+        <div id="lossyHint" class="mix-hint">选一段音频、调损坏程度，先「试听」听听效果，满意再「一键全损并导出」。损坏越狠越响（100% 时整体响度约 0 LUFS，可能非常吵）⚠️ 请先调小设备音量。输出为 MP3，原文件不会被修改。</div>
       </div>
       <div class="dialog-footer">
         <button class="btn btn-cancel" id="lossyCancel">关闭</button>
