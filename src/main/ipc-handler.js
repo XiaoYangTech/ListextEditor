@@ -332,7 +332,9 @@ function openProjectPackage(filePath, buffer) {
 function runFfmpeg(args) {
   return new Promise((resolve, reject) => {
     const ffmpegBin = resolveFfmpegBin();
-    execFile(ffmpegBin, args, { windowsHide: true }, (error, stdout, stderr) => {
+    // maxBuffer 必须放宽：ebur128 等滤镜会给长音频打大量 stderr（20 分钟约 4MB），
+    // 默认 1MB 会抛 ERR_CHILD_PROCESS_STDIO_MAXBUFFER，长音频会因此静默走回退逻辑
+    execFile(ffmpegBin, args, { windowsHide: true, maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) {
         // ffmpeg 报错会把版本 banner 和编译配置全喷出来，只留最后几行有用信息
         const lines = String(stderr || error.message || '').split('\n')
@@ -441,8 +443,12 @@ function parseLoudness(stderr) {
 }
 
 // 测量一段音频（可选先过滤镜链）的整体响度，供响度归一化用
+// framelog=quiet：关掉 ebur128 每 100ms 一行的逐帧日志，只保留结尾 Summary，
+// 否则长音频（20 分钟约 4MB）会撑爆 execFile 默认 1MB 的 stderr 缓冲
 async function measureLoudness(filePath, afPrefix) {
-  const af = afPrefix ? `${afPrefix},ebur128=peak=true` : 'ebur128=peak=true';
+  const af = afPrefix
+    ? `${afPrefix},ebur128=peak=true:framelog=quiet`
+    : 'ebur128=peak=true:framelog=quiet';
   const { stderr } = await runFfmpeg(['-hide_banner', '-nostdin', '-i', filePath, '-af', af, '-f', 'null', '-']);
   return parseLoudness(stderr);
 }
@@ -451,7 +457,7 @@ async function measureLoudness(filePath, afPrefix) {
 // 比两次独立解码少一次完整解码（180 秒素材实测 ~8.5s → ~6.3s）。
 // 两个 ebur128 的 Summary 块靠**滤镜实例序号**区分：源分支的 ebur128 在滤镜串里先创建、序号更小。
 async function measureLoudnessPair(inputPath, chainAf) {
-  const filterComplex = `[0:a]asplit=2[src][proc];[src]ebur128=peak=true[s];[proc]${chainAf},ebur128=peak=true[p]`;
+  const filterComplex = `[0:a]asplit=2[src][proc];[src]ebur128=peak=true:framelog=quiet[s];[proc]${chainAf},ebur128=peak=true:framelog=quiet[p]`;
   const { stderr } = await runFfmpeg(['-hide_banner', '-nostdin', '-i', inputPath,
     '-filter_complex', filterComplex,
     '-map', '[s]', '-f', 'null', os.devNull,
