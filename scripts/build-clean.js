@@ -36,11 +36,25 @@ const flagsPath = path.join(root, 'src', 'build-flags.json');
 
 function main() {
   const flagsBackup = fs.readFileSync(flagsPath, 'utf-8');
+  // 构建产物名与标准版相同（ListextEditor-<版本>-Setup.exe），会覆盖 dist 里已有的标准版安装包，
+  // 先备份、构建并改名后还原，避免纯净版构建把标准版产物弄丢
+  const distDir = path.join(root, 'dist');
+  const existingStandard = fs.existsSync(distDir)
+    ? fs.readdirSync(distDir).find(f => /^ListextEditor-.*-Setup\.exe$/i.test(f))
+    : null;
+  const existingStandardData = existingStandard ? fs.readFileSync(path.join(distDir, existingStandard)) : null;
+
   let restored = false;
   const restore = () => {
     if (restored) return;
     restored = true;
     try { fs.writeFileSync(flagsPath, flagsBackup); } catch (e) { console.warn('[纯净版] 还原构建开关失败:', e.message); }
+    if (existingStandardData) {
+      try {
+        fs.writeFileSync(path.join(distDir, existingStandard), existingStandardData);
+        console.log('[纯净版] 已还原标准版安装包:', existingStandard);
+      } catch (e) { console.warn('[纯净版] 还原标准版安装包失败:', e.message); }
+    }
   };
   process.on('exit', restore);
   process.on('SIGINT', () => { restore(); process.exit(1); });
