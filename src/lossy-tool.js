@@ -26,6 +26,8 @@
 class LossyAudioTool {
   constructor() {
     this.inputPath = '';
+    // 损坏程度的唯一权威值：滑块位置与文字都从它派生，避免两者不同步
+    this.level = 80;
     this._previewAudio = null;
     this._busy = false;
     this.bind();
@@ -34,6 +36,9 @@ class LossyAudioTool {
   _el(id) { return document.getElementById(id); }
 
   bind() {
+    if (this._bound) return; // 只绑定一次：每次打开重复挂监听会造成叠加
+    this._bound = true;
+
     this._el('lossyToolCloseTop')?.addEventListener('click', () => this.close());
     this._el('lossyCancel')?.addEventListener('click', () => this.close());
     this._el('lossyPickInput')?.addEventListener('click', () => this._pick());
@@ -41,29 +46,41 @@ class LossyAudioTool {
     this._el('lossyExport')?.addEventListener('click', () => this._run(false));
 
     const range = this._el('lossyLevel');
-    range?.addEventListener('input', () => this._syncLevelLabel());
+    const syncFromRange = () => {
+      const v = Number(range?.value);
+      if (Number.isFinite(v)) this.level = Math.max(10, Math.min(100, Math.round(v)));
+      this._syncLevelLabel();
+    };
+    // input 覆盖拖动/键盘，change 兜住个别只触发 change 的情况
+    range?.addEventListener('input', syncFromRange);
+    range?.addEventListener('change', syncFromRange);
     document.querySelectorAll('.lossy-quick-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const lvl = Number(btn.dataset.level);
-        if (range && Number.isFinite(lvl)) {
-          range.value = String(lvl);
-          this._syncLevelLabel();
-        }
+        if (Number.isFinite(lvl)) this.level = Math.max(10, Math.min(100, Math.round(lvl)));
+        this._applyLevelToRange();
       });
     });
+    this._applyLevelToRange();
+  }
+
+  // 把 this.level 同时写回滑块与文字（滑块重写值会强制重绘滑块本身）
+  _applyLevelToRange() {
+    const range = this._el('lossyLevel');
+    if (range) range.value = String(this.level);
     this._syncLevelLabel();
   }
 
   _level() {
-    const v = Number(this._el('lossyLevel')?.value);
-    return Number.isFinite(v) ? Math.max(10, Math.min(100, Math.round(v))) : 80;
+    return this.level;
   }
 
   _syncLevelLabel() {
-    const lvl = this._level();
+    const lvl = this.level;
     const label = this._el('lossyLevelLabel');
     if (label) {
-      const hint = lvl < 40 ? '轻微破音' : lvl < 75 ? '明显炸麦' : lvl < 95 ? '严重炸麦' : '全损炸麦';
+      // 与导出对话框的「音质损伤」用同一套档位阈值，避免同一数值两处叫法不同
+      const hint = lvl < 30 ? '轻微破音' : lvl < 60 ? '明显炸麦' : lvl < 90 ? '严重炸麦' : '全损炸麦';
       label.textContent = `${lvl}% · ${hint}`;
     }
   }
@@ -72,6 +89,18 @@ class LossyAudioTool {
     this.bind();
     this._setHint('选一段音频、调损坏程度，先「试听」听听效果，满意再「一键全损并导出」。输出为 MP3，原文件不会被修改。');
     this._el('lossyToolDialog')?.classList.add('active');
+    // 对话框刚从 display:none 变为可见时，range 的滑块偶尔会停在旧位置（轨道已按新值着色）；
+    // 下一帧重新写入一次值，强制重绘滑块并同步文字，保证「看到的位置 = 显示的数字」。
+    const range = this._el('lossyLevel');
+    requestAnimationFrame(() => {
+      if (!range) return;
+      range.value = String(this.level);
+      this._syncLevelLabel();
+      requestAnimationFrame(() => {
+        if (Number(range.value) !== this.level) range.value = String(this.level);
+        this._syncLevelLabel();
+      });
+    });
   }
 
   close() {

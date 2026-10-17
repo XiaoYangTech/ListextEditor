@@ -34,6 +34,8 @@ class AudioMixer {
   _el(id) { return document.getElementById(id); }
 
   bind() {
+    if (this._bound) return; // 只绑定一次：每次打开重复挂监听会造成叠加，也会把音量重置成默认值
+    this._bound = true;
     this._el('audioMixerCloseTop')?.addEventListener('click', () => this.close());
     this._el('mixCancel')?.addEventListener('click', () => this.close());
     this._el('mixPickVoice')?.addEventListener('click', () => this._pick('voice'));

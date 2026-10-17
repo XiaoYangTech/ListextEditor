@@ -54,7 +54,7 @@ class ExportHandler {
     const renderDegradeLabel = () => {
       if (!degradeLabel) return;
       const v = Math.max(0, Math.min(100, Math.round(Number(degradeInput?.value) || 0)));
-      const hint = v === 0 ? '原声' : v < 30 ? '轻微破音' : v < 60 ? '明显炸麦' : v < 85 ? '严重炸麦' : '全损炸麦';
+      const hint = v === 0 ? '原声' : v < 30 ? '轻微破音' : v < 60 ? '明显炸麦' : v < 90 ? '严重炸麦' : '全损炸麦';
       degradeLabel.textContent = `${v}% · ${hint}`;
     };
     degradeInput?.addEventListener('input', renderDegradeLabel);
@@ -125,6 +125,15 @@ class ExportHandler {
     if (wmBox) wmBox.checked = true;
     // 音质损伤滑块保留上次的值（同一工程连续导出时不用反复拖），仅刷新显示文字
     this._renderDegradeLabel?.();
+    // 滑块在隐藏的对话框里改过值时，重新显示后滑块偶尔会停在旧位置；
+    // 下一帧重写一次值强制重绘，保证「看到的位置 = 显示的数字」
+    const degradeNow = document.getElementById('exportDegrade');
+    if (degradeNow) {
+      requestAnimationFrame(() => {
+        degradeNow.value = degradeNow.value;
+        this._renderDegradeLabel?.();
+      });
+    }
     dialog.classList.add('active');
   }
 
