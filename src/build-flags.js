@@ -36,7 +36,8 @@ const path = require('path');
 
 let fromFile = false;
 try {
-  const raw = fs.readFileSync(path.join(__dirname, 'build-flags.json'), 'utf-8');
+  // 注意：JSON 文件可能带 UTF-8 BOM（编辑器/工具写出的），JSON.parse 会直接报错，先剥掉
+  const raw = fs.readFileSync(path.join(__dirname, 'build-flags.json'), 'utf-8').replace(/^\uFEFF/, '');
   fromFile = JSON.parse(raw).cleanEdition === true;
 } catch (e) {
   // 缺文件或解析失败按标准版处理
