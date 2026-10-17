@@ -31,9 +31,9 @@ function getSettingsPath() {
 
 // 积木插入预设：只存与工程无关的缺省值（语速/停顿时长/重复次数/分节标题）。
 // 角色与音效随工程变化，不纳入预设。
-// insertMode：follow=沿用现有「记住本属性」会话记忆；ask=每次弹属性窗口；preset=不弹窗直接用预设值
+// insertMode：preset=默认，不弹窗直接用缺省预设；follow=弹出属性窗口，勾选「记住本属性」后不再弹窗
 function getDefaultBlockPresets() {
-  return { insertMode: 'follow', sayRate: null, pauseDuration: null, repeatCount: null, sectionTitle: null };
+  return { insertMode: 'preset', sayRate: null, pauseDuration: null, repeatCount: null, sectionTitle: null };
 }
 
 function normalizeBlockPresets(raw) {
@@ -43,8 +43,10 @@ function normalizeBlockPresets(raw) {
     return Number.isFinite(n) && n >= min && n <= max ? n : null;
   };
   const title = typeof src.sectionTitle === 'string' ? src.sectionTitle.trim() : '';
+  // 旧版本有过 ask（总是弹窗，忽略记住）——语义并入 follow
+  const mode = src.insertMode === 'ask' ? 'follow' : src.insertMode;
   return {
-    insertMode: ['follow', 'ask', 'preset'].includes(src.insertMode) ? src.insertMode : 'follow',
+    insertMode: mode === 'follow' ? 'follow' : 'preset',
     sayRate: numIn(src.sayRate, 0.5, 2),
     pauseDuration: numIn(src.pauseDuration, 1, 600),
     repeatCount: Number.isInteger(Number(src.repeatCount)) ? numIn(src.repeatCount, 1, 20) : null,

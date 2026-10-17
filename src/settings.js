@@ -133,8 +133,10 @@ class SettingsManager {
     try {
       const settings = await window.electronAPI.getSettings();
       const p = settings?.blockPresets || {};
+      // 旧版本的 ask 模式并入 follow；其余一律视为默认的「不弹窗用预设」
+      const mode = p.insertMode === 'ask' ? 'follow' : p.insertMode;
       document.querySelectorAll('input[name="insertMode"]').forEach(r => {
-        r.checked = r.value === (p.insertMode || 'follow');
+        r.checked = r.value === (mode === 'follow' ? 'follow' : 'preset');
       });
       const setVal = (id, v) => {
         const el = document.getElementById(id);
@@ -180,13 +182,13 @@ class SettingsManager {
 
   async resetPresets() {
     if (!window.electronAPI?.saveSettings || !window.electronAPI?.getSettings) return;
-    const ok = window.confirm('清除全部预设并恢复默认？\n\n插入方式将回到「跟随当前行为」，各默认值回到程序默认（已有积木不受影响）。');
+    const ok = window.confirm('清除全部预设并恢复默认？\n\n插入方式将回到「不弹窗，直接用缺省预设」，各默认值回到程序默认（已有积木不受影响）。');
     if (!ok) return;
     const current = await window.electronAPI.getSettings();
     console.log('[动作] 清除积木预设（恢复默认）');
     const res = await window.electronAPI.saveSettings({
       ...current,
-      blockPresets: { insertMode: 'follow', sayRate: null, pauseDuration: null, repeatCount: null, sectionTitle: null }
+      blockPresets: { insertMode: 'preset', sayRate: null, pauseDuration: null, repeatCount: null, sectionTitle: null }
     });
     if (!res?.success) { alert('恢复默认失败'); return; }
     await this.loadPresets();

@@ -378,25 +378,32 @@ const MP3_METADATA_ARGS = [
   '-metadata', 'album=亿方听力大师'
 ];
 
-// 音质损伤（模拟考场喇叭）：0=原声；数值越高，低频缺失越重、高频越闷、压缩失真越明显，
-// 60% 以上转单声道，80% 以上进一步降低采样率与码率。
+// 音质损伤（炸麦效果）：用增益把信号怼进硬削波，再叠加位深压缩，模拟考场喇叭/劣质麦克风过载的破音。
+// 0=原声；数值越高驱动越猛、削波越狠、位深越低；60% 以上转单声道，85% 以上进一步降采样降码率。
 function buildDegradeFilter(level) {
   const l = Math.max(1, Math.min(100, Math.round(Number(level) || 0)));
   const t = l / 100;
-  const hp = Math.round(120 + t * 380);   // 120 → 500 Hz：小喇叭放不出低频
-  const lp = Math.round(7500 - t * 5200); // 7500 → 2300 Hz：高频发闷
+  const hp = Math.round(180 + t * 220);       // 180 → 400 Hz：小喇叭低频少
+  const lp = Math.round(6500 - t * 3300);     // 6500 → 3200 Hz：高频发闷
+  const driveDb = +(6 + t * 20).toFixed(1);   // +6 → +26 dB：把信号怼过 0 dBFS
+  const clipThreshold = +(1.0 - t * 0.45).toFixed(2); // 1.0 → 0.55：削波越狠越炸
   const chain = [
     `highpass=f=${hp}`,
     `lowpass=f=${lp}`,
-    'acompressor=threshold=-20dB:ratio=3:attack=10:release=150'
+    'acompressor=threshold=-28dB:ratio=4:attack=4:release=90',
+    `volume=${driveDb}dB`
   ];
-  if (l >= 40) chain.push(`volume=${(1.4 + t * 1.1).toFixed(2)}`); // 功放拧到底
-  if (l >= 70) chain.push('alimiter=limit=0.9');                  // 削波/压缩感
+  if (l >= 20) chain.push(`asoftclip=type=hard:threshold=${clipThreshold}`);
+  if (l >= 60) {
+    const bits = Math.max(6, Math.round(12 - t * 6)); // 12 → 6 bit，颗粒感/破音
+    const mix = +(0.15 + t * 0.35).toFixed(2);
+    chain.push(`acrusher=bits=${bits}:mix=${mix}:mode=log`);
+  }
   return {
     af: chain.join(','),
     ac: l >= 60 ? 1 : 2,
-    ar: l >= 80 ? 16000 : (l >= 50 ? 22050 : 32000),
-    abr: l >= 80 ? '48k' : (l >= 50 ? '64k' : '96k')
+    ar: l >= 85 ? 16000 : (l >= 50 ? 22050 : 32000),
+    abr: l >= 85 ? '48k' : (l >= 50 ? '64k' : '96k')
   };
 }
 

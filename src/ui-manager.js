@@ -257,7 +257,7 @@ class UIManager {
 
   // 读取「设置 → 预设」里的积木插入方式与缺省值（每次现读，设置窗口改完立即生效）
   async _getBlockPresets() {
-    const fallback = { insertMode: 'follow', sayRate: null, pauseDuration: null, repeatCount: null, sectionTitle: null };
+    const fallback = { insertMode: 'preset', sayRate: null, pauseDuration: null, repeatCount: null, sectionTitle: null };
     try {
       const settings = await window.electronAPI?.getSettings?.();
       const p = settings?.blockPresets || {};
@@ -265,8 +265,10 @@ class UIManager {
         const n = Number(v);
         return Number.isFinite(n) && n >= min && n <= max ? n : null;
       };
+      // 旧版本的 ask 模式语义并入 follow
+      const mode = p.insertMode === 'ask' ? 'follow' : p.insertMode;
       return {
-        insertMode: ['follow', 'ask', 'preset'].includes(p.insertMode) ? p.insertMode : 'follow',
+        insertMode: mode === 'follow' ? 'follow' : 'preset',
         sayRate: num(p.sayRate, 0.5, 2),
         pauseDuration: num(p.pauseDuration, 1, 600),
         repeatCount: Number.isInteger(Number(p.repeatCount)) ? num(p.repeatCount, 1, 20) : null,
@@ -274,6 +276,17 @@ class UIManager {
       };
     } catch (e) {
       return fallback;
+    }
+  }
+
+  // 分节默认标题：预设里没填时自动编号（第 1 部分、第 2 部分…），避免所有分节都叫「分节标题」
+  _nextSectionTitle() {
+    try {
+      const content = this.app?.getContent?.() || '';
+      const count = (content.match(/<section\b/gi) || []).length;
+      return `第 ${count + 1} 部分`;
+    } catch {
+      return '第 1 部分';
     }
   }
 
@@ -285,9 +298,8 @@ class UIManager {
     if (!this.app.renderer) return;
 
     const presets = await this._getBlockPresets();
-    // ask：每次弹窗（忽略会话记忆）；preset：不弹窗直接用预设值；follow：沿用现有「记住本属性」会话记忆
-    const mustAsk = forceDialog || presets.insertMode === 'ask';
-    const silent = presets.insertMode === 'preset' && !forceDialog;
+    // preset（默认）：不弹窗，直接用预设值 / 程序默认；follow：弹属性窗口，勾选「记住本属性」后不再弹窗
+    const silent = presets.insertMode !== 'follow' && !forceDialog;
     const opts = { insertBefore };
     const commit = () => {
       this.app.fileManager.markUnsaved();
@@ -300,7 +312,7 @@ class UIManager {
     if (type === 'pause') {
       if (silent) { addPause(presets.pauseDuration || LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION); return; }
       const rememberedPause = this._getSessionDefaults('pause');
-      if (rememberedPause && !mustAsk) {
+      if (rememberedPause && !forceDialog) {
         // 有会话记忆：不再弹窗，直接按记忆属性添加（Alt+点击可强制弹窗重设）
         addPause(rememberedPause.duration);
         return;
@@ -311,7 +323,7 @@ class UIManager {
     if (type === 'fx') {
       // 音效随工程变化、且必须有具体音效，不纳入预设：没有会话记忆时始终弹音效选择
       const rememberedFx = this._getSessionDefaults('fx');
-      if (rememberedFx && !mustAsk) {
+      if (rememberedFx && !forceDialog) {
         (async () => {
           // 记忆的音效已被删除则清记忆并回退弹窗
           const tabFx = window.app?.tabManager?.getActiveTab()?.effects || [];
@@ -347,7 +359,7 @@ class UIManager {
         return;
       }
       const rememberedSay = this._getSessionDefaults('say');
-      if (rememberedSay && !mustAsk) {
+      if (rememberedSay && !forceDialog) {
         const rolesNow = window.app?.tabManager?.getActiveTab()?.roles || [];
         let roleId = rememberedSay.roleId || '';
         // 记忆的角色被删时回落到第一个角色（有角色的话）
@@ -361,7 +373,7 @@ class UIManager {
     if (type === 'repeat') {
       this.app.renderer.addBlock('repeat', { ...opts, repeatCount: presets.repeatCount || LISTEXT_CONSTANTS.DEFAULT_REPEAT_COUNT });
     } else if (type === 'section') {
-      if (silent) { addSection(presets.sectionTitle || '分节标题'); return; }
+      if (silent) { addSection(presets.sectionTitle || this._nextSectionTitle()); return; }
       this.showSectionAddDialog(addSection);
       return;
     } else {
@@ -377,8 +389,8 @@ class UIManager {
     if (!editor) return;
 
     const presets = await this._getBlockPresets();
-    const mustAsk = forceDialog || presets.insertMode === 'ask';
-    const silent = presets.insertMode === 'preset' && !forceDialog;
+    // preset（默认）：不弹窗，直接用预设值 / 程序默认；follow：弹属性窗口，勾选「记住本属性」后不再弹窗
+    const silent = presets.insertMode !== 'follow' && !forceDialog;
 
     if (type === 'pause') {
       if (silent) {
@@ -386,7 +398,7 @@ class UIManager {
         return;
       }
       const rememberedPause = this._getSessionDefaults('pause');
-      if (rememberedPause && !mustAsk) {
+      if (rememberedPause && !forceDialog) {
         editor.insertCodeAtCursor(`<pause dur="${rememberedPause.duration}">`);
         return;
       }
@@ -417,7 +429,7 @@ class UIManager {
         return;
       }
       const rememberedSay = this._getSessionDefaults('say');
-      if (rememberedSay && !mustAsk) {
+      if (rememberedSay && !forceDialog) {
         const rolesNow = window.app?.tabManager?.getActiveTab()?.roles || [];
         let roleId = rememberedSay.roleId || '';
         if (roleId && !rolesNow.some(r => r.id === roleId)) roleId = ''; // 角色被删回落
@@ -430,7 +442,7 @@ class UIManager {
       editor.insertCodeAtCursor(`<repeat count="${count}">\n  \n</repeat>`, -4);
     } else if (type === 'section') {
       if (silent) {
-        editor.insertCodeAtCursor(`<section title="${presets.sectionTitle || '分节标题'}">`);
+        editor.insertCodeAtCursor(`<section title="${presets.sectionTitle || this._nextSectionTitle()}">`);
         return;
       }
       this.showSectionAddDialog((title) => {
