@@ -407,7 +407,7 @@ const MP3_METADATA_ARGS = cleanEdition ? [] : [
 // 模拟考场喇叭/劣质麦克风过载的破音。滑块同时控制「失真程度」和「音量」：
 // 损坏越狠 → 削波越重、响度越高（100% 时整体响度拉到约 0 LUFS，与 B 站全损音质梗曲同一量级）。
 // 频响只轻微收窄（参考梗曲 >4kHz 仅低约 2dB），主要靠削波和响度制造「炸」感。
-function buildDegradeFilter(level) {
+function buildDegradeFilter(level, opts = {}) {
   const l = Math.max(1, Math.min(100, Math.round(Number(level) || 0)));
   const t = l / 100;
   const hp = Math.round(120 + t * 180);       // 120 → 300 Hz：轻收低频
@@ -427,12 +427,15 @@ function buildDegradeFilter(level) {
     const mix = +(0.15 + t * 0.35).toFixed(2);
     chain.push(`acrusher=bits=${bits}:mix=${mix}:mode=log`);
   }
+  // 可选回声（模拟考场大喇叭回荡）：削波后加 100ms / 200ms 两档混响；
+  // 放在劣化链里一起参与响度测量，保证开回声后响度仍归一化到目标值
+  if (opts.echo) chain.push('aecho=0.8:0.88:100|200:0.5|0.25');
   return {
     af: chain.join(','),
     ac: l >= 60 ? 1 : 2,
     ar: l >= 85 ? 16000 : (l >= 50 ? 22050 : 44100),
     abr: l >= 85 ? '48k' : (l >= 50 ? '64k' : '96k'),
-    level: l, driveDb, clipThreshold
+    level: l, driveDb, clipThreshold, echo: !!opts.echo
   };
 }
 
@@ -483,8 +486,8 @@ async function measureLoudnessPair(inputPath, chainAf) {
 // 响度归一化：把滑块进度 t 映射成「源响度 → 0 LUFS」的目标响度（不降低、不越界），
 // 增益后再硬削波，保证音量足够「炸」且与参考梗曲同量级。
 // onProgress({stage, percent}) 用于向渲染层上报进度：measure（测响度）→ encode（生成）→ done
-async function degradeAudio(inputPath, outputPath, level, onProgress) {
-  const cfg = buildDegradeFilter(level);
+async function degradeAudio(inputPath, outputPath, level, onProgress, opts = {}) {
+  const cfg = buildDegradeFilter(level, opts);
   const t = Math.max(0, Math.min(100, Math.round(Number(level) || 0))) / 100;
   const report = (stage, percent) => { try { onProgress?.({ stage, percent }); } catch { /* 忽略进度回调异常 */ } };
 
@@ -870,6 +873,7 @@ function registerIpcHandlers() {
       const inputPath = typeof o.inputPath === 'string' ? o.inputPath : '';
       if (!inputPath || !fs.existsSync(inputPath)) return { success: false, error: '音频文件不存在' };
       const level = Math.max(1, Math.min(100, Math.round(Number(o.level ?? 60))));
+      const echo = o.echo === true;
       const isPreview = !o.targetPath || o.preview === true;
 
       ensureDir(tempDir);
@@ -887,7 +891,7 @@ function registerIpcHandlers() {
 
       const cfg = await degradeAudio(inputPath, outPath, level, ({ stage, percent }) => {
         try { if (!event.sender.isDestroyed()) event.sender.send('degrade-audio-progress', { stage, percent }); } catch { /* 忽略 */ }
-      });
+      }, { echo });
       const duration = await probeDuration(outPath);
       console.log('[全损] 完成:', outPath, `损坏${level}%`, `时长${duration.toFixed(2)}s`);
       return { success: true, filePath: outPath, preview: isPreview, level, duration, params: cfg };

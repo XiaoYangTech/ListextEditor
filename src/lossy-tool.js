@@ -63,6 +63,12 @@ class LossyAudioTool {
     });
     this._applyLevelToRange();
 
+    // 回声开关：切换后停掉旧试听并刷新提示
+    this._el('lossyEcho')?.addEventListener('change', () => {
+      this._stopPreview();
+      this._setHint(this._baseHint());
+    });
+
     // 主进程回传的处理进度（测响度 → 生成全损音频），避免提示长时间不动
     if (!this._progressBound) {
       this._progressBound = true;
@@ -104,7 +110,8 @@ class LossyAudioTool {
 
   // 下方提示始终跟随当前档位（此前写死“100%”容易看成卡住不动）
   _baseHint() {
-    return `当前损坏程度 ${this.level}% · ${this._levelText()}。损坏越狠越响，越靠右音量越大（最高档整体响度约 0 LUFS，注意设备音量）。`
+    const echoOn = this._el('lossyEcho')?.checked === true;
+    return `当前损坏程度 ${this.level}% · ${this._levelText()}${echoOn ? '，已勾选回声' : ''}。损坏越狠越响，越靠右音量越大（最高档整体响度约 0 LUFS，注意设备音量）。`
       + '点「试听」听听效果，满意再「一键全损并导出」；输出为 MP3，原文件不会被修改。';
   }
 
@@ -166,6 +173,7 @@ class LossyAudioTool {
     if (this._busy) return;
     if (!this.inputPath) { this._setHint('请先选择一个音频文件'); return; }
     const level = this._level();
+    const echo = this._el('lossyEcho')?.checked === true;
 
     let targetPath = null;
     if (!isPreview) {
@@ -176,18 +184,20 @@ class LossyAudioTool {
     this._busy = true;
     this._runLevel = level;
     this._stopPreview();
-    this._setHint(isPreview ? `正在生成 ${level}% 试听…` : `正在全损处理（${level}%）…`);
+    this._setHint(isPreview
+      ? `正在生成 ${level}% 试听${echo ? '（含回声）' : ''}…`
+      : `正在全损处理（${level}%${echo ? '，含回声' : ''}）…`);
     try {
-      const res = await api.degradeAudio({ inputPath: this.inputPath, level, targetPath, preview: isPreview });
+      const res = await api.degradeAudio({ inputPath: this.inputPath, level, targetPath, preview: isPreview, echo });
       if (!res?.success) {
         this._setHint('失败：' + (res?.error || '未知错误'));
         return;
       }
       if (isPreview) {
-        this._setHint(`试听中（损坏程度 ${level}% · ${this._levelText(level)}），可换档位再次试听。`);
+        this._setHint(`试听中（损坏程度 ${level}% · ${this._levelText(level)}${echo ? ' · 含回声' : ''}），可换档位再次试听。`);
         this._playPreview(res.filePath);
       } else {
-        this._setHint(`导出完成（损坏程度 ${level}% · ${this._levelText(level)}）：${res.filePath}`);
+        this._setHint(`导出完成（损坏程度 ${level}% · ${this._levelText(level)}${echo ? ' · 含回声' : ''}）：${res.filePath}`);
         window.app?.uiManager?.showInfoDialog?.('导出完成', `全损音质文件已保存：\n${res.filePath}`);
       }
     } catch (e) {
