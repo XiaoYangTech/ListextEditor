@@ -30,7 +30,11 @@ const fs = require('fs');
 const path = require('path');
 const AdmZip = require('adm-zip');
 
-const VOICES_DIR = path.join(app.getPath('userData'), 'openshenzhou-voices');
+// 注意：main.js 是在 app ready 之前才把 userData 改到 ListextEditor 的，
+// 而本模块在 main.js 顶部就被 require 了，所以目录必须惰性取，不能在模块加载时算死。
+function getVoicesDir() {
+  return path.join(app.getPath('userData'), 'openshenzhou-voices');
+}
 const META_FILE = 'meta.json';
 const APPX_EXTS = ['.appx', '.msix', '.appxbundle', '.zip'];
 
@@ -46,8 +50,9 @@ const LOCALE_MAP = {
 const REQUIRED_FILES = ['phones.txt', 'am_v5_encoder.bin', 'am_v5_decoder.bin', 'device_vocoder_v6_streaming.bin'];
 
 function ensureVoicesDir() {
-  fs.mkdirSync(VOICES_DIR, { recursive: true });
-  return VOICES_DIR;
+  const dir = getVoicesDir();
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
 }
 
 function sanitizeName(name) {
@@ -136,10 +141,10 @@ function listVoices() {
   ensureVoicesDir();
   const out = [];
   let entries = [];
-  try { entries = fs.readdirSync(VOICES_DIR, { withFileTypes: true }); } catch { return out; }
+  try { entries = fs.readdirSync(getVoicesDir(), { withFileTypes: true }); } catch { return out; }
   for (const e of entries) {
     if (!e.isDirectory()) continue;
-    const dir = path.join(VOICES_DIR, e.name);
+    const dir = path.join(getVoicesDir(), e.name);
     const meta = readMeta(dir) || {};
     const ok = hasRequiredFiles(dir);
     out.push({
@@ -217,9 +222,10 @@ function importVoice(appxPath) {
     const idBase = locale ? `${baseName}_${locale}` : baseName;
     let id = idBase;
     let n = 2;
-    while (fs.existsSync(path.join(VOICES_DIR, id))) { id = `${idBase}-${n++}`; }
+    const voicesRoot = getVoicesDir();
+    while (fs.existsSync(path.join(voicesRoot, id))) { id = `${idBase}-${n++}`; }
 
-    const dest = path.join(VOICES_DIR, id);
+    const dest = path.join(voicesRoot, id);
     fs.cpSync(voiceDir, dest, { recursive: true });
 
     if (!hasRequiredFiles(dest)) {
@@ -251,8 +257,9 @@ function importVoice(appxPath) {
 function deleteVoice(id) {
   const name = String(id || '');
   if (!name) return { success: false, error: '缺少语音包标识' };
-  const target = path.join(VOICES_DIR, name);
-  const rel = path.relative(VOICES_DIR, target);
+  const voicesRoot = getVoicesDir();
+  const target = path.join(voicesRoot, name);
+  const rel = path.relative(voicesRoot, target);
   if (rel.startsWith('..') || path.isAbsolute(rel) || rel === '') {
     return { success: false, error: '无效的语音包标识' };
   }
@@ -302,4 +309,4 @@ function registerOpenShenzhouHandlers() {
   });
 }
 
-module.exports = { registerOpenShenzhouHandlers, listVoices, importVoice, deleteVoice, VOICES_DIR };
+module.exports = { registerOpenShenzhouHandlers, listVoices, importVoice, deleteVoice, getVoicesDir };
