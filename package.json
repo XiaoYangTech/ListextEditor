@@ -16,7 +16,15 @@
     "build:all": "npm run build:win:x64 && npm run build:xinchuang && npm run build:mac",
     "license:headers": "node scripts/add-license-header.js"
   },
-  "keywords": ["electron", "tts", "EdgeTTS", "Blockly", "AI", "listening", "education"],
+  "keywords": [
+    "electron",
+    "tts",
+    "EdgeTTS",
+    "Blockly",
+    "AI",
+    "listening",
+    "education"
+  ],
   "author": "The InspireWorks Development Team",
   "homepage": "https://www.yfyw.top/",
   "license": "GPL-3.0",
@@ -34,6 +42,9 @@
     "https-proxy-agent": "^5.0.1",
     "material-icons": "^1.13.14",
     "msedge-tts": "^2.0.7",
+    "onnx-proto": "^4.0.4",
+    "onnxruntime-node": "^1.31.1",
+    "protobufjs": "^7.6.6",
     "uuid": "^9.0.1"
   },
   "build": {
@@ -44,7 +55,10 @@
       "output": "dist"
     },
     "extraResources": [
-      { "from": "src/main/local-tts.ps1", "to": "local-tts.ps1" }
+      {
+        "from": "src/main/local-tts.ps1",
+        "to": "local-tts.ps1"
+      }
     ],
     "files": [
       "main.js",
@@ -65,7 +79,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -90,11 +106,17 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "deb",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ]
     },
@@ -105,7 +127,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ]
     }

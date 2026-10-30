@@ -266,6 +266,7 @@ function deleteVoice(id) {
   if (!fs.existsSync(target)) return { success: false, error: '语音包不存在（可能已被删除）' };
   try {
     fs.rmSync(target, { recursive: true, force: true });
+    ttsCache.delete(name); // 释放已加载的推理实例
     console.log('[开放神州] 已删除语音包:', name);
     return { success: true };
   } catch (e) {
@@ -274,7 +275,80 @@ function deleteVoice(id) {
   }
 }
 
+// ===== 合成（开放神州内测）=====
+
+// TTS 实例缓存：onnxruntime 会话常驻内存，按语音包缓存（超出上限按插入顺序淘汰最早的）
+const ttsCache = new Map();
+const TTS_CACHE_LIMIT = 4;
+
+function getTts(voiceId) {
+  const id = String(voiceId || '').trim();
+  const voicesRoot = getVoicesDir();
+  const dir = path.join(voicesRoot, id);
+  if (!id || !fs.existsSync(dir)) {
+    throw new Error(`语音模型「${id || '未设置'}」不存在，请到「设置 → 语音模型」导入`);
+  }
+  if (!hasRequiredFiles(dir)) {
+    const missing = missingRequiredFiles(dir).join('、');
+    throw new Error(`语音模型「${id}」文件不完整（缺少 ${missing}），请重新导入`);
+  }
+  if (ttsCache.has(id)) return ttsCache.get(id);
+
+  let TTS;
+  try {
+    ({ TTS } = require('../../vendor/openshenzhou/index.js'));
+  } catch (e) {
+    throw new Error(`开放神州引擎加载失败：${e.message}。可能是 onnxruntime 依赖缺失，请重新安装软件`);
+  }
+  let tts;
+  try {
+    tts = new TTS(dir);
+  } catch (e) {
+    throw new Error(`语音模型「${id}」加载失败：${e.message}`);
+  }
+  if (!tts.lang || tts.lang === 'unknown') {
+    throw new Error(`语音模型「${id}」无法识别语言：目录名需包含语言标记（如 zh-CN），请重新导入或改成 <名称>_<语言>`);
+  }
+  ttsCache.set(id, tts);
+  if (ttsCache.size > TTS_CACHE_LIMIT) {
+    const oldest = ttsCache.keys().next().value;
+    ttsCache.delete(oldest);
+  }
+  console.log('[开放神州] 已加载语音模型:', id, '语言', tts.lang);
+  return tts;
+}
+
+/** 用指定语音模型合成一段文本，返回 WAV 临时文件路径 */
+async function synthesizeVoice(text, voiceId, speed = 1.0) {
+  const clean = String(text || '').trim();
+  if (!clean) return { success: false, error: '朗读文本为空，无法合成' };
+  const sp = Math.max(0.5, Math.min(2, Number(speed) || 1.0));
+  try {
+    const tts = getTts(voiceId);
+    const outDir = path.join(app.getPath('temp'), 'ListextEditor', 'osz-synth');
+    fs.mkdirSync(outDir, { recursive: true });
+    const outPath = path.join(outDir, `osz-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.wav`);
+    const started = Date.now();
+    const audio = await tts.speak(clean, outPath, sp);
+    const seconds = audio.length / 24000;
+    console.log('[开放神州] 合成完成:', voiceId, `${clean.length} 字 → ${seconds.toFixed(2)}s`, `耗时 ${Date.now() - started}ms`);
+    return { success: true, path: outPath, duration: seconds, ms: Date.now() - started };
+  } catch (e) {
+    let msg = e?.message || String(e);
+    if (/Cannot find module|onnxruntime/i.test(msg)) {
+      msg = '开放神州推理引擎（onnxruntime）加载失败，请重新安装软件';
+    } else if (/暂不支持的语言/.test(msg)) {
+      msg += '。当前支持中文/英文/日文/韩文/西班牙语/法语/德语/葡萄牙语语音包';
+    }
+    console.error('[开放神州] 合成失败:', msg);
+    return { success: false, error: msg };
+  }
+}
+
 function registerOpenShenzhouHandlers() {
+  ipcMain.handle('openshenzhou-synthesize', async (event, opts = {}) =>
+    synthesizeVoice(opts.text, opts.voiceId, opts.speed));
+
   ipcMain.handle('openshenzhou-list-voices', () => {
     try { return { success: true, voices: listVoices() }; }
     catch (e) { return { success: false, voices: [], error: e.message }; }
@@ -309,4 +383,4 @@ function registerOpenShenzhouHandlers() {
   });
 }
 
-module.exports = { registerOpenShenzhouHandlers, listVoices, importVoice, deleteVoice, getVoicesDir };
+module.exports = { registerOpenShenzhouHandlers, listVoices, importVoice, deleteVoice, synthesizeVoice, getVoicesDir };

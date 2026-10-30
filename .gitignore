@@ -4,3 +4,6 @@ dist/
 # AI agents internal
 .claude/
 .mimocode/
+
+# OpenShenzhou g2p 数据（62MB，不进 git；用 node scripts/sync-openshenzhou-data.js 同步）
+vendor/data/

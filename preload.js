@@ -452,6 +452,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openshenzhouImportVoice: (appxPath) => ipcRenderer.invoke('openshenzhou-import-voice', appxPath),
   openshenzhouDeleteVoice: (id) => ipcRenderer.invoke('openshenzhou-delete-voice', id),
   openshenzhouOpenVoicesDir: () => ipcRenderer.invoke('openshenzhou-open-voices-dir'),
+  openshenzhouSynthesize: (text, voiceId, speed) => ipcRenderer.invoke('openshenzhou-synthesize', { text, voiceId, speed }),
 
   getShortcuts: () => ipcRenderer.invoke('get-shortcuts'),
   saveShortcuts: (shortcuts) => ipcRenderer.invoke('save-shortcuts', shortcuts),

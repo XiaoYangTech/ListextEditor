@@ -228,6 +228,26 @@ class PlayQueue {
   }
 
   async playTTS(task, gen) {
+    // 开放神州（内测）：本地 ONNX 推理合成，不联网
+    if (task.ttsType === 'openshenzhou' && window.electronAPI?.openshenzhouSynthesize) {
+      const voiceId = this.resolveVoice(task);
+      try {
+        const res = await window.electronAPI.openshenzhouSynthesize(task.text || '', voiceId, task.rate || 1.0);
+        if (gen !== this._playGen || !this.isPlaying) return;
+        if (res?.success && res.path) {
+          await this._playAudioFile(res.path, gen);
+          return;
+        }
+        const msg = res?.error || '开放神州合成失败';
+        if (this.onTtsError) this.onTtsError(msg);
+        throw new Error(msg);
+      } catch (error) {
+        if (!this.isPlaying) return;
+        if (this.onTtsError) this.onTtsError('开放神州合成失败：' + (error?.message || String(error)));
+      }
+      return;
+    }
+
     if (task.ttsType === 'edge' && window.electronAPI) {
       const ratePercent = this.convertRateToEdge(task.rate || 1.0);
       const voiceName = this.resolveVoice(task);

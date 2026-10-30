@@ -340,10 +340,11 @@ class ExportHandler {
           // 本地角色（系统 TTS / SAPI5）走本机合成桥：EdgeTTS 用不了本地音色名（会直接失败、
           // 导致整个导出被取消），而 Chromium 又看不到 Windows 自然音色
           const isLocal = task.ttsType === 'local';
-          const voice = effectiveQueue.resolveVoice(task) || (isLocal ? '' : LISTEXT_CONSTANTS.DEFAULT_EDGE_VOICE);
+          const isOsz = task.ttsType === 'openshenzhou';
+          const voice = effectiveQueue.resolveVoice(task) || (isLocal || isOsz ? '' : LISTEXT_CONSTANTS.DEFAULT_EDGE_VOICE);
           const rate = effectiveQueue.convertRateToEdge(task.rate || 1.0);
           const preview = (task.text || '').slice(0, 10);
-          const voiceHint = isLocal ? `（本地音色 ${voice || '系统默认'}）` : '';
+          const voiceHint = isLocal ? `（本地音色 ${voice || '系统默认'}）` : (isOsz ? `（开放神州 ${voice || '未设置'}）` : '');
           this._logProgress(`[${i + 1}/${totalTasks}] 合成中${voiceHint}："${preview}…"`);
           let res = null;
           let retryTask = false;
@@ -355,7 +356,9 @@ class ExportHandler {
             }
             res = isLocal
               ? await api.synthesizeLocalTTS(task.text || '', voice, task.rate || 1.0)
-              : await api.synthesizeTTS(task.text || '', voice, rate);
+              : (isOsz
+                ? await api.openshenzhouSynthesize(task.text || '', voice, task.rate || 1.0)
+                : await api.synthesizeTTS(task.text || '', voice, rate));
             if (this._cancelRequested) { await this._abortExport(api); return; }
             if (res?.success && res.path) break;
             const reason = res?.error || '未知原因';

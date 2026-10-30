@@ -297,7 +297,10 @@ class RoleManagerPage {
   }
 
   async populateVoices(preserveVoice = '') {
+    // 代际守卫：切换 TTS 类型后，上一次的异步音色列表回来时不能覆盖新列表
+    const gen = (this._voiceGen = (this._voiceGen || 0) + 1);
     const type = this.roleType.value;
+    const stale = () => gen !== this._voiceGen || this.roleType.value !== type;
     const wrap0 = document.getElementById('roleVoiceCustom');
     if (this._voicePanel) this._voicePanel.style.display = 'none';
     this.roleVoice.innerHTML = '<option value="">加载中...</option>';
@@ -314,8 +317,26 @@ class RoleManagerPage {
     if (wrap0) wrap0.style.display = '';
     this.roleVoice.style.display = 'none';
 
+    // 开放神州（内测）：音色来自「设置 → 语音模型」里已导入的本地语音包
+    if (type === 'openshenzhou') {
+      const res = await window.electronAPI?.openshenzhouListVoices?.();
+      if (stale()) return;
+      const voices = (res?.voices || []).filter(v => v.ready);
+      const descs = voices.map(v => ({ value: v.id, locale: v.locale || v.id, gender: '' }));
+      const selected = (preserveVoice && descs.some(d => d.value === preserveVoice))
+        ? preserveVoice
+        : (descs[0]?.value || '');
+      this.roleVoice.innerHTML = descs.length
+        ? descs.map(d => `<option value="${this.escapeHtml(d.value)}">${this.escapeHtml(d.value)}</option>`).join('')
+        : '<option value="">未导入语音模型（设置 → 语音模型）</option>';
+      this.roleVoice.value = selected;
+      this._buildVoiceDropdown(descs, selected, '还没有可用语音模型：请到「设置 → 语音模型」导入 APPX 语音包');
+      return;
+    }
+
     if (type === 'edge' && window.electronAPI?.listEdgeVoices) {
       const res = await window.electronAPI.listEdgeVoices();
+      if (stale()) return;
       const voices = res?.voices || [];
       // 选中：编辑已有角色保持其音色；新建默认英文 Jenny，都没有退列表首位
       const selected = (preserveVoice && voices.includes(preserveVoice))
@@ -324,11 +345,12 @@ class RoleManagerPage {
       this.roleVoice.innerHTML = voices.map(v => `<option value="${this.escapeHtml(v)}">${this.escapeHtml(v)}</option>`).join('');
       this.roleVoice.value = selected;
       // Edge 音色名自带地区码（如 zh-CN-XiaoxiaoNeural），语言标识可由名字推导
-      this._buildVoiceDropdown(voices.map(v => ({ value: v, locale: v })), selected, '未获取到 EdgeTTS 发音人，点击重试加载');
+      this._buildVoiceDropdown(voices.map(v => ({ value: v, locale: v })), selected, '未获取到微软在线自然语音发音人，点击重试加载');
       return;
     }
 
     const voices = await this.getLocalVoices();
+    if (stale()) return;
     const descs = this._sortVoiceDescs(voices.map(v => ({ value: v.name, locale: v.lang || v.name, gender: v.gender || '' })));
     // 选中：编辑已有角色保持其音色；新建取排序首位（中文在前，避免默认英语音色读中文只得到空音频）
     const selected = (preserveVoice && descs.some(d => d.value === preserveVoice))
@@ -355,7 +377,7 @@ class RoleManagerPage {
         return `<div class="rm-list-item" data-id="${this.escapeHtml(role.id)}">
           <div>
             <div><strong>${this.escapeHtml(role.name)}</strong> (${this.escapeHtml(role.id)})</div>
-            <div class="rm-meta">${role.type === 'local' ? '系统TTS' : 'EdgeTTS'} · ${this.escapeHtml(role.voice || '未设置')}</div>
+            <div class="rm-meta">${role.type === 'local' ? '系统TTS' : (role.type === 'openshenzhou' ? '开放神州（内测）' : '微软在线自然语音')} · ${this.escapeHtml(role.voice || '未设置')}</div>
           </div>
           <div class="rm-actions"><button class="btn btn-ghost" data-action="edit" data-id="${this.escapeHtml(role.id)}">编辑</button><button class="btn btn-danger" data-action="delete" data-id="${this.escapeHtml(role.id)}">删除</button></div>
         </div>`;
