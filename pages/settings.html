@@ -115,6 +115,9 @@
       <div class="nav-item" data-page="presets">
         <span>预设</span>
       </div>
+      <div class="nav-item" data-page="voices">
+        <span>语音模型</span>
+      </div>
       <div class="nav-item" data-page="proxy">
         <span>网络代理</span>
       </div>
@@ -283,6 +286,25 @@
           <span id="presetSavedMsg" style="font-size:12px;color:var(--md-success);margin-right:auto;"></span>
           <button id="btnResetPresets" class="btn btn-outline">清除预设（恢复默认）</button>
           <button id="btnSavePresets" class="btn btn-primary">保存预设</button>
+        </div>
+      </div>
+
+      <!-- 语音模型设置页（开放神州内测） -->
+      <div id="voices-page" class="settings-page">
+        <div class="card">
+          <div class="card-title">开放神州（内测）语音模型</div>
+          <div class="hint" style="margin-bottom:12px;">
+            语音模型来自 Windows「讲述人自然语音」的 MSIX/APPX 包，需要你自行下载准备（本软件不携带语音包）。
+            导入后可在角色管理器里把发音人来源选为「开放神州（内测）」使用，全程本地合成、无需联网。
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+            <button id="btnImportVoice" class="btn btn-primary">导入语音模型（.appx / .msix）</button>
+            <button id="btnOpenVoicesDir" class="btn btn-outline">打开模型目录</button>
+            <button id="btnVoiceModelDownload" class="btn btn-outline">模型下载页面</button>
+            <button id="btnVoiceSurvey" class="btn btn-outline">语音问题反馈问卷</button>
+          </div>
+          <div id="voiceListHint" class="hint">正在读取…</div>
+          <div id="voiceList"></div>
         </div>
       </div>
 

@@ -29,6 +29,7 @@ const { getBuiltInDir, getBuiltInRoots, scanBuiltInSounds } = require('./sound-h
 const fileLocker = require('./file-locker');
 const crypto = require('crypto');
 const { cleanEdition } = require('../build-flags');
+const { registerOpenShenzhouHandlers } = require('./openshenzhou');
 
 const tempDir = path.join(app.getPath('temp'), 'ListextEditor');
 
@@ -661,6 +662,9 @@ async function composeMp3(targetPath, segments, skipWatermark = false, options =
 }
 
 function registerIpcHandlers() {
+  // 开放神州（OpenShenzhou）语音模型：列表 / 导入 APPX / 删除
+  registerOpenShenzhouHandlers();
+
   ipcMain.handle('save-file', async (event, filePath, content, meta = {}) => {
     try { return saveProjectPackage(filePath, { content, ...meta }); }
     catch (error) { console.error('[IPC失败] save-file:', error.message); return { success: false, error: error.message }; }

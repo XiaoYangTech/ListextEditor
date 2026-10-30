@@ -1,0 +1,13 @@
+{
+  "name": "openshenzhou",
+  "version": "0.1.0",
+  "description": "纯本地、跨平台的微软神经语音 SDK（Node 版）：给语音包目录即可朗读，不需要 SAPI 注册、不依赖 Windows 引擎",
+  "main": "index.js",
+  "bin": { "openshenzhou": "cli.js" },
+  "dependencies": {
+    "onnxruntime-node": "^1.20.1",
+    "onnx-proto": "^4.0.4",
+    "protobufjs": "^7.4.0"
+  },
+  "license": "MIT"
+}

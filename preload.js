@@ -447,6 +447,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openLogsDir: () => ipcRenderer.invoke('open-logs-dir'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
 
+  // 开放神州（OpenShenzhou）语音模型管理
+  openshenzhouListVoices: () => ipcRenderer.invoke('openshenzhou-list-voices'),
+  openshenzhouImportVoice: (appxPath) => ipcRenderer.invoke('openshenzhou-import-voice', appxPath),
+  openshenzhouDeleteVoice: (id) => ipcRenderer.invoke('openshenzhou-delete-voice', id),
+  openshenzhouOpenVoicesDir: () => ipcRenderer.invoke('openshenzhou-open-voices-dir'),
+
   getShortcuts: () => ipcRenderer.invoke('get-shortcuts'),
   saveShortcuts: (shortcuts) => ipcRenderer.invoke('save-shortcuts', shortcuts),
 

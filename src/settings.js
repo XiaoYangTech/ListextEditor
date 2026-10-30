@@ -56,12 +56,98 @@ class SettingsManager {
       shortcuts: '快捷键',
       layout: '布局',
       presets: '预设',
+      voices: '语音模型',
       proxy: '网络代理',
       cache: '缓存管理'
     };
     document.getElementById('page-title').textContent = titles[page] || '';
     if (page === 'cache') this.loadCacheStats();
     if (page === 'presets') this.loadPresets();
+    if (page === 'voices') this.loadVoices();
+  }
+
+  // ===== 语音模型（开放神州内测）=====
+  // 预留链接：拿到正式地址后填这里即可（留空时点击会提示未配置）
+  static VOICE_MODEL_DOWNLOAD_URL = '';
+  static VOICE_ISSUE_SURVEY_URL = '';
+
+  async loadVoices() {
+    const hint = document.getElementById('voiceListHint');
+    const listEl = document.getElementById('voiceList');
+    if (!listEl) return;
+    try {
+      const res = await window.electronAPI.openshenzhouListVoices();
+      if (!res?.success) throw new Error(res?.error || '读取失败');
+      const voices = Array.isArray(res.voices) ? res.voices : [];
+      listEl.innerHTML = '';
+      if (!voices.length) {
+        if (hint) hint.textContent = '还没有导入语音模型。点击上方「导入语音模型」选择 .appx / .msix 文件即可。';
+        return;
+      }
+      if (hint) hint.textContent = `已导入 ${voices.length} 个语音模型。`;
+      for (const v of voices) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--md-divider);border-radius:8px;margin-bottom:8px;';
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1;min-width:0;';
+        const title = document.createElement('div');
+        title.style.cssText = 'font-weight:600;';
+        title.textContent = v.name || v.id;
+        const sub = document.createElement('div');
+        sub.style.cssText = 'font-size:12px;color:var(--md-on-surface-variant);margin-top:2px;';
+        const langText = v.locale ? v.locale : '语言未知';
+        sub.textContent = `${langText} · ${this.formatBytes(v.size) || '未知大小'}${v.ready ? '' : ' · ⚠ 文件不完整'}`;
+        info.appendChild(title);
+        info.appendChild(sub);
+        const del = document.createElement('button');
+        del.className = 'btn btn-outline';
+        del.textContent = '删除';
+        del.addEventListener('click', () => this.deleteVoice(v));
+        row.appendChild(info);
+        row.appendChild(del);
+        listEl.appendChild(row);
+      }
+    } catch (e) {
+      if (hint) hint.textContent = '读取语音模型失败：' + (e?.message || e);
+      listEl.innerHTML = '';
+    }
+  }
+
+  async importVoice() {
+    try {
+      const res = await window.electronAPI.openshenzhouImportVoice();
+      if (res?.canceled) return;
+      if (!res?.success) {
+        alert('导入失败：\n' + (res?.error || '未知错误'));
+        return;
+      }
+      const v = res.voice || {};
+      alert(`导入成功：\n${v.name || ''}${v.locale ? '（' + v.locale + '）' : ''}`);
+      await this.loadVoices();
+    } catch (e) {
+      alert('导入失败：\n' + (e?.message || String(e)));
+    }
+  }
+
+  async deleteVoice(v) {
+    if (!window.confirm(`确定删除语音模型「${v.name || v.id}」吗？\n删除后该音色将无法使用，需要重新导入。`)) return;
+    try {
+      const res = await window.electronAPI.openshenzhouDeleteVoice(v.id);
+      if (!res?.success) { alert('删除失败：\n' + (res?.error || '未知错误')); return; }
+      await this.loadVoices();
+    } catch (e) {
+      alert('删除失败：\n' + (e?.message || String(e)));
+    }
+  }
+
+  // 预留链接入口：模型下载页 / 语音问题调查问卷（URL 见上方静态字段）
+  openVoiceLink(kind) {
+    const url = kind === 'download' ? SettingsManager.VOICE_MODEL_DOWNLOAD_URL : SettingsManager.VOICE_ISSUE_SURVEY_URL;
+    if (!url) {
+      alert('链接尚未配置。\n\n开发者在拿到正式地址后，填入 src/settings.js 里的\nVOICE_MODEL_DOWNLOAD_URL / VOICE_ISSUE_SURVEY_URL 即可生效。');
+      return;
+    }
+    window.electronAPI?.openExternal?.(url);
   }
 
   formatBytes(n) {
@@ -374,6 +460,15 @@ class SettingsManager {
 
     document.getElementById('btnSaveProxy')?.addEventListener('click', () => this.saveProxy());
     document.getElementById('btnReloadProxy')?.addEventListener('click', () => this.loadProxy());
+
+    // 语音模型（开放神州）：导入 / 打开目录 / 两个预留链接
+    document.getElementById('btnImportVoice')?.addEventListener('click', () => this.importVoice());
+    document.getElementById('btnOpenVoicesDir')?.addEventListener('click', async () => {
+      const res = await window.electronAPI?.openshenzhouOpenVoicesDir?.();
+      if (res && res.success === false) alert('打开模型目录失败：\n' + (res.error || '未知错误'));
+    });
+    document.getElementById('btnVoiceModelDownload')?.addEventListener('click', () => this.openVoiceLink('download'));
+    document.getElementById('btnVoiceSurvey')?.addEventListener('click', () => this.openVoiceLink('survey'));
 
     document.getElementById('proxyMode')?.addEventListener('change', () => this.toggleProxyUrl());
 
