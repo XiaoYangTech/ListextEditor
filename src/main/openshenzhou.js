@@ -49,6 +49,42 @@ const LOCALE_MAP = {
 // 一个可用语音包必须具备的文件（缺一不可，SDK 加载时会直接报错）
 const REQUIRED_FILES = ['phones.txt', 'am_v5_encoder.bin', 'am_v5_decoder.bin', 'device_vocoder_v6_streaming.bin'];
 
+// SDK 文本前端支持的语言（其余语种会直接报"暂不支持的语言"）
+const SUPPORTED_LANG = ['zh', 'en', 'ja', 'ko', 'es', 'fr', 'de', 'pt'];
+const LANG_DEFAULT_REGION = { zh: 'CN', en: 'US', ja: 'JP', ko: 'KR', es: 'ES', fr: 'FR', de: 'DE', pt: 'BR' };
+
+/** 把各种写法的语言标记（de-DE / de_DE / DeDE / zh-CN）规范成 LOCALE_MAP 里的标准 locale，不支持则返回 '' */
+function normalizeLocale(raw) {
+  const m = /^([A-Za-z]{2,3})(?:[-_]([A-Za-z]{2,4}))?/.exec(String(raw || '').trim());
+  if (!m) return '';
+  const lang = m[1].toLowerCase();
+  if (!SUPPORTED_LANG.includes(lang)) return '';
+  const key = (v) => v[0].toUpperCase() + v.slice(1);
+  const region = (m[2] || LANG_DEFAULT_REGION[lang]).toUpperCase();
+  return LOCALE_MAP[key(lang) + region] || LOCALE_MAP[key(lang) + LANG_DEFAULT_REGION[lang]] || '';
+}
+
+/** 读取分发版 zip 里写入的 voice-info.json（含规范名/英文名/locale） */
+function readVoiceInfo(dir) {
+  try {
+    const info = JSON.parse(fs.readFileSync(path.join(dir, 'voice-info.json'), 'utf-8').replace(/^\uFEFF/, ''));
+    return info && typeof info === 'object' ? info : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 从 APPX 清单读取 <Resource Language="xx-XX"/>（官方 appx/msix 包里的权威语言信息） */
+function readManifestLocale(dir) {
+  try {
+    const xml = fs.readFileSync(path.join(dir, 'AppxManifest.xml'), 'utf-8').replace(/^\uFEFF/, '');
+    const m = xml.match(/<Resource\s+Language="([^"]+)"/i);
+    return m ? normalizeLocale(m[1]) : '';
+  } catch {
+    return '';
+  }
+}
+
 function ensureVoicesDir() {
   const dir = getVoicesDir();
   fs.mkdirSync(dir, { recursive: true });
@@ -99,9 +135,18 @@ function dirSize(dir) {
 
 // 从目录里或上一级找 MSTTSLoc<Lang>.dat 判语言
 function detectLocale(dir) {
-  // 讲述人语音包常同时带多语种数据（如中文包也带 MSTTSLocEnUS.dat），
-  // 取「MSTTSLoc*.dat 体积最大」的那个作为该发音人的主语言——主语言数据明显比其他语种大。
+  // 语言判定优先级：分发包 voice-info.json → APPX 清单 Resource Language → 最大 MSTTSLoc 数据
+  // （讲述人语音包常同时带多语种数据，只看文件大小容易误判，前两者才是权威信息）
   const candidates = [dir, path.dirname(dir)];
+  for (const d of candidates) {
+    const info = readVoiceInfo(d);
+    if (info) {
+      const loc = normalizeLocale(info.locale);
+      if (loc) return loc;
+    }
+    const fromManifest = readManifestLocale(d);
+    if (fromManifest) return fromManifest;
+  }
   for (const d of candidates) {
     let names = [];
     try { names = fs.readdirSync(d); } catch { continue; }
@@ -113,9 +158,9 @@ function detectLocale(dir) {
       try { size = fs.statSync(path.join(d, n)).size; } catch { /* 忽略 */ }
       const hit = Object.keys(LOCALE_MAP).find(k => k.toLowerCase() === m[1].toLowerCase());
       if (!hit) continue;
-      if (!best || size > best.size) best = { code: hit, size };
+      if (!best || size > best.size) best = { locale: LOCALE_MAP[hit], size };
     }
-    if (best) return LOCALE_MAP[best.code];
+    if (best) return best.locale;
   }
   return '';
 }
@@ -173,11 +218,11 @@ function listVoices() {
 function importVoice(appxPath) {
   const src = typeof appxPath === 'string' ? appxPath : '';
   if (!src || !fs.existsSync(src)) {
-    return { success: false, error: '找不到所选文件，请重新选择语音包（.appx / .msix）' };
+    return { success: false, error: '找不到所选文件，请重新选择语音包（.zip / .appx / .msix）' };
   }
   const ext = path.extname(src).toLowerCase();
   if (!APPX_EXTS.includes(ext)) {
-    return { success: false, error: `不支持的文件类型「${ext || '无扩展名'}」，请选择 .appx / .msix / .appxbundle 语音包` };
+    return { success: false, error: `不支持的文件类型「${ext || '无扩展名'}」，请选择 .zip / .appx / .msix / .appxbundle 语音包` };
   }
 
   ensureVoicesDir();
@@ -189,7 +234,7 @@ function importVoice(appxPath) {
     try {
       sourceZip = new AdmZip(src);
     } catch (e) {
-      return { success: false, error: `无法读取该文件，可能不是有效的语音包（${e.message}）` };
+      return { success: false, error: `无法读取该文件，可能不是有效的语音包压缩文件（${e.message}）` };
     }
 
     // APPXBUNDLE：里面还套着 .appx，取出第一个再解
@@ -218,12 +263,24 @@ function importVoice(appxPath) {
     }
 
     const locale = detectLocale(voiceDir) || detectLocale(tempRoot);
+    if (!locale) {
+      return {
+        success: false,
+        error: '无法识别这个语音包的语言：包内没有 voice-info.json、AppxManifest.xml 或 MSTTSLoc 语言数据。请使用官方「讲述人自然语音」语音包，或到模型下载页重新下载。'
+      };
+    }
+    const voiceInfo = readVoiceInfo(voiceDir) || readVoiceInfo(tempRoot) || null;
     // 名称取 appx 文件名（去掉 Microsoft. 前缀与版本后缀，便于识别）
     let baseName = path.basename(sourcePath, path.extname(sourcePath))
       .replace(/^Microsoft\./i, '')
       .replace(/[_\-][\d.]+[_\-].*$/, '')
       .trim();
     baseName = sanitizeName(baseName) || '语音包';
+    // 分发版 zip 里带规范名（中文名 + 英文名）时优先用它作为显示名
+    if (voiceInfo && voiceInfo.name) {
+      const nice = voiceInfo.englishName ? `${voiceInfo.name}（${voiceInfo.englishName}）` : String(voiceInfo.name);
+      baseName = sanitizeName(nice) || baseName;
+    }
     // 目录名带 locale：SDK 靠目录名（含 zh-cn 这类标记）判断语言。
     // 文件名本身已带 locale（如 Aria_Female_en-US.msix）时不再重复拼接，避免出现 _en-US_en-US
     const baseHasLocale = locale && baseName.toLowerCase().includes(locale.toLowerCase());
@@ -294,7 +351,11 @@ function getTts(voiceId) {
   const voicesRoot = getVoicesDir();
   const dir = path.join(voicesRoot, id);
   if (!id || !fs.existsSync(dir)) {
-    throw new Error(`语音模型「${id || '未设置'}」不存在，请到「设置 → 语音模型」导入`);
+    const avail = listVoices().map(v => v.id);
+    const hint = avail.length
+      ? `已导入的语音模型：${avail.slice(0, 8).join('、')}${avail.length > 8 ? ' 等' : ''}。请到「设置 → 语音模型」改选发音人，或导入这个语音包`
+      : '还没有导入任何语音包。请到「设置 → 语音模型」，点「导入语音模型」选择 .zip / .appx / .msix 文件导入';
+    throw new Error(`语音模型「${id || '未设置'}」不存在。${hint}`);
   }
   if (!hasRequiredFiles(dir)) {
     const missing = missingRequiredFiles(dir).join('、');
