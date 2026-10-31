@@ -20,14 +20,18 @@
  * 开放神州（OpenShenzhou）语音模型管理
  *
  * 语音包来自 Windows「讲述人自然语音」的 MSIX/APPX 包（用户自备，程序不携带）：
- * - APPX/MSIX 本质是 zip：解包后找含 phones.txt + am_v5_encoder.bin 的目录
- * - 语言从 MSTTSLoc*.dat 判定（如 MSTTSLocZhCN.dat → zh-CN）
+ * - APPX/MSIX 本质是 zip：解包后找含 phones.txt + am_v5_encoder.bin 的目录；
+ *   微软官方包的 zip 是流式写入的（data descriptor），adm-zip 可能读不了，
+ *   此时退回系统解压器（Windows 用 .NET ZipFile，macOS/Linux 用 unzip）
+ * - 语言判定：包内 voice-info.json（分发版）→ AppxManifest.xml 的 Resource Language
+ *   → 最后兜底 MSTTSLoc*.dat 体积最大者
  * - 存放到 userData/openshenzhou-voices/<名称>_<语言>/，SDK 靠目录名识别语言
  * - 支持列目录、导入、删除、打开目录
  */
 const { app, ipcMain, dialog, BrowserWindow, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const AdmZip = require('adm-zip');
 
 // 注意：main.js 是在 app ready 之前才把 userData 改到 ListextEditor 的，
@@ -165,6 +169,51 @@ function detectLocale(dir) {
   return '';
 }
 
+/**
+ * 解压 zip / appx / msix。
+ * adm-zip 读不了「流式写入」的包（微软官方 APPX/MSIX 用 data descriptor 记录 entry 长度），
+ * 会抛 "Descriptor data is malformed"；此时退回系统解压器：
+ * Windows 用 .NET ZipFile，macOS/Linux 用 unzip。
+ */
+function extractArchive(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  try {
+    const zip = new AdmZip(src);
+    zip.extractAllTo(dest, true);
+    return { via: 'adm-zip' };
+  } catch (e) {
+    console.warn('[开放神州] adm-zip 解包失败，改用系统解压器:', e.message);
+    fs.rmSync(dest, { recursive: true, force: true });
+    fs.mkdirSync(dest, { recursive: true });
+  }
+  if (process.platform === 'win32') {
+    const esc = (p) => String(p).replace(/'/g, "''");
+    const ps = `Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('${esc(src)}','${esc(dest)}')`;
+    const r = spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', ps], { encoding: 'utf8', windowsHide: true });
+    if (r.status === 0) return { via: 'powershell' };
+    throw new Error(((r.stderr || '') + (r.stdout || '')).trim() || '系统解压失败');
+  }
+  const r = spawnSync('unzip', ['-q', '-o', src, '-d', dest], { encoding: 'utf8' });
+  if (r.status === 0) return { via: 'unzip' };
+  throw new Error(((r.stderr || '') + (r.stdout || '')).trim() || 'unzip 解包失败');
+}
+
+/** 递归找第一个匹配扩展名的文件 */
+function findFileByExt(root, re) {
+  const stack = [root];
+  while (stack.length) {
+    const dir = stack.pop();
+    let entries = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { continue; }
+    for (const e of entries) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) stack.push(p);
+      else if (re.test(e.name)) return p;
+    }
+  }
+  return null;
+}
+
 // 深度优先找「含 phones.txt 且含 am_v5_encoder.bin」的目录
 function findVoiceDir(root) {
   const stack = [root];
@@ -229,36 +278,35 @@ function importVoice(appxPath) {
   const tempRoot = path.join(app.getPath('temp'), 'ListextEditor', 'osz-import-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
 
   try {
-    let sourceZip = null;
     let sourcePath = src;
+    const extractRoot = path.join(tempRoot, 'pack');
+
+    // APPXBUNDLE：先展开外层，找出里面第一个 .appx 再解
+    if (ext === '.appxbundle') {
+      const bundleDir = path.join(tempRoot, 'bundle');
+      try {
+        extractArchive(src, bundleDir);
+      } catch (e) {
+        return { success: false, error: `无法读取该文件，可能不是有效的语音包压缩文件（${e.message}）` };
+      }
+      const nested = findFileByExt(bundleDir, /\.appx$/i);
+      if (!nested) {
+        return { success: false, error: '这个 appxbundle 里没有找到 .appx 语音包，文件可能已损坏' };
+      }
+      sourcePath = nested;
+    }
+
     try {
-      sourceZip = new AdmZip(src);
+      extractArchive(sourcePath, extractRoot);
     } catch (e) {
       return { success: false, error: `无法读取该文件，可能不是有效的语音包压缩文件（${e.message}）` };
     }
 
-    // APPXBUNDLE：里面还套着 .appx，取出第一个再解
-    if (ext === '.appxbundle') {
-      const nested = sourceZip.getEntries().find(en => !en.isDirectory && /\.appx$/i.test(en.entryName));
-      if (!nested) {
-        return { success: false, error: '这个 appxbundle 里没有找到 .appx 语音包，文件可能已损坏' };
-      }
-      const nestedPath = path.join(tempRoot, 'inner.appx');
-      fs.mkdirSync(tempRoot, { recursive: true });
-      sourceZip.extractEntryTo(nested, tempRoot, false, true);
-      if (!fs.existsSync(nestedPath)) return { success: false, error: '解包 appxbundle 失败' };
-      sourcePath = nestedPath;
-      sourceZip = new AdmZip(nestedPath);
-    }
-
-    fs.mkdirSync(tempRoot, { recursive: true });
-    sourceZip.extractAllTo(tempRoot, true);
-
-    const voiceDir = findVoiceDir(tempRoot);
+    const voiceDir = findVoiceDir(extractRoot);
     if (!voiceDir) {
       return {
         success: false,
-        error: '这个文件里没有找到语音包：解包后应包含 phones.txt 与 am_v5_encoder.bin。请确认下载的是「讲述人自然语音」模型包（APPX/MSIX）。'
+        error: '这个文件里没有找到语音包：解包后应包含 phones.txt 与 am_v5_encoder.bin。请确认下载的是「讲述人自然语音」模型包（APPX/MSIX），或从模型下载页下载应用支持的分发版 .zip。'
       };
     }
 
