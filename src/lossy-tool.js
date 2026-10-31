@@ -29,6 +29,7 @@ class LossyAudioTool {
     // 损坏程度的唯一权威值：滑块位置与文字都从它派生，避免两者不同步
     this.level = 80;
     this._previewAudio = null;
+    this._previewing = false;
     this._busy = false;
     this.bind();
   }
@@ -42,7 +43,15 @@ class LossyAudioTool {
     this._el('lossyToolCloseTop')?.addEventListener('click', () => this.close());
     this._el('lossyCancel')?.addEventListener('click', () => this.close());
     this._el('lossyPickInput')?.addEventListener('click', () => this._pick());
-    this._el('lossyPreview')?.addEventListener('click', () => this._run(true));
+    this._el('lossyPreview')?.addEventListener('click', () => {
+      // 试听按钮兼作停止键：正在试听时点一下即停止，避免长音频只能等它播完
+      if (this._previewing) {
+        this._stopPreview();
+        this._setHint(this._baseHint());
+        return;
+      }
+      this._run(true);
+    });
     this._el('lossyExport')?.addEventListener('click', () => this._run(false));
 
     const range = this._el('lossyLevel');
@@ -124,6 +133,7 @@ class LossyAudioTool {
 
   open() {
     this.bind();
+    this._setPreviewState(false);
     this._setHint(this._baseHint());
     this._el('lossyToolDialog')?.classList.add('active');
     // 对话框刚从 display:none 变为可见时，range 的滑块偶尔会停在旧位置（轨道已按新值着色）；
@@ -213,14 +223,32 @@ class LossyAudioTool {
       const url = String(filePath).replace(/\\/g, '/');
       const proto = url.startsWith('/') ? 'file://' + encodeURI(url) : 'file:///' + encodeURI(url);
       this._previewAudio = new Audio(proto);
+      this._setPreviewState(true);
       this._previewAudio.addEventListener('ended', () => {
         this._previewAudio = null;
+        this._setPreviewState(false);
         if (!this._busy) this._setHint(this._baseHint()); // 试听完提示回到当前档位说明
+      });
+      this._previewAudio.addEventListener('error', () => {
+        this._previewAudio = null;
+        this._setPreviewState(false);
+        if (!this._busy) this._setHint('试听播放失败，可换个档位或重新选择文件再试');
       });
       this._previewAudio.play();
     } catch (e) {
       console.error('试听失败:', e);
+      this._setPreviewState(false);
     }
+  }
+
+  // 试听按钮的两种形态：试听 / 停止试听
+  _setPreviewState(playing) {
+    this._previewing = !!playing;
+    const btn = this._el('lossyPreview');
+    if (!btn) return;
+    btn.textContent = playing ? '停止试听' : '试听';
+    btn.classList.toggle('btn-danger', !!playing);
+    btn.title = playing ? '停止当前试听' : '按当前损坏程度试听';
   }
 
   _stopPreview() {
@@ -228,5 +256,6 @@ class LossyAudioTool {
       try { this._previewAudio.pause(); } catch { /* 忽略 */ }
       this._previewAudio = null;
     }
+    this._setPreviewState(false);
   }
 }
