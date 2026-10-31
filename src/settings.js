@@ -67,9 +67,9 @@ class SettingsManager {
   }
 
   // ===== 语音模型（开放神州公测）=====
-  // 预留链接：拿到正式地址后填这里即可（留空时点击会提示未配置）
-  static VOICE_MODEL_DOWNLOAD_URL = '';
-  static VOICE_ISSUE_SURVEY_URL = '';
+  // 开放神州相关外部链接（写死，避免用户看到空入口）
+  static VOICE_MODEL_DOWNLOAD_URL = 'https://www.yfyw.top/opensource/shenzhou-voice-download.html';
+  static VOICE_ISSUE_SURVEY_URL = 'https://wj.qq.com/s2/28457157/gn47/';
 
   async loadVoices() {
     const hint = document.getElementById('voiceListHint');
@@ -140,7 +140,7 @@ class SettingsManager {
     }
   }
 
-  // 预留链接入口：模型下载页 / 语音问题调查问卷（URL 见上方静态字段）
+  // 外部链接入口：语音包下载页 / 语音问题调查问卷（URL 见上方静态字段）
   openVoiceLink(kind) {
     const url = kind === 'download' ? SettingsManager.VOICE_MODEL_DOWNLOAD_URL : SettingsManager.VOICE_ISSUE_SURVEY_URL;
     if (!url) {
