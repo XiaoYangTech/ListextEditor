@@ -218,8 +218,10 @@ function importVoice(appxPath) {
       .replace(/[_\-][\d.]+[_\-].*$/, '')
       .trim();
     baseName = sanitizeName(baseName) || '语音包';
-    // 目录名带 locale：SDK 靠目录名（含 zh-cn 这类标记）判断语言
-    const idBase = locale ? `${baseName}_${locale}` : baseName;
+    // 目录名带 locale：SDK 靠目录名（含 zh-cn 这类标记）判断语言。
+    // 文件名本身已带 locale（如 Aria_Female_en-US.msix）时不再重复拼接，避免出现 _en-US_en-US
+    const baseHasLocale = locale && baseName.toLowerCase().includes(locale.toLowerCase());
+    const idBase = locale && !baseHasLocale ? `${baseName}_${locale}` : baseName;
     let id = idBase;
     let n = 2;
     const voicesRoot = getVoicesDir();
