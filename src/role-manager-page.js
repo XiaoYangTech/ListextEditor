@@ -330,12 +330,12 @@ class RoleManagerPage {
         ? descs.map(d => `<option value="${this.escapeHtml(d.value)}">${this.escapeHtml(d.value)}</option>`).join('')
         : '<option value="">未导入语音模型（设置 → 语音模型）</option>';
       this.roleVoice.value = selected;
-      this._buildVoiceDropdown(descs, selected, '还没有可用语音模型：请到「设置 → 语音模型」导入 APPX 语音包');
+      this._buildVoiceDropdown(descs, selected, '还没有可用语音模型：请到「设置 → 语音模型」导入 .zip / .appx / .msix 语音包');
       // 没有语音包时直接提示去设置导入（否则用户不知道该去哪儿加语音包）
       if (!descs.length) {
         window.app?.uiManager?.showInfoDialog?.(
           '还没有开放神州语音包',
-          '开放神州（公测）需要先导入语音包才能使用。\n\n请打开「设置 → 语音模型」，点「导入语音模型」选择 .appx / .msix 文件；\n导入后回到这里重新选择发音人即可。'
+          '开放神州（公测）需要先导入语音包才能使用。\n\n请打开「设置 → 语音模型」，点「导入语音模型」选择 .zip / .appx / .msix 文件；\n导入后回到这里重新选择发音人即可。'
         );
       }
       return;

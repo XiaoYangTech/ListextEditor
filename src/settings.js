@@ -81,7 +81,7 @@ class SettingsManager {
       const voices = Array.isArray(res.voices) ? res.voices : [];
       listEl.innerHTML = '';
       if (!voices.length) {
-        if (hint) hint.textContent = '还没有导入语音模型。点击上方「导入语音模型」选择 .appx / .msix 文件即可。';
+        if (hint) hint.textContent = '还没有导入语音模型。点击上方「导入语音模型」选择 .zip / .appx / .msix 文件即可。';
         return;
       }
       if (hint) hint.textContent = `已导入 ${voices.length} 个语音模型。`;

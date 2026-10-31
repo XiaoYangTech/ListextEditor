@@ -40,7 +40,7 @@ function getVoicesDir() {
   return path.join(app.getPath('userData'), 'openshenzhou-voices');
 }
 const META_FILE = 'meta.json';
-const APPX_EXTS = ['.appx', '.msix', '.appxbundle', '.zip'];
+const APPX_EXTS = ['.zip', '.appx', '.msix', '.appxbundle'];
 
 // 讲述人语音包的语言标记文件 → 标准 locale
 const LOCALE_MAP = {
@@ -476,8 +476,11 @@ function registerOpenShenzhouHandlers() {
     if (!target) {
       const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
       const result = await dialog.showOpenDialog(win, {
-        title: '选择语音模型包（.appx / .msix）',
-        filters: [{ name: '语音模型包', extensions: ['appx', 'msix', 'appxbundle', 'zip'] }],
+        title: '选择语音模型包（.zip / .appx / .msix）',
+        filters: [
+          { name: '语音模型包', extensions: ['zip', 'appx', 'msix', 'appxbundle'] },
+          { name: '所有文件', extensions: ['*'] }
+        ],
         properties: ['openFile']
       });
       if (result.canceled || !result.filePaths?.length) return { success: false, canceled: true };
