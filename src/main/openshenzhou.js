@@ -99,17 +99,23 @@ function dirSize(dir) {
 
 // 从目录里或上一级找 MSTTSLoc<Lang>.dat 判语言
 function detectLocale(dir) {
+  // 讲述人语音包常同时带多语种数据（如中文包也带 MSTTSLocEnUS.dat），
+  // 取「MSTTSLoc*.dat 体积最大」的那个作为该发音人的主语言——主语言数据明显比其他语种大。
   const candidates = [dir, path.dirname(dir)];
   for (const d of candidates) {
     let names = [];
     try { names = fs.readdirSync(d); } catch { continue; }
+    let best = null;
     for (const n of names) {
       const m = /^MSTTSLoc([A-Za-z]+)\.dat$/i.exec(n);
       if (!m) continue;
-      const code = m[1];
-      const hit = Object.keys(LOCALE_MAP).find(k => k.toLowerCase() === code.toLowerCase());
-      if (hit) return LOCALE_MAP[hit];
+      let size = 0;
+      try { size = fs.statSync(path.join(d, n)).size; } catch { /* 忽略 */ }
+      const hit = Object.keys(LOCALE_MAP).find(k => k.toLowerCase() === m[1].toLowerCase());
+      if (!hit) continue;
+      if (!best || size > best.size) best = { code: hit, size };
     }
+    if (best) return LOCALE_MAP[best.code];
   }
   return '';
 }
