@@ -194,6 +194,11 @@ function registerConfigHandlers(ipcMain) {
   });
 
   // 缓存管理：大小统计 / 分类清除 / 打开日志目录
+  ipcMain.handle('edge-tts-cache-dir', async () => {
+    const { app } = require('electron');
+    return path.join(app.getPath('userData'), 'edge-tts-cache');
+  });
+
   ipcMain.handle('get-cache-stats', async () => {
     const { app } = require('electron');
     const { dirSize } = require('./logger');
@@ -202,7 +207,8 @@ function registerConfigHandlers(ipcMain) {
       logs: dirSize(getLogDir()),
       temp: dirSize(tempDir),
       projectSounds: dirSize(path.join(app.getPath('userData'), 'project-sounds')),
-      importedSounds: dirSize(path.join(app.getPath('userData'), 'imported-sounds'))
+      importedSounds: dirSize(path.join(app.getPath('userData'), 'imported-sounds')),
+      edgeTtsCache: dirSize(path.join(app.getPath('userData'), 'edge-tts-cache'))
     };
   });
 
@@ -212,7 +218,8 @@ function registerConfigHandlers(ipcMain) {
       logs: getLogDir(),
       temp: path.join(app.getPath('temp'), 'ListextEditor'),
       projectSounds: path.join(app.getPath('userData'), 'project-sounds'),
-      importedSounds: path.join(app.getPath('userData'), 'imported-sounds')
+      importedSounds: path.join(app.getPath('userData'), 'imported-sounds'),
+      edgeTtsCache: path.join(app.getPath('userData'), 'edge-tts-cache')
     };
     const dir = targets[category];
     if (!dir) return { success: false, error: '未知分类' };

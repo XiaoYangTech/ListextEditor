@@ -317,7 +317,7 @@ class RoleManagerPage {
     if (wrap0) wrap0.style.display = '';
     this.roleVoice.style.display = 'none';
 
-    // 开放神州（内测）：音色来自「设置 → 语音模型」里已导入的本地语音包
+    // 开放神州（公测）：音色来自「设置 → 语音模型」里已导入的本地语音包
     if (type === 'openshenzhou') {
       const res = await window.electronAPI?.openshenzhouListVoices?.();
       if (stale()) return;
@@ -331,6 +331,13 @@ class RoleManagerPage {
         : '<option value="">未导入语音模型（设置 → 语音模型）</option>';
       this.roleVoice.value = selected;
       this._buildVoiceDropdown(descs, selected, '还没有可用语音模型：请到「设置 → 语音模型」导入 APPX 语音包');
+      // 没有语音包时直接提示去设置导入（否则用户不知道该去哪儿加语音包）
+      if (!descs.length) {
+        window.app?.uiManager?.showInfoDialog?.(
+          '还没有开放神州语音包',
+          '开放神州（公测）需要先导入语音包才能使用。\n\n请打开「设置 → 语音模型」，点「导入语音模型」选择 .appx / .msix 文件；\n导入后回到这里重新选择发音人即可。'
+        );
+      }
       return;
     }
 
@@ -377,7 +384,7 @@ class RoleManagerPage {
         return `<div class="rm-list-item" data-id="${this.escapeHtml(role.id)}">
           <div>
             <div><strong>${this.escapeHtml(role.name)}</strong> (${this.escapeHtml(role.id)})</div>
-            <div class="rm-meta">${role.type === 'local' ? '系统TTS' : (role.type === 'openshenzhou' ? '开放神州（内测）' : '微软在线自然语音')} · ${this.escapeHtml(role.voice || '未设置')}</div>
+            <div class="rm-meta">${role.type === 'local' ? '系统TTS' : (role.type === 'openshenzhou' ? '开放神州（公测）' : '微软在线自然语音')} · ${this.escapeHtml(role.voice || '未设置')}</div>
           </div>
           <div class="rm-actions"><button class="btn btn-ghost" data-action="edit" data-id="${this.escapeHtml(role.id)}">编辑</button><button class="btn btn-danger" data-action="delete" data-id="${this.escapeHtml(role.id)}">删除</button></div>
         </div>`;

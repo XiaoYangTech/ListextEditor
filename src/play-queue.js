@@ -228,7 +228,7 @@ class PlayQueue {
   }
 
   async playTTS(task, gen) {
-    // 开放神州（内测）：本地 ONNX 推理合成，不联网
+    // 开放神州（公测）：本地 ONNX 推理合成，不联网
     if (task.ttsType === 'openshenzhou' && window.electronAPI?.openshenzhouSynthesize) {
       const voiceId = this.resolveVoice(task);
       try {

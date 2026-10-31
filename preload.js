@@ -21,6 +21,7 @@ const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 const { execFile, spawn } = require('child_process');
 const { ensureDir, isNetworkError, extractErrorCode, sleep } = require('./src/main/utils');
 const { DEFAULT_EDGE_VOICE } = require('./src/listext-constants');
@@ -94,6 +95,51 @@ function logToFile(level, args) {
   try { ipcRenderer.invoke('append-log', level, args); } catch {}
 }
 
+// ---------- EdgeTTS 本地缓存：音色 + 语速 + 文本完全一致时直接复用，不再走网络 ----------
+// 缓存目录在 userData/edge-tts-cache（由主进程提供路径），文件名是 sha256(音色|语速|文本)。
+// 命中时刷新 mtime（LRU 淘汰依据）；超过 300MB 或 2000 个文件时按最旧优先清理。
+const EDGE_TTS_CACHE_MAX_BYTES = 300 * 1024 * 1024;
+const EDGE_TTS_CACHE_MAX_FILES = 2000;
+let _edgeTtsCacheDir = null;
+
+async function edgeTtsCacheDir() {
+  if (_edgeTtsCacheDir !== null) return _edgeTtsCacheDir;
+  try {
+    _edgeTtsCacheDir = (await ipcRenderer.invoke('edge-tts-cache-dir')) || '';
+  } catch {
+    _edgeTtsCacheDir = '';
+  }
+  return _edgeTtsCacheDir;
+}
+
+function edgeTtsCacheKey(text, voice, rate) {
+  return crypto.createHash('sha256')
+    .update(`${voice}\u0000${rate}\u0000${String(text).trim()}`)
+    .digest('hex');
+}
+
+// 清理超限缓存（同步执行，量大时也只是遍历目录，不做 IO 内容读取）
+function pruneEdgeTtsCache(dir) {
+  try {
+    const entries = fs.readdirSync(dir)
+      .filter(f => f.endsWith('.mp3'))
+      .map(f => {
+        const p = path.join(dir, f);
+        try { const st = fs.statSync(p); return { p, size: st.size, mtime: st.mtimeMs }; } catch { return null; }
+      })
+      .filter(Boolean);
+    let total = entries.reduce((s, e) => s + e.size, 0);
+    let count = entries.length;
+    if (count <= EDGE_TTS_CACHE_MAX_FILES && total <= EDGE_TTS_CACHE_MAX_BYTES) return;
+    entries.sort((a, b) => a.mtime - b.mtime);
+    for (const e of entries) {
+      if (count <= 50) break;
+      if (count <= EDGE_TTS_CACHE_MAX_FILES * 0.8 && total <= EDGE_TTS_CACHE_MAX_BYTES * 0.8) break;
+      try { fs.unlinkSync(e.p); total -= e.size; count -= 1; } catch { /* 忽略单个失败 */ }
+    }
+  } catch { /* 清理失败不影响合成 */ }
+}
+
 async function synthesizeTTS(text, voice, rate = '+0%') {
   let rawVoice = voice || DEFAULT_EDGE_VOICE;
   try {
@@ -102,6 +148,15 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
     }
     ensureDir(tempDir);
     rawVoice = voice || DEFAULT_EDGE_VOICE;
+
+    // 先查本地缓存：音色 + 语速 + 文本一致 → 直接复用
+    const rateTag = String(rate || '+0%');
+    const cacheDir = await edgeTtsCacheDir();
+    const cachePath = cacheDir ? path.join(cacheDir, edgeTtsCacheKey(text, rawVoice, rateTag) + '.mp3') : '';
+    if (cachePath && isValidMp3(cachePath)) {
+      try { const now = new Date(); fs.utimesSync(cachePath, now, now); } catch { /* 忽略 */ }
+      return { success: true, path: cachePath, cached: true };
+    }
 
     const outputPath = path.join(tempDir, `tts_${Date.now()}.mp3`);
 
@@ -119,7 +174,23 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
     });
 
     if (fs.existsSync(outputPath)) {
-      if (isValidMp3(outputPath)) return { success: true, path: outputPath };
+      if (isValidMp3(outputPath)) {
+        // 写入本地缓存：先写 .tmp 再改名（原子替换），避免半截文件被后续复用
+        if (cachePath) {
+          try {
+            ensureDir(cacheDir);
+            const tmpPath = cachePath + '.tmp';
+            fs.copyFileSync(outputPath, tmpPath);
+            fs.renameSync(tmpPath, cachePath);
+            try { fs.unlinkSync(outputPath); } catch { /* 忽略 */ }
+            pruneEdgeTtsCache(cacheDir);
+            return { success: true, path: cachePath, cached: false };
+          } catch (e) {
+            logToFile('warn', ['[EdgeTTS] 写入本地缓存失败，改用临时文件', e.message]);
+          }
+        }
+        return { success: true, path: outputPath };
+      }
       // 截断的残次品：删除并按网络错误处理，触发上层重试
       try { fs.unlinkSync(outputPath); } catch {}
       logToFile('warn', ['[EdgeTTS] 合成结果不完整（网络中断）', `voice=${rawVoice}`]);

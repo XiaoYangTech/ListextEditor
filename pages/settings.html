@@ -289,13 +289,13 @@
         </div>
       </div>
 
-      <!-- 语音模型设置页（开放神州内测） -->
+      <!-- 语音模型设置页（开放神州公测） -->
       <div id="voices-page" class="settings-page">
         <div class="card">
-          <div class="card-title">开放神州（内测）语音模型</div>
+          <div class="card-title">开放神州（公测）语音模型</div>
           <div class="hint" style="margin-bottom:12px;">
             语音模型来自 Windows「讲述人自然语音」的 MSIX/APPX 包，需要你自行下载准备（本软件不携带语音包）。
-            导入后可在角色管理器里把发音人来源选为「开放神州（内测）」使用，全程本地合成、无需联网。
+            导入后可在角色管理器里把发音人来源选为「开放神州（公测）」使用，全程本地合成、无需联网。
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
             <button id="btnImportVoice" class="btn btn-primary">导入语音模型（.appx / .msix）</button>
@@ -355,6 +355,11 @@
             <span class="shortcut-label">导入的音效素材库</span>
             <span id="cacheSizeImportedSounds" style="font-size:13px;color:var(--md-on-surface-variant);">…</span>
             <button class="btn btn-outline" id="btnClearImportedSounds">清除素材库</button>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-label">微软在线自然语音缓存（音色+文本一致时复用）</span>
+            <span id="cacheSizeEdgeTts" style="font-size:13px;color:var(--md-on-surface-variant);">…</span>
+            <button class="btn btn-outline" id="btnClearEdgeTtsCache">清除缓存</button>
           </div>
           <div style="margin-top:12px;">
             <button class="btn btn-ghost" id="btnOpenLogsDir">打开日志目录</button>

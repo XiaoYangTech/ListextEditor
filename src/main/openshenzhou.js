@@ -275,7 +275,7 @@ function deleteVoice(id) {
   }
 }
 
-// ===== 合成（开放神州内测）=====
+// ===== 合成（开放神州公测）=====
 
 // TTS 实例缓存：onnxruntime 会话常驻内存，按语音包缓存（超出上限按插入顺序淘汰最早的）
 const ttsCache = new Map();

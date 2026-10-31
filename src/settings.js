@@ -66,7 +66,7 @@ class SettingsManager {
     if (page === 'voices') this.loadVoices();
   }
 
-  // ===== 语音模型（开放神州内测）=====
+  // ===== 语音模型（开放神州公测）=====
   // 预留链接：拿到正式地址后填这里即可（留空时点击会提示未配置）
   static VOICE_MODEL_DOWNLOAD_URL = '';
   static VOICE_ISSUE_SURVEY_URL = '';
@@ -166,7 +166,8 @@ class SettingsManager {
         cacheSizeLogs: stats.logs,
         cacheSizeTemp: stats.temp,
         cacheSizeProjectSounds: stats.projectSounds,
-        cacheSizeImportedSounds: stats.importedSounds
+        cacheSizeImportedSounds: stats.importedSounds,
+        cacheSizeEdgeTts: stats.edgeTtsCache
       };
       for (const [id, size] of Object.entries(map)) {
         const el = document.getElementById(id);
@@ -188,6 +189,7 @@ class SettingsManager {
     bindClear('btnClearLogs', 'logs');
     bindClear('btnClearTemp', 'temp');
     bindClear('btnClearProjectSounds', 'projectSounds');
+    bindClear('btnClearEdgeTtsCache', 'edgeTtsCache');
     // 素材库清除需二次确认：未保存/未引用的导入音效只有这一份
     document.getElementById('btnClearImportedSounds')?.addEventListener('click', async () => {
       if (!window.electronAPI?.clearCache) return;
