@@ -33,7 +33,6 @@ class PlayQueue {
     this.onComplete = null;
     this.onError = null;
     this.onBlockHighlight = null;
-    this.onTtsFallback = null;
     this.onTtsError = null;
     this.currentEffectAudio = null;
     this.effectFadeTimer = null;

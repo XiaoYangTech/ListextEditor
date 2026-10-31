@@ -55,10 +55,6 @@ class TTSRenderer {
       this.app.updateStatus('播放完成');
     };
 
-    this.playQueue.onTtsFallback = () => {
-      this.app.uiManager?.showInfoDialog?.('提示', 'EdgeTTS 失败，已尝试系统TTS');
-    };
-
     this.playQueue.onTtsError = (message) => {
       this.app.uiManager?.showInfoDialog?.('错误', message || 'TTS 调用失败');
     };
