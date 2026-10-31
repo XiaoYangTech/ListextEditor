@@ -54,12 +54,12 @@ const tempDir = path.join(os.tmpdir(), 'ListextEditor');
 // 注意二：preload 里 window/document 存在，MsEdgeTTS 会把自己误判为浏览器环境
 // （_isBrowser=true 时它内部会丢弃 agent），必须把该标志拨回 false 才能让 agent 生效。
 function createMsEdgeTTS(agent) {
-  if (agent) {
-    const tts = new MsEdgeTTS({ agent });
-    tts._isBrowser = false; // 见上方注意二
-    return tts;
-  }
-  return new MsEdgeTTS();
+  const tts = agent ? new MsEdgeTTS({ agent }) : new MsEdgeTTS();
+  // preload 里 window/document 存在，MsEdgeTTS 会把自己误判为浏览器环境（_isBrowser=true）。
+  // 浏览器模式下它会丢弃 agent、改用浏览器 WebSocket（带 Origin 头），Edge 端点会直接返回 403；
+  // 所以无论是否配代理，都必须把该标志拨回 Node 模式。
+  try { tts._isBrowser = false; } catch { /* 忽略（字段改名时不影响主流程） */ }
+  return tts;
 }
 
 async function getProxyAgent() {
