@@ -48,6 +48,37 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:win:x64
+      # Windows 安装包必须声明 requireAdministrator（UAC 管理员权限）：
+      # nsis.perMachine=true 时 electron-builder 会给安装包加管理员清单；
+      # 同时校验 onnxruntime 已按平台裁剪，防止打包配置回退导致体积/权限静默变坏。
+      - name: Verify installer UAC and pruned onnxruntime
+        shell: pwsh
+        run: |
+          $exes = @(Get-ChildItem dist -Filter '*Setup*.exe' -File)
+          if ($exes.Count -ne 1) { throw "dist 下应恰好有 1 个 Setup.exe，实际 $($exes.Count) 个" }
+          $exe = $exes[0]
+          $stream = [System.IO.File]::OpenRead($exe.FullName)
+          try {
+            $buffer = New-Object byte[] (8MB)
+            $read = $stream.Read($buffer, 0, $buffer.Length)
+            $text = [System.Text.Encoding]::ASCII.GetString($buffer, 0, $read)
+          } finally {
+            $stream.Close()
+          }
+          if (-not $text.Contains('requireAdministrator')) {
+            throw "安装包未声明 requireAdministrator（UAC 管理员权限）：$($exe.Name)"
+          }
+          $unpacked = (Resolve-Path 'dist\win-unpacked').Path
+          $onnxDir = Join-Path $unpacked 'resources\app.asar.unpacked\node_modules\onnxruntime-node'
+          if (-not (Test-Path $onnxDir)) { throw "未找到 onnxruntime-node 解包目录：$onnxDir" }
+          $onnxBytes = (Get-ChildItem $onnxDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
+          $onnxMiB = [math]::Round($onnxBytes / 1MB, 1)
+          if ($onnxBytes -gt 120MB) { throw "onnxruntime 未按平台裁剪：$onnxMiB MiB（预期约 66MiB）" }
+          $platformDirs = @(Get-ChildItem (Join-Path $onnxDir 'bin\napi-v6') -Directory | Select-Object -ExpandProperty Name)
+          if ($platformDirs.Count -ne 1 -or $platformDirs[0] -ne 'win32') {
+            throw "onnxruntime 仍包含多余平台目录：$($platformDirs -join ',')"
+          }
+          Write-Host "OK: $($exe.Name) 声明 requireAdministrator；onnxruntime 已裁剪至 $onnxMiB MiB（仅 win32/x64）"
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -61,6 +92,11 @@ jobs:
       fail-fast: false
       matrix:
         arch: [x64, arm64]
+    env:
+      # onnxruntime-node 的 postinstall 在 linux/x64 上默认从 nuget 下载 CUDA EP（解压后约 272MB），
+      # 本项目只用默认 CPU EP；跳过下载可让每个 Linux 安装包少 200MB+，
+      # 其余平台的推理库由 scripts/after-pack.js 在打包后按目标平台裁剪。
+      ONNXRUNTIME_NODE_INSTALL: skip
     steps:
       - uses: actions/checkout@v4
       # 开放神州的 g2p 数据（62MB）不进本仓库，同步脚本默认读取同级 ../OpenShenzhou；
@@ -95,6 +131,26 @@ jobs:
           sudo gem install --no-document fpm
       - name: Build for Linux ${{ matrix.arch }}
         run: npm run build:linux:${{ matrix.arch }}
+      # 校验 afterPack 的平台裁剪确实生效：每个 Linux 包只留本平台/架构的 onnxruntime，
+      # 且不含 CUDA/TensorRT EP 组件（本项目只用 CPU EP）。
+      - name: Verify pruned onnxruntime and package size
+        run: |
+          set -e
+          ONNX_DIR=$(find dist -type d -path '*app.asar.unpacked/node_modules/onnxruntime-node' | head -n 1)
+          [ -n "$ONNX_DIR" ] || { echo "::error::未找到 onnxruntime-node 解包目录"; exit 1; }
+          SIZE_MB=$(du -sm "$ONNX_DIR" | cut -f1)
+          echo "onnxruntime 目录：$ONNX_DIR （${SIZE_MB}MB）"
+          [ "$SIZE_MB" -lt 120 ] || { echo "::error::onnxruntime 未按平台裁剪（${SIZE_MB}MB）"; exit 1; }
+          PLATFORM_DIRS=$(ls "$ONNX_DIR/bin/napi-v6")
+          [ "$PLATFORM_DIRS" = "linux" ] || { echo "::error::onnxruntime 仍含其它平台目录：$PLATFORM_DIRS"; exit 1; }
+          ARCH_DIRS=$(ls "$ONNX_DIR/bin/napi-v6/linux")
+          [ "$ARCH_DIRS" = "${{ matrix.arch }}" ] || { echo "::error::onnxruntime 架构不对：$ARCH_DIRS"; exit 1; }
+          if ls "$ONNX_DIR"/bin/napi-v6/linux/*/libonnxruntime_providers_* >/dev/null 2>&1; then
+            echo "::error::CUDA/TensorRT EP 组件仍在包内"; exit 1
+          fi
+          echo "OK: onnxruntime 仅保留 linux/${{ matrix.arch }}，无 CUDA EP"
+          echo "--- 安装包体积 ---"
+          du -h dist/*.AppImage dist/*.deb
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

@@ -14,3 +14,10 @@
 - 已用代号按序：v1.1.5 大禹、v1.1.6 启、v1.1.7 少康、v1.1.8 杼、v1.1.9 槐、v1.1.10 芒（代号已步入夏代），后续版本严格沿历史时间线向后选取。现在用了太多历史人物了，咱搞点历史事件（比如长征），亦或是文人名字，文化象征（比如鲲鹏，麒麟，神龙这种符合当前版本气质且是目标历史时期的）用。
 - 发布提交格式 `feat: 发布 vX.X.X（开发代号：X）`，tag 格式 `vX.X.X`；文案写入根目录 RELEASE_NOTES.md 随版本号一起提交，推送 tag 自动触发三平台构建。
 - **RELEASE_NOTES.md 是覆盖式维护**：`.github/workflows/release.yml` 会把整个文件当作当版 GitHub Release 正文，发版时必须用新版本说明**整体覆盖**旧内容，禁止往上追加历史段落——追加会让上一版内容重复出现在新 Release 正文里。历史发布说明以各平台 Releases 页面为准，无需在文件里保留。请不要把无关紧要的更新内容（比如文案的修改，部分和修复bug、功能新增无关的内容，亦或是服务器后端的更新内容）写进此文件。
+
+## 打包与体积
+
+- 安装包由 `scripts/after-pack.js`（`build.afterPack` 钩子）按目标平台/架构裁剪 `onnxruntime-node` 的全平台原生库，并兜底删除 CUDA/TensorRT EP 组件（本项目只用 CPU EP）。**不要关闭该裁剪**，否则每个安装包会多带 200MB+ 无关二进制；`release.yml` 里也有对应的产物校验。
+- 本地 Linux 构建（或只跑 `npm ci`）请先设置 `ONNXRUNTIME_NODE_INSTALL=skip`，否则 onnxruntime 的 postinstall 会从 nuget 下载约 234MiB 的 CUDA 组件。
+- Windows NSIS 安装包必须保持 `nsis.perMachine=true`：安装包会声明 `requireAdministrator`（UAC 管理员权限），安装/卸载都需要管理员权限；`build/installer.nsh` 用 `!error` 阻止误关。
+- 开放神州 g2p 数据（`vendor/data/`，约 65MB）不进 git，构建前由 `npm run sync:osz` 从同级 `../OpenShenzhou` 同步；CI 会自动克隆 OpenShenzhou 仓库。

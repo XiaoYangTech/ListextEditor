@@ -57,6 +57,7 @@
     "appId": "top.yfyw.listext-editor",
     "productName": "亿方听力大师",
     "asar": true,
+    "afterPack": "./scripts/after-pack.js",
     "directories": {
       "output": "dist"
     },
