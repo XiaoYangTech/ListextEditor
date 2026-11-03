@@ -242,21 +242,38 @@ jobs:
             done
           done
       # gsync 只在创建 Release 时写入描述，Release 已存在时不会更新，
-      # 所以标题/正文单独走 CNB API（PATCH /-/releases/{id}）同步
-      - name: Sync Release description to CNB
+      # 所以标题/正文/「最新版本」标记单独走 CNB API（PATCH /-/releases/{id}）同步。
+      # make_latest 是 CNB API 的字符串枚举 true/false/legacy：正式版置 true，预发布置 false；
+      # 这样每次推送 tag 发版后，CNB 端都会自动把该版本标记为「最新」。
+      - name: Sync Release description and latest flag to CNB
         env:
           CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
           GH_TOKEN: ${{ github.token }}
           # 本 job 不 checkout，gh 需要显式指定仓库
           GH_REPO: ${{ github.repository }}
         run: |
+          set -e
           TAG=${{ github.ref_name }}
-          INFO=$(gh release view "$TAG" --json name,body)
+          INFO=$(gh release view "$TAG" --json name,body,isPrerelease)
+          PRERELEASE=$(echo "$INFO" | jq -r .isPrerelease)
+          if [ "$PRERELEASE" = "true" ]; then MAKE_LATEST=false; else MAKE_LATEST=true; fi
           # 注意：CNB API 必须带 Accept: application/json，否则一律 406
           RID=$(curl -sf -H "Authorization: token $CNB_TOKEN" -H "Accept: application/json" \
             "https://api.cnb.cool/InspireWorks/ListextEditor/-/releases/tags/$TAG" | jq -r .id)
-          echo "$INFO" | jq -c '{name: .name, body: .body}' | curl -sf -X PATCH \
+          echo "$INFO" | jq -c --arg make_latest "$MAKE_LATEST" \
+            '{name: .name, body: .body, make_latest: $make_latest}' | curl -sf -X PATCH \
             -H "Authorization: token $CNB_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
             --data-binary @- \
             "https://api.cnb.cool/InspireWorks/ListextEditor/-/releases/$RID"
-          echo "CNB Release 标题与正文已同步"
+          if [ "$PRERELEASE" = "true" ]; then
+            echo "CNB Release 标题与正文已同步（预发布版本，不标记为 latest）"
+          else
+            # 回读校验：latest 必须落在本次发布的版本上
+            CNB_LATEST=$(curl -sf -H "Authorization: token $CNB_TOKEN" -H "Accept: application/json" \
+              "https://api.cnb.cool/InspireWorks/ListextEditor/-/releases/latest" | jq -r .tag_name)
+            echo "CNB Release 标题与正文已同步；CNB latest = $CNB_LATEST"
+            if [ "$CNB_LATEST" != "$TAG" ]; then
+              echo "::error::CNB latest 标记异常：期望 $TAG，实际 $CNB_LATEST"
+              exit 1
+            fi
+          fi
