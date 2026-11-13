@@ -693,6 +693,8 @@ class BlockRenderer {
       this.stopDragAutoScroll();
       const oldParents = new Set();
       dragBlocks.forEach(b => oldParents.add(b.parentElement));
+      const emptyState = placement.container.querySelector(':scope > .empty-state');
+      if (emptyState) emptyState.remove();
       const insertBefore = placement.before ? placement.referenceBlock : placement.referenceBlock.nextSibling;
       dragBlocks.forEach(b => {
         b.style.display = '';
@@ -718,6 +720,22 @@ class BlockRenderer {
     if (!dragBlocks.length || !targetBlock) return null;
     if (dragBlocks.includes(targetBlock)) return null;
     if (dragBlocks.some(b => b.contains(targetBlock))) return null;
+
+    // 目标是重复块本身时：指针落在它下面的「重复体内容区」里，应当插进重复体内部，
+    // 而不是算成「插到重复块旁边」（此前拖普通积木进重复块永远只能停在它外面）
+    if (targetBlock.dataset.tagName === 'repeat') {
+      const zone = targetBlock.querySelector(':scope > .block-content.repeat-drop-zone');
+      const zr = zone?.getBoundingClientRect();
+      // 只有指针确实落在重复体内容区的纵向范围内才算「插进重复体」，落在下方/上方仍按块外处理
+      if (zone && zr && clientY >= zr.top && clientY <= zr.bottom) {
+        const children = Array.from(zone.querySelectorAll(':scope > .block'));
+        for (const child of children) {
+          const r = child.getBoundingClientRect();
+          if (clientY < r.top + r.height / 2) return { container: zone, referenceBlock: child, before: true };
+        }
+        return { container: zone, referenceBlock: children[children.length - 1] || null, before: false };
+      }
+    }
 
     let container = targetBlock.parentElement;
     let referenceBlock = targetBlock;
@@ -1581,7 +1599,8 @@ class BlockRenderer {
     if (moves.some(b => b === el || b.contains(el))) return null;
     const targetBlock = el.closest('.block');
     if (targetBlock) {
-      if (moves.some(b => b === targetBlock || b.contains(targetBlock) || targetBlock.contains(b))) return null;
+      // 只拒绝「拖到自身或自己的子孙里」；拖到自己所在的祖先（如从重复体里往外拖）要允许
+      if (moves.some(b => b === targetBlock || b.contains(targetBlock))) return null;
       return this.getDropPlacementForBlock(targetBlock, y);
     }
     // 空白处：找最近的块容器（重复块内部优先），按子块中线判断插入位置
