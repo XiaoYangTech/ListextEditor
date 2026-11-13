@@ -172,6 +172,9 @@ class ListextEditor {
   }
 
   _showNextStartupDialog() {
+    // 标志位可能与实际不同步（启动弹窗被其它路径关掉时不会回写），以 DOM 为准自愈，
+    // 否则一旦卡在 true，之后所有启动弹窗（含帮助菜单的「捐助本软件」）都弹不出来。
+    if (this._startupDialogOpen && !document.querySelector('.dialog.active')) this._startupDialogOpen = false;
     if (this._startupDialogOpen) return;
     const next = this._startupQueue.shift();
     if (!next) return;
@@ -199,8 +202,12 @@ class ListextEditor {
   // 帮助菜单「捐助本软件」：复用启动弹窗队列，自动排队等待其它弹窗关闭，不写「已捐助」标记
   openDonateDialog() {
     if (this.cleanEdition) return; // 纯净版：不展示捐助弹窗
-    if (!document.getElementById('donateDialog')) return;
+    const dlg = document.getElementById('donateDialog');
+    if (!dlg) return;
+    if (dlg.classList.contains('active')) return; // 已经在显示中
     if (!this._startupQueue) this._startupQueue = [];
+    // 已在队列里就不再重复排队（连点菜单/标志位曾卡住时队列会堆积出多个重复项）
+    if (this._startupQueue.some(q => q.el === 'donateDialog')) return;
     this._startupQueue.push({ el: 'donateDialog' });
     this._showNextStartupDialog();
   }
