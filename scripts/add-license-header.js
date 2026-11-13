@@ -53,6 +53,7 @@ function collectTargets() {
   files.push(...walk(path.join(ROOT, 'src'), ['.js']));
   files.push(...walk(path.join(ROOT, 'pages'), ['.html']));
   files.push(...walk(path.join(ROOT, 'styles'), ['.css']));
+  files.push(...walk(path.join(ROOT, 'scripts'), ['.js']));
   return files;
 }
 
