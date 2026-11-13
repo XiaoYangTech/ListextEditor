@@ -717,9 +717,13 @@ class BlockRenderer {
 
   getDropPlacementForBlock(targetBlock, clientY) {
     const dragBlocks = this.draggingMultiBlocks || (this.draggingBlock ? [this.draggingBlock] : []);
-    if (!dragBlocks.length || !targetBlock) return null;
-    if (dragBlocks.includes(targetBlock)) return null;
-    if (dragBlocks.some(b => b.contains(targetBlock))) return null;
+    if (!targetBlock) return null;
+    // 从顶部工具条拖入是「新建」，此时没有正在拖动的积木（dragBlocks 为空），
+    // 不能直接判空返回，否则拖到已有积木或重复块上永远算不出落点。
+    if (dragBlocks.length) {
+      if (dragBlocks.includes(targetBlock)) return null;
+      if (dragBlocks.some(b => b.contains(targetBlock))) return null;
+    }
 
     // 目标是重复块本身时：指针落在它下面的「重复体内容区」里，应当插进重复体内部，
     // 而不是算成「插到重复块旁边」（此前拖普通积木进重复块永远只能停在它外面）
@@ -741,7 +745,7 @@ class BlockRenderer {
     let referenceBlock = targetBlock;
     if (!container) return null;
 
-    if (targetBlock.contains(dragBlocks[0])) {
+    if (dragBlocks.length && targetBlock.contains(dragBlocks[0])) {
       if (targetBlock.dataset.tagName !== 'repeat') return null;
       container = targetBlock.parentElement;
       referenceBlock = targetBlock;
