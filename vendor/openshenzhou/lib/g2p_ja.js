@@ -194,14 +194,28 @@ function segmentWords(text) {
   // 用复刻的官方断词模型在原文上分词；标点单独成项
   const items = [];
   let buf = [];
+  let chunkStart = 0;
+  let ctx = null;
+  try {
+    const W0 = require('./wb_model_ja');
+    ctx = W0.classes(Array.from(text));
+  } catch (e) { ctx = null; }
   const flush = () => {
     if (!buf.length) return;
     const chunk = buf.join('');
+    const start = chunkStart;
     buf = [];
     try {
       const W = require('./wb_model_ja');
       const chars = Array.from(chunk);
-      for (const [s, L] of W.segments(chars)) {
+      let segs = null;
+      if (ctx && ctx.length >= start + chars.length) {
+        const cls = [];
+        for (let j = 0; j < chars.length; j++) cls.push(ctx[start + j]);
+        segs = W.segmentsWithClasses(chars, cls);
+      }
+      if (!segs) segs = W.segments(chars);
+      for (const [s, L] of segs) {
         const w = chunk.slice(s, s + L);
         if (!w) continue;
         const parts = splitNumUnit(w);
@@ -212,10 +226,11 @@ function segmentWords(text) {
       items.push({ w: chunk });
     }
   };
-  for (const ch of text) {
+  for (let _i = 0; _i < text.length; _i++) {
+    const ch = text[_i];
     if (PUNCT[ch]) { flush(); items.push({ p: PUNCT[ch] }); }
     else if (SPACE.has(ch)) { flush(); }
-    else buf.push(ch);
+    else { if (!buf.length) chunkStart = _i; buf.push(ch); }
   }
   flush();
   return items;

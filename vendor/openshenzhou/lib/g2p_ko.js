@@ -17,6 +17,23 @@ const JONG = [''].concat('ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄ
 function loadLexicon() { return loadJsonPreferNames('lexicon_ko', 'lexicon_ko.json'); }
 function loadSyllables() { return loadJsonPreferNames('syllables_ko', 'syllables_ko.json'); }
 
+function resolveKoSeq(seq, sym) {
+  // 与 Python 版一致：缺失音素名按 去声调/hh→h/ss→s 回退，最后用 '-'（引擎占位符）
+  return seq.map((x) => {
+    if (typeof x === 'number') return x;
+    if (sym[x] !== undefined) return sym[x];
+    let cand = null;
+    for (const alt of [x.replace(/[0-9]+$/, ''), x.replace(/hh/g, 'h'), x.replace(/ss/g, 's')]) {
+      if (sym[alt] !== undefined) { cand = sym[alt]; break; }
+    }
+    if (cand === null) {
+      cand = sym['-'] !== undefined ? sym['-'] : (sym['&'] !== undefined ? sym['&'] : (sym.padding || 0));
+    }
+    return cand;
+  });
+}
+
+
 function decompose(ch) {
   const code = ch.charCodeAt(0) - 0xac00;
   if (code < 0 || code > 11171) return null;
@@ -51,7 +68,7 @@ function textToIds(text, sym) {
     const w = it.w;
     let core;
     if (lexRaw[w] && Array.isArray(lexRaw[w])) {
-      core = resolveSeq(lexRaw[w], sym);
+      core = resolveKoSeq(lexRaw[w], sym);
     } else {
       const groups = [];
       for (const ch of w) {

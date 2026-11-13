@@ -378,4 +378,4 @@ function charTokenIndex(tokens, pos) {
   return null;
 }
 
-module.exports = { loadModels, loadCharModels, readingForChar, buildTokens, charTokenIndex, modelTrusted };
+module.exports = { loadModels, loadCharModels, readingForChar, buildTokens, charTokenIndex, modelTrusted, Trie };

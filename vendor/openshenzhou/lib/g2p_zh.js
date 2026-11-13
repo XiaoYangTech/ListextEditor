@@ -126,7 +126,8 @@ const ZH_WORDS = new Set((() => {
 const TONES = { 1: ['h', 'h'], 2: ['l', 'h'], 3: ['l', 'l'], 4: ['h', 'l'], 5: ['m', 'm'] };
 const V_FINALS = { u: ['v', 'v'], ue: ['eh', 'eh'], uan: ['a', 'nn'], un: ['el', 'nn'] };
 const PUNCT = { '，': 'punc,', ',': 'punc,', '。': 'punc。', '.': 'punc。', '？': 'punc?', '?': 'punc?',
-                '！': 'punc!', '!': 'punc!', '、': 'punc、', '；': 'punc;', ';': 'punc;' };
+                '！': 'punc!', '!': 'punc!', '、': 'punc、', '；': 'punc;', ';': 'punc;',
+                '：': 'punc:', ':': 'punc:' };
 const DIGITS = '零一二三四五六七八九';
 
 function readDigitSeq(ds) {
@@ -179,18 +180,117 @@ function tnSymbols(text) {
   // 百分比：99.9% -> 百分之99.9
   text = text.replace(/(\d+(?:\.\d+)?)\s*[%％]/g, (m, a) => '百分之' + a);
   // 日期 2026/10/26 -> 2026年10月26日
-  text = text.replace(/(?<!\d)(\d{4})[/-](\d{1,2})[/-](\d{1,2})(?!\d)/g,
+  text = text.replace(/(?<!\d)(\d{4})[./-](\d{1,2})[./-](\d{1,2})(?!\d)/g,
     (m, y, mo, d) => y + '年' + parseInt(mo, 10) + '月' + parseInt(d, 10) + '日');
   // 时间 9:30 -> 9点30分
   text = text.replace(/(?<!\d)(\d{1,2})[:：](\d{2})(?!\d)/g,
     (m, h, mi) => parseInt(mi, 10) ? h + '点' + mi + '分' : h + '点');
+  // 分数 a/b -> b分之a（避免命中日期）
+  text = text.replace(/(?<![\d/])(\d+)\s*\/\s*(\d+)(?![\d/])/g,
+    (m, a, b) => readDigits(b) + '分之' + readDigits(a));
+  text = text.replace(/(?<![\d\w])-(\d)/g, (m, a) => '负' + a);
+  text = text.replace(/(?<![\d\w])\+(\d)/g, (m, a) => '加' + a);
+  text = text.split('~').join('至');
   const rules = [['℃', '摄氏度'], ['℉', '华氏度'], ['～', '至'], ['×', '乘以'], ['÷', '除以'], ['±', '正负']];
   for (const [a, b] of rules) text = text.split(a).join(b);
+  text = text.replace(/\d{1,3}(?:,\d{3})+/g, (m) => readDigits(m.replace(/,/g, '')));
   return text;
 }
 
 function normalizeSegments(text) {
+  {
+    const myear = /^(19\d{2}|20\d{2})$/.exec(text);
+    if (myear) {
+      if (myear[1] === '2000') return [{ kind: 'n', v: '两千' }];
+      const dig = '零一二三四五六七八九';
+      return [{ kind: 'ny', v: [...myear[1]].map((c) => dig[Number(c)]).join('') }];
+    }
+    const mlead0 = /^(0\d+)$/.exec(text);
+    if (mlead0) {
+      return [...mlead0[1]].map((c) => ({ kind: 'n', v: c === '0' ? '零' : readDigits(c) }));
+    }
+    const mmoney = /^([$€])([\d.,]+)$/.exec(text);
+    if (mmoney) {
+      const unit = mmoney[1] === '$' ? '美元' : '欧元';
+      return [{ kind: 'n', v: readDigits(mmoney[2].replace(/,/g, '')) + unit }];
+    }
+    const mmoney2 = /^([\d.,]+)(美元|欧元)$/.exec(text);
+    if (mmoney2) {
+      return [{ kind: 'n', v: readDigits(mmoney2[1].replace(/,/g, '')) + mmoney2[2] }];
+    }
+    const munit = /^(\d+(?:\.\d+)?)(kg|km|cm|mm|ml)$/i.exec(text);
+    if (munit) {
+      const UNIT_CN = { kg: '千克', km: '千米', cm: '厘米', mm: '毫米', ml: '毫升' };
+      return [{ kind: 'n', v: readDigits(munit[1]) }, { kind: 't', v: UNIT_CN[munit[2].toLowerCase()] }];
+    }
+    if (text.includes('%') && (text.includes('–') || text.includes('—'))) {
+      text = text.replace(/[–—]/g, '至');
+    }
+    const mrange = /^(\d+)[-–—](\d+)$/.exec(text);
+    if (mrange) {
+      return [{ kind: 'n', v: readDigits(mrange[1]) }, { kind: 't', v: '杠' }, { kind: 'n', v: readDigits(mrange[2]) }];
+    }
+    const mweek = /^(\d+)周$/.exec(text);
+    if (mweek) {
+      let num = readDigits(mweek[1]);
+      if (num === '二') num = '两';
+      return [{ kind: 'n', v: num }, { kind: 't', v: '周' }];
+    }
+    const mdt = /^(\d{4})年(\d{1,2})月(\d{1,2})日\s*(\d{1,2})[:：](\d{2})$/.exec(text);
+    if (mdt) {
+      const out = [
+        { kind: 'n', v: readDigitSeq(mdt[1]) + '年' },
+        { kind: 'n', v: readDigits(mdt[2]) + '月' },
+        { kind: 'n', v: readDigits(mdt[3]) + '日' },
+      ];
+      let ntxt = readDigits(mdt[4]) + '点';
+      if (Number(mdt[5]) !== 0) ntxt += readDigits(mdt[5]) + '分';
+      out.push({ kind: 'n', v: ntxt });
+      return out;
+    }
+    const mt = /^(\d{1,2})[:：](\d{2})(.*)$/.exec(text);
+    const md = mt ? null : /^(\D*?)(\d{1,2})点(\d{1,2})分(.*)$/.exec(text);
+    if (mt || md) {
+      const pre = mt ? '' : md[1];
+      const hh = mt ? mt[1] : md[2];
+      const mm = mt ? mt[2] : md[3];
+      const rest = mt ? mt[3] : md[4];
+      const out = [];
+      if (pre) out.push({ kind: 't', v: tnSymbols(pre) });
+      if (mt) {
+        let ntxt = readDigits(hh) + '点';
+        if (Number(mm) !== 0) ntxt += readDigits(mm) + '分';
+        out.push({ kind: 'n', v: ntxt });
+      } else {
+        out.push({ kind: 'n', v: readDigits(hh) + '点' });
+        if (Number(mm) !== 0) out.push({ kind: 'n', v: readDigits(mm) + '分' });
+      }
+      if (rest) out.push({ kind: 't', v: tnSymbols(rest) });
+      return out;
+    }
+    const mo = /^(\D*?)(\d{1,2})点(?!\d)(.*)$/.exec(text);
+    if (mo) {
+      const out = [];
+      if (mo[1]) out.push({ kind: 't', v: tnSymbols(mo[1]) });
+      out.push({ kind: 't', v: readDigits(mo[2]) + '点' });
+      if (mo[3]) out.push({ kind: 't', v: tnSymbols(mo[3]) });
+      return out;
+    }
+  }
   text = tnSymbols(text);
+  const mOrd = /^第([0-9零一二三四五六七八九十百千万两]+)(.*)$/.exec(text);
+  if (mOrd) {
+    const num = mOrd[1];
+    const rest = mOrd[2];
+    const out = [];
+    if (/^[0-9]/.test(num)) {
+      out.push({ kind: 't', v: '第' }, { kind: 'n', v: readDigits(num) });
+    } else {
+      out.push({ kind: 'n', v: '第' + num });
+    }
+    if (rest) out.push({ kind: 't', v: rest });
+    return out;
+  }
   const segs = [];
   let pos = 0;
   NUM_RE.lastIndex = 0;
@@ -199,7 +299,13 @@ function normalizeSegments(text) {
     if (m.index > pos) segs.push({ kind: 't', v: text.slice(pos, m.index) });
     let endp = m.index + m[0].length;
     if (m[1]) {
-      segs.push({ kind: 'n', v: readDigitSeq(m[1]) + '年' });
+      const rest = text.slice(endp);
+      if (/^\d{1,2}月/.test(rest)) {
+        segs.push({ kind: 'n', v: readDigitSeq(m[1]) + '年' });
+      } else {
+        segs.push({ kind: 't', v: readDigitSeq(m[1]) });
+        segs.push({ kind: 't', v: '年' });
+      }
     } else if (m[3] !== undefined) {
       let txt = readDigits(m[3]) + '点' + readDigitSeq(m[4]);
       while (endp < text.length && '点元年分秒'.includes(text[endp])) { txt += text[endp]; endp += 1; }
@@ -212,8 +318,11 @@ function normalizeSegments(text) {
       segs.push({ kind: 'n', v: readDigits(m[7]) + m[8] });
     } else {
       let txt = readDigits(m[9]);
-      while (endp < text.length && '点元分秒'.includes(text[endp])) { txt += text[endp]; endp += 1; }
-      segs.push({ kind: 'n', v: txt });
+      while (endp < text.length && '点元分秒'.includes(text[endp])) {
+        txt += text[endp]; endp += 1;
+        if (text[endp - 1] === '分' && endp < text.length && text[endp] === '钟') { txt += '钟'; endp += 1; }
+      }
+      segs.push({ kind: (txt.endsWith('分钟') || txt.endsWith('元')) ? 't' : 'n', v: txt });
     }
     pos = endp;
     NUM_RE.lastIndex = endp;
@@ -484,6 +593,8 @@ function applyYiSandhi(ids, sym) {
 
 function textToIdsSentence(text, sym, pkgDir) {
   // 句尾的非句末标点（，；：等）：引擎当作句末处理（实测：句尾「，」→ br4+punc,；句尾「：」→ 仅 br4）
+  const sentText = text; // 引擎词界模型输入 = 整句原文（含标点）
+  let wbCtx = null;
   let tailPunc = null;
   const trimmed = text.replace(/\s+$/, '');
   if (trimmed && '，、；：,;:'.includes(trimmed[trimmed.length - 1])) {
@@ -520,8 +631,28 @@ function textToIdsSentence(text, sym, pkgDir) {
     return pys.map((py) => sylToSymbols(py).map((x) => (sym[x] !== undefined ? sym[x] : (sym['<pad>'] || 0))));
   };
 
+  // 数字读法跨词变调：一/不 规则（第 后的一保持一声）
+  const numSandhi = (pys, nextTone) => {
+    const out = pys.slice();
+    const toneOf = (p) => { const t = p[p.length - 1]; return /[0-9]/.test(t) ? Number(t) : 5; };
+    const dianIdx = out.findIndex((q) => q.replace(/[0-9]+$/, '') === 'dian');
+    for (let i = 0; i < out.length; i++) {
+      if (dianIdx >= 0 && i > dianIdx) continue;
+      const base = out[i].replace(/[0-9]+$/, '');
+      const nt = i + 1 < out.length ? toneOf(out[i + 1]) : (nextTone || 5);
+      const prev = i > 0 ? out[i - 1].replace(/[0-9]+$/, '') : '';
+      if (base === 'yi' && toneOf(out[i]) === 1 && prev !== 'di') {
+        if (nt === 4) out[i] = 'yi2';
+        else if (nt === 1 || nt === 2 || nt === 3) out[i] = 'yi4';
+      } else if (base === 'bu' && toneOf(out[i]) === 4 && nt === 4) {
+        out[i] = 'bu2';
+      }
+    }
+    return out;
+  };
+
   // 数字串专用：额外处理「一」的变调（和 pypinyin 短语词典一致）
-  const pinyinGroupsNum = (cn) => {
+  const pinyinGroupsNum = (cn, nextTone) => {
     // 去掉末尾量词（年/月/日/点/元/分/秒）后查表，量词单独用字表
     let core = cn, tail = '';
     while (core.length && '年月日点元分秒'.includes(core[core.length - 1])) {
@@ -531,16 +662,32 @@ function textToIdsSentence(text, sym, pkgDir) {
     let pys = numPinyin(core);
     for (const ch of tail) pys.push(PINYIN[ch] || 'a1');
     pys = applySandhi(pys);
+    pys = numSandhi(pys, nextTone);
     return pys.map((py) => sylToSymbols(py).map((x) => (sym[x] !== undefined ? sym[x] : (sym['<pad>'] || 0))));
   };
 
-  for (const seg of segs) {
-    if (seg.kind === 'n') {
-      const groups = pinyinGroupsNum(seg.v);
+  for (let segIdx = 0; segIdx < segs.length; segIdx++) {
+    const seg = segs[segIdx];
+    if (seg.kind === 'ny') {
+      const groups = pinyinGroups(seg.v);
       if (groups.length) emitGroups(groups);
       continue;
     }
-    const parts = seg.v.split(/([，,。.？?！!、；;])/);
+    if (seg.kind === 'n') {
+      let nextTone = null;
+      const nseg = segs[segIdx + 1];
+      if (nseg && nseg.kind === 't') {
+        const nch = Array.from(nseg.v).find((c) => c >= '一' && c <= '鿿');
+        if (nch && PINYIN[nch]) {
+          const t = PINYIN[nch][PINYIN[nch].length - 1];
+          nextTone = /[0-9]/.test(t) ? Number(t) : 5;
+        }
+      }
+      const groups = pinyinGroupsNum(seg.v, nextTone);
+      if (groups.length) emitGroups(groups);
+      continue;
+    }
+    const parts = seg.v.split(/([，,。.？?！!、；;：:])/);
     for (const chunk of parts) {
       if (!chunk) continue;
       if (PUNCT[chunk]) {
@@ -558,7 +705,7 @@ function textToIdsSentence(text, sym, pkgDir) {
         }
         continue;
       }
-      const cn = [...chunk].filter((c) => c >= '\u4e00' && c <= '\u9fff').join('');
+      const cn = [...chunk].filter((c) => (c >= '一' && c <= '鿿') || c === '〇').join('');
       if (!cn) continue;
       let crfCtx = null;
       if (crfTokens) {
@@ -574,7 +721,21 @@ function textToIdsSentence(text, sym, pkgDir) {
         let wbWords = null, wbBounds = null;
         if (wb) {
           try {
-            wbWords = wb.segments(chars).map(([s0, L0]) => chars.slice(s0, s0 + L0).join(''));
+            let wbSegs = null;
+            try {
+              if (wbCtx === null) wbCtx = wb.classes([...sentText]);
+              const cp = sentText.indexOf(chunk);
+              if (cp >= 0 && wbCtx.length >= cp + chunk.length) {
+                const cls = [];
+                for (let j = 0; j < chunk.length; j++) {
+                  const c = chunk[j];
+                  if ((c >= '一' && c <= '鿿') || c === '〇') cls.push(wbCtx[cp + j]);
+                }
+                if (cls.length === chars.length) wbSegs = wb.segmentsWithClasses(chars, cls);
+              }
+            } catch (e) { wbSegs = null; }
+            const wsegs = wbSegs || wb.segments(chars);
+            wbWords = wsegs.map(([s0, L0]) => chars.slice(s0, s0 + L0).join(''));
             wbBounds = wb.boundsFromWords(chars, wbWords);
           } catch (e) { wbWords = null; wbBounds = null; }
         }
@@ -661,10 +822,21 @@ function splitSentences(text) {
 
 function textToIds(text, sym, pkgDir) {
   if (!text) return [];
+  let trad = null;
+  try { trad = require('./zh_trad'); } catch (e) { trad = null; }
+  let tone = null;
+  try { tone = require('./zh_tone'); } catch (e) { tone = null; }
   const out = [];
   for (const sent of splitSentences(text)) {
     if (!sent.trim()) continue;
-    for (const id of textToIdsSentence(sent, sym, pkgDir)) out.push(id);
+    let ids = textToIdsSentence(sent, sym, pkgDir);
+    if (tone) {
+      try { ids = tone.apply(sent, ids, sym); } catch (e) { /* 保持基线 */ }
+    }
+    if (trad) {
+      try { ids = trad.apply(sent, ids, sym); } catch (e) { /* 保持基线 */ }
+    }
+    for (const id of ids) out.push(id);
   }
   return out;
 }

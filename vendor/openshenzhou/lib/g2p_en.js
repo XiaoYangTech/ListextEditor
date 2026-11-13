@@ -22,6 +22,41 @@ const CMU = loadJson(path.join(DATA, 'cmudict_en.json'), {});
 const HETERO = loadJson(path.join(DATA, 'lexicon_en_heteronyms.json'), {});
 const ACRONYMS = loadJson(path.join(DATA, 'lexicon_en_acronyms.json'), {});
 const CASE_WORDS = loadJson(path.join(DATA, 'lexicon_en_case.json'), {});
+const VARIANT_LEX = {};
+function loadVariantLexicon(variant) {
+  if (variant !== 'gb' && variant !== 'in') return null;
+  if (VARIANT_LEX[variant]) return VARIANT_LEX[variant];
+  const base = {};
+  for (const k of Object.keys(ISO)) base[k] = ISO[k];
+  const p = path.join(DATA, 'lexicon_en_' + variant + '.json');
+  if (fs.existsSync(p)) {
+    const extra = loadJson(p, {});
+    for (const k of Object.keys(extra)) base[k] = extra[k];
+  }
+  VARIANT_LEX[variant] = base;
+  return base;
+}
+let ACTIVE_LEX = null;
+let ACTIVE_VARIANT = '';
+const VARIANT_FUNCTION_WORDS = new Set(('a an the and of to for in on at by with from as or but not no so ' +
+  'do does did has have had is are was were be been am being i you he she we they it me him her us them ' +
+  'my your his its our their this that these those there here who what which when where why how ' +
+  'will would can could shall should may might must').split(' '));
+const ALIAS_IN = { w: 'vw', v: 'vw', d: 'dr', t: 'tr', er: 'ah', dh: 'd', ax: 'ah' };
+function symId(sym, ph, variant) {
+  const direct = sym[ph];
+  if (direct !== undefined) return direct;
+  const base = String(ph || '').replace(/[012]+$/, '');
+  if (variant === 'in') {
+    const alt = ALIAS_IN[base];
+    if (alt !== undefined && sym[alt] !== undefined) return sym[alt];
+    if (sym[base] !== undefined) return sym[base];
+  } else if (variant === 'gb') {
+    if (sym[base] !== undefined) return sym[base];
+  }
+  return sym['<pad>'] !== undefined ? sym['<pad>'] : 0;
+}
+
 function acronymPhones(letters) {
   const ph = ACRONYMS[letters] || ACRONYMS[letters.toUpperCase()];
   if (ph) return ph.slice();
@@ -32,7 +67,10 @@ const VERB_PREV = new Set(['to', 'will', 'would', 'can', 'could', 'should', 'mus
   'let', 'please', 'cannot', "won't"]);
 const HETERO_NOUN_PREV = new Set(['ip', 'email', 'web', 'home', 'street', 'url', 'ftp', 'http']);
 const NOUN_PREV = new Set(['the', 'a', 'an', 'this', 'that', 'these', 'those', 'my', 'your',
-  'his', 'her', 'its', 'our', 'their', 'no', 'every', 'each', 'any', 'some']);
+  'his', 'her', 'its', 'our', 'their', 'no', 'every', 'each', 'any', 'some',
+  'good', 'better', 'best', 'great', 'full', 'own', 'such', 'same', 'what',
+  'whatever', 'little', 'much', 'more', 'most', 'only', 'common',
+  'practical', 'proper', 'right', 'wrong']);
 (function loadJsonl() {
   const p = path.join(DATA, 'lexicon_en_engine.jsonl');
   if (!fs.existsSync(p)) return;
@@ -48,6 +86,7 @@ const NOUN_PREV = new Set(['the', 'a', 'an', 'this', 'that', 'these', 'those', '
 const BOS = '-bos-', END = '~';
 const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july',
   'august', 'september', 'october', 'november', 'december'];
+const MONTH_ABBR = { jan: 'january', feb: 'february', mar: 'march', apr: 'april', jun: 'june', jul: 'july', aug: 'august', sep: 'september', sept: 'september', oct: 'october', nov: 'november', dec: 'december' };
 const ORD_ONES = ['zeroth', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth',
   'seventh', 'eighth', 'ninth', 'tenth', 'eleventh', 'twelfth', 'thirteenth',
   'fourteenth', 'fifteenth', 'sixteenth', 'seventeenth', 'eighteenth', 'nineteenth'];
@@ -82,16 +121,18 @@ const UNIT_SINGULAR = { hours: 'hour', minutes: 'minute', seconds: 'second',
 const CURRENCY = { $: ['dollar', 'cent'], '€': ['euro', 'cent'],
   '£': ['pound', 'penny'], '¥': ['yen', 'sen'], '￥': ['yen', 'sen'] };
 const SPECIAL_PHONES = {
+  caret: ['k', 'eh1', '-', 'r', 'ax', 't'],
   underscore: ['ah2', 'n', '-', 'd', 'ax', 'r', '-', 's', 'k', 'ao1', 'r'],
   asterisk: ['ae1', '-', 's', 't', 'ax', '-', 'r', 'ih', 's', 'k'],
   "o'clock": ['ax', '-', 'k', 'l', 'aa1', 'k'],
+  covid: ['k', 'ah1', '-', 'v', 'ih', 'd'],
 };
 const SYMBOL_WORDS = { '*': 'asterisk', _: 'underscore', '#': 'number', '@': 'at',
-  '+': 'plus', '<': 'less', '>': 'greater', '~': null, '|': 'bar' };
+  '+': 'plus', '<': 'less', '>': 'greater', '^': 'caret', '~': null, '|': 'bar' };
 const STRONG_AND = ['ae1', 'n', 'd'];
 const STRONG_FOR = ['f', 'ao1', 'r'];
 const PAUSE_PUNCT = { ',': 'punc,', ';': 'punc;', ':': null, '(': 'punc,',
-  ')': 'punc,', '[': 'punc,', ']': 'punc,' };
+  ')': 'punc,', '[': 'punc,', ']': 'punc,', '{': 'punc,', '}': 'punc,' };
 const END_PUNCT = { '.': 'punc.', '?': 'punc?', '!': 'punc!' };
 const BQUOTE = new Set(['"', '’', '”', "'"]);
 const DENOM = { 2: 'half', 3: 'third', 4: 'fourth', 5: 'fifth', 6: 'sixth',
@@ -196,12 +237,13 @@ function ordinalWords(n) {
   }
   if (n < 1000) {
     const q = Math.floor(n / 100), r = n % 100;
-    let w = [ONES[q], 'hundred'];
-    if (r) w = w.concat(r < 100 ? ['and'] : [], ordinalWords(r));
+    const w = [ONES[q], 'hundred'];
+    if (r) w.push(...(r < 100 ? ['and'] : []), ...ordinalWords(r));
+    else w[w.length - 1] = 'hundredth';
     return w;
   }
   const base = cardinalWords(n);
-  if (n % 100 === 0) return base;
+  if (n % 100 === 0) return base.slice(0, -1).concat([base[base.length - 1] + 'th']);
   return base.slice(0, -1).concat([ordinalWords(n % 100).slice(-1)[0]]);
 }
 
@@ -245,6 +287,7 @@ function romanValue(w) {
 
 function enginePhones(word) {
   const w = String(word).toLowerCase().replace(/’/g, "'");
+  if (ACTIVE_LEX && ACTIVE_LEX[w] && ACTIVE_LEX[w].length) return ACTIVE_LEX[w].slice();
   for (const src of [CTX, ISO, VOCAB]) {
     const v = src[w];
     if (v && v.length) return v.slice();
@@ -277,12 +320,88 @@ function fallbackPhones(word) {
   return out;
 }
 
+const CONTRACTIONS = {
+  "don't": ['d', 'ow1', 'n', 't'], "can't": ['k', 'ae1', 'n', 't'],
+  "won't": ['w', 'ow1', 'n', 't'], "shan't": ['sh', 'ae1', 'n', 't'],
+  "ain't": ['ey1', 'n', 't'],
+  "isn't": ['ih1', 'z', 'ax', 'n', 't'], "aren't": ['aa1', 'r', 'n', 't'],
+  "wasn't": ['w', 'ah1', 'z', 'ax', 'n', 't'], "weren't": ['w', 'er1', 'n', 't'],
+  "doesn't": ['d', 'ah1', 'z', 'ax', 'n', 't'], "didn't": ['d', 'ih1', 'd', 'ax', 'n', 't'],
+  "couldn't": ['k', 'uh1', 'd', 'ax', 'n', 't'], "shouldn't": ['sh', 'uh1', 'd', 'ax', 'n', 't'],
+  "wouldn't": ['w', 'uh1', 'd', 'ax', 'n', 't'], "mustn't": ['m', 'ah1', 's', 'ax', 'n', 't'],
+  "needn't": ['n', 'iy1', 'd', 'ax', 'n', 't'],
+  "it's": ['ih1', 't', 's'], "that's": ['dh', 'ae1', 't', 's'],
+  "what's": ['w', 'ah1', 't', 's'], "let's": ['l', 'eh1', 't', 's'],
+  "he's": ['h', 'iy1', 'z'], "she's": ['sh', 'iy1', 'z'],
+  "there's": ['dh', 'eh1', 'r', 'z'], "here's": ['hh', 'ih1', 'r', 'z'],
+  "where's": ['w', 'eh1', 'r', 'z'], "who's": ['hh', 'uw1', 'z'],
+  "how's": ['hh', 'aw1', 'z'],
+  "i'm": ['ay1', 'm'], "i've": ['ay1', 'v'], "i'll": ['ay1', 'l'], "i'd": ['ay1', 'd'],
+  "you're": ['y', 'ao1', 'r'], "you've": ['y', 'uw1', 'v'], "you'll": ['y', 'uw1', 'l'], "you'd": ['y', 'uw1', 'd'],
+  "we're": ['w', 'iy1', 'r'], "we've": ['w', 'iy1', 'v'], "we'll": ['w', 'iy1', 'l'], "we'd": ['w', 'iy1', 'd'],
+  "they're": ['dh', 'ey1', 'r'], "they've": ['dh', 'ey1', 'v'], "they'll": ['dh', 'ey1', 'l'], "they'd": ['dh', 'ey1', 'd'],
+  "he'll": ['hh', 'iy1', 'l'], "he'd": ['hh', 'iy1', 'd'],
+  "she'll": ['sh', 'iy1', 'l'], "she'd": ['sh', 'iy1', 'd'],
+  "it'll": ['ih1', 't', 'ax', 'l'],
+  "who'll": ['hh', 'uw1', 'l'], "who'd": ['hh', 'uw1', 'd'], "who've": ['hh', 'uw1', 'v'],
+};
+
+const VOICELESS = new Set(['p', 't', 'k', 'f', 'th', 's', 'sh', 'ch', 'hh']);
+
+function contractionPhones(word) {
+  const w = String(word).toLowerCase().replace(/’/g, "'");
+  if (CONTRACTIONS[w]) return CONTRACTIONS[w].slice();
+  if (w.endsWith("n't") && w.length > 3) {
+    let base = w.slice(0, -3);
+    base = ({ ca: 'can', wo: 'will', sha: 'shall', ai: 'am' })[base] || base;
+    return pronWord(base).concat(['n', 't']);
+  }
+  if (w.endsWith("'s") && w.length > 2) {
+    const bp = pronWord(w.slice(0, -2));
+    const last = bp.length ? bp[bp.length - 1].replace(/[012]+$/, '') : '';
+    return bp.concat([VOICELESS.has(last) ? 's' : 'z']);
+  }
+  for (const [suf, ph] of [["'ll", 'l'], ["'re", 'r'], ["'ve", 'v'], ["'d", 'd'], ["'m", 'm']]) {
+    if (w.endsWith(suf) && w.length > suf.length) return pronWord(w.slice(0, -suf.length)).concat([ph]);
+  }
+  return null;
+}
+
 function pronWord(word, nextWord, prevWord) {
   const acro = ACRONYMS[word];
   if (acro) return acro.slice();
   const cw = CASE_WORDS[word];
   if (cw) return cw.slice();
+  if (word.length === 1 && word === word.toUpperCase() && word !== 'I') {
+    const nxt = String(nextWord || '').trim();
+    if (word === 'A' && nxt && !(nxt.length === 1 && nxt === nxt.toUpperCase())) {
+      const ph = enginePhones(nxt.split(/\s+/)[0]);
+      const first = (ph || []).filter((x) => x !== '-');
+      const isVowel = first.length > 0 && VOWELS.has(first[0].replace(/[012]+$/, ''));
+      return isVowel ? ['ey1'] : pronWord('a', nextWord, prevWord);
+    }
+    return letterToken(word.toLowerCase());
+  }
   const w = String(word).toLowerCase().replace(/’/g, "'");
+  if (w === 'a') {
+    // 引擎实测：孤立小写 a（后接单字母/数字/标点/句末）读字母名 /ey1/
+    const nxtA = String(nextWord || '').trim();
+    const firstA = nxtA.split(/\s+/)[0] || '';
+    if (!nxtA || nxtA.startsWith('punc') || nxtA === 'dot'
+        || (firstA.length === 1 && /[A-Za-z]/.test(firstA))
+        || /^[0-9]/.test(firstA)) {
+      return ['ey1'];
+    }
+  }
+  // en-GB/en-IN 引擎实测词表优先（功能词弱读形式除外，见 Python 版说明）
+  if (ACTIVE_LEX && !VARIANT_FUNCTION_WORDS.has(w)) {
+    const lv = ACTIVE_LEX[w];
+    if (lv && lv.length) return lv.slice();
+  }
+  if (w.includes("'")) {
+    const cph = contractionPhones(w);
+    if (cph) return cph;
+  }
   const het = HETERO[w];
   if (het) {
     const pv = String(prevWord || '').toLowerCase();
@@ -303,7 +422,13 @@ function pronWord(word, nextWord, prevWord) {
     if (NOUN_PREV.has(pv) && het.noun) return het.noun.slice();
     if (HETERO_NOUN_PREV.has(pv) && het.noun) return het.noun.slice();
   }
+  if (ACTIVE_VARIANT === 'in' && w === 'a') return ['ah'];
+  if (ACTIVE_VARIANT === 'gb' && w === 'a') return ['ax'];
+  if (ACTIVE_VARIANT === 'in' && w === 'to') return ['tr', 'uw'];
   if (w === 'the') {
+    if (ACTIVE_VARIANT === 'in' && ACTIVE_LEX && ACTIVE_LEX['the'] && ACTIVE_LEX['the'].length) {
+      return ACTIVE_LEX['the'].slice();
+    }
     const nxt = String(nextWord || '').toLowerCase();
     const nxtPh = nxt ? enginePhones(nxt) : null;
     let isVowel;
@@ -367,21 +492,27 @@ const NUM_PATTERNS = [
   ['phone', /\d{3}[-.]\d{3}[-.]\d{4}/],
   ['phone', /\d{3}[-.]\d{4}(?![\d])/],
   ['ip', /\d{1,3}(?:\.\d{1,3}){3}/],
+  ['date', /\d{4}[./-]\d{1,2}[./-]\d{1,4}/],
+  ['date2', /\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/],
   ['date', /\d{4}-\d{1,2}-\d{1,2}/],
   ['date', /\d{1,2}\/\d{1,2}\/\d{2,4}/],
+  ['time_range', /\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}/],
   ['time', /\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AaPp]\.?[Mm])?/],
   ['time', /\d{1,2}\s?(?:[AaPp]\.?[Mm])(?![A-Za-z])/],
   ['alnum', /\d{2,4}-[A-Za-z]{2,4}-\d{2,4}/],
   ['ratio', /\d{1,2}:\d{1}/],
   ['version', /\d+\.\d+(?:\.\d+)+/],
   ['ordinal', /\d+(?:st|nd|rd|th)\b/],
+  ['percent', /\d+(?:\.\d+)?%/],
   ['decimal', /\d*\.\d+/],
+  ['ordinal', /\d{1,3}(?:,\d{3})+(?:st|nd|rd|th)/],
   ['thousands', /\d{1,3}(?:,\d{3})+(?:\.\d+)?/],
   ['dashgroup', /\d{2}(?:-[0-9A-Za-z]{2}){2,}/],
   ['range', /\d+(?:-\d+)+/],
   ['mixed', /\d+\s+\d+\s*\/\s*\d+/],
+  ['date_ym', /\d{4}\/\d{1,2}/],
+  ['date_my', /\d{1,2}\/\d{4}/],
   ['fraction', /\d+\s*\/\s*\d+/],
-  ['percent', /\d+(?:\.\d+)?%/],
   ['currency', /[$€£¥￥]\s*\d[\d,]*(?:\.\d+)?/],
   ['number', /\d+/],
 ];
@@ -435,13 +566,24 @@ function parse(text) {
   while (i < n) {
     const ch = text[i];
     if (' \t\r\n'.includes(ch)) { i++; continue; }
+    const urlM = /^(https?):\/\//i.exec(text.slice(i));
+    if (urlM) {
+      for (const ch2 of urlM[1].toLowerCase()) events.push(['phones', letterToken(ch2)]);
+      events.push(['w', 'colon'], ['w', 'slash'], ['w', 'slash']);
+      i += urlM[0].length; continue;
+    }
+    const mailM = /^mailto:/i.exec(text.slice(i));
+    if (mailM) { events.push(['word', 'mailto']); i += mailM[0].length; continue; }
     const [kind, tok, j] = matchNumber(text, i);
     if (kind) {
       if (kind === 'currency') events.push(['currency', [tok[0], tok.slice(1).trim()]]);
-      else if (kind === 'date') events.push(['date', tok]);
+      else if (kind === 'date' || kind === 'date2') events.push(['date', tok]);
+      else if (kind === 'date_my') events.push(['date_my', tok]);
+      else if (kind === 'date_ym') events.push(['date_ym', tok]);
       else if (kind === 'time') events.push(['time', tok]);
+      else if (kind === 'time_range') events.push(['time_range', tok]);
       else if (kind === 'ratio') events.push(['ratio', tok]);
-      else if (kind === 'percent') { events.push(['number', tok.slice(0, -1)]); events.push(['percent', null]); }
+      else if (kind === 'percent') { const num = tok.slice(0, -1); events.push([num.includes('.') ? 'decimal' : 'number', num]); events.push(['percent', null]); }
       else if (kind === 'ordinal') events.push(['ordinal', tok]);
       else if (kind === 'phone') events.push(['phone', tok]);
       else if (kind === 'ip') events.push(['ip', tok]);
@@ -453,6 +595,14 @@ function parse(text) {
       else if (['decimal', 'thousands', 'version', 'range'].includes(kind)) events.push([kind, tok]);
       else events.push(['number', tok]);
       i = j; continue;
+    }
+    const verM = /^v(\d+(?:\.\d+)+)(?:[-–]([A-Za-z0-9]+))?/i.exec(text.slice(i));
+    if (verM) {
+      events.push(['phones', letterToken('v')]);
+      const num = verM[1];
+      events.push([num.split('.').length >= 3 ? 'version' : 'decimal', num]);
+      if (verM[2]) events.push(['word', verM[2]]);
+      i += verM[0].length; continue;
     }
     const dotM = DOT_ABBR_RE.exec(text.slice(i));
     if (dotM && dotM.index === 0) {
@@ -467,20 +617,50 @@ function parse(text) {
           const segs = w.split('_').filter(Boolean);
           segs.forEach((seg, si) => {
             if (si) events.push(['w', 'underscore']);
-            if (/^[0-9]+$/.test(seg)) events.push(['number', seg]); else events.push(['word', seg]);
+            const m_a = /^([A-Za-z]+)(\d+)$/.exec(seg);
+            const m_d = /^(\d+)([A-Za-z]+)$/.exec(seg);
+            if (/^[0-9]+$/.test(seg)) events.push(['number', seg]);
+            else if (m_a) {
+              const letters = m_a[1];
+              if (enginePhones(letters.toLowerCase()) || letters !== letters.toUpperCase()) events.push(['word', letters]);
+              else if (letters.length > 1) events.push(['acronym', letters]);
+              else events.push(['letters', letters]);
+              events.push(['number', m_a[2]]);
+            } else if (m_d) {
+              events.push(['number', m_d[1]]);
+              const letters = m_d[2];
+              if (letters.length > 1 && letters === letters.toUpperCase()) events.push(['acronym', letters]);
+              else events.push(['letters', letters]);
+            } else events.push(['word', seg]);
           });
           if (i < n && text[i] === '.' && i + 1 < n && /[A-Za-z0-9]/.test(text[i + 1])) {
             events.push(['w', 'dot']); i += 1;
           }
           lastWord = w.toLowerCase(); continue;
         }
+        const an3 = /^([A-Za-z]+)(\d+)([A-Za-z]+)$/.exec(w);
+        if (an3) {
+          const emitGroup = (g) => {
+            if (enginePhones(g.toLowerCase()) || g !== g.toUpperCase()) events.push(['word', g]);
+            else if (g.length > 1) events.push(['acronym', g]);
+            else events.push(['letters', g]);
+          };
+          emitGroup(an3[1]);
+          events.push(['number', an3[2]]);
+          emitGroup(an3[3]);
+          lastWord = w.toLowerCase(); continue;
+        }
         const an = /^([A-Za-z]+)(\d+)$/.exec(w);
         if (an) {
-          if (an[1].length > 1 && an[1] === an[1].toUpperCase()) events.push(['acronym', an[1]]);
+          if (enginePhones(an[1].toLowerCase()) || SPECIAL_PHONES[an[1].toLowerCase()] || an[1] !== an[1].toUpperCase()) events.push(['word', an[1]]);
+          else if (an[1].length > 1 && an[1] === an[1].toUpperCase()) events.push(['acronym', an[1]]);
           else events.push(['letters', an[1]]);
           if (an[2].length === 3) events.push(['groupnum', an[2]]);
           else events.push(['number', an[2]]);
           lastWord = w.toLowerCase(); continue;
+        }
+        if (w.toLowerCase() === 'no' && i < n && text[i] === '.') {
+          events.push(['w', 'number']); i += 1; lastWord = 'number'; continue;
         }
         if (i < n && text[i] === '.' && i + 1 < n && /[A-Za-z0-9]/.test(text[i + 1])) {
           events.push(['word', w]);
@@ -535,17 +715,37 @@ function parse(text) {
         && (i === 0 || ' \t\n'.includes(text[i - 1]))) {
       events.push(['minus', null]); i += 1; continue;
     }
+    if (ch === '…') {
+      const restE = text.slice(i + 1).replace(/^\s+/, '');
+      events.push([restE ? 'ellipsis_pause' : 'end_ellipsis', 'punc…']);
+      i += 1; continue;
+    }
     if (END_PUNCT[ch]) {
       if (ch === '.') {
         let run = 0;
         while (i + run < n && text[i + run] === '.') run++;
         if (run >= 2) {
-          events.push(['end', 'punc.']);
-          events.push(['punc_after_end', 'punc.']);
+          const restDot = text.slice(i + run).replace(/^\s+/, '');
+          // 省略号后紧跟 ?/!（如 "Really...?"）：引擎只出 punc? + punc.
+          if ((restDot[0] === '?' || restDot[0] === '!') && restDot.slice(1).replace(/\s+$/g, '').replace(/["'’”“]/g, '') === '') {
+            events.push(['end', END_PUNCT[restDot[0]]]);
+            events.push(['punc_after_end', 'punc.']);
+            i += run + 1;
+            continue;
+          }
+          // 引擎实测句末点串规则：3/6 点 → punc...；2/4/7 点 → punc.；5/8 点 → punc... br0 punc.
+          if (run % 3 === 0 || run === 5 || run === 8) events.push([restDot ? 'ellipsis_pause' : 'end_ellipsis', null]);
+          else { events.push(['end', 'punc.']); events.push(['punc_after_end', 'punc.']); }
           i += run;
           continue;
         }
         const nxt = i + 1 < n ? text[i + 1] : '';
+        if (nxt && BQUOTE.has(nxt)) {
+          events.push(['end', 'punc.']);
+          events.push(['quote_after_end', 'punc.']);
+          i += 2;
+          continue;
+        }
         if (nxt && !/\s/.test(nxt) && !')]'.includes(nxt)) {
           if (/[A-Za-z0-9]/.test(nxt)) { i += 1; continue; }
           events.push([nxt === '_' ? 'pause_br1' : 'pause', 'punc.']);
@@ -599,7 +799,11 @@ function parse(text) {
         i += 1;
         continue;
       }
-      events.push(['pause', PAUSE_PUNCT[ch]]);
+      if (ch === ':' && i + 1 < n && /[\\/]/.test(text[i + 1])) {
+        events.push(['pause_plain', null]);
+      } else {
+        events.push(['pause', PAUSE_PUNCT[ch]]);
+      }
       i += 1;
       continue;
     }
@@ -609,10 +813,29 @@ function parse(text) {
       events.push(['phones', ['d', 'ih', '-', 'v', 'ay1', '-', 'd', 'ih', 'd', '-', 'b', 'ay2']]);
       i += 1; continue;
     }
-    if (ch === '/') { events.push(['slash', null]); i += 1; continue; }
+    if (ch === '–' || ch === '—') {
+      const prevKind = events.length ? events[events.length - 1][0] : null;
+      let jj = i + 1;
+      while (jj < n && text[jj] === ' ') jj++;
+      if (['number', 'decimal', 'percent', 'thousands', 'currency'].includes(prevKind)
+          && jj < n && /[0-9]/.test(text[jj])) {
+        events.push(['w', 'to']);
+      } else {
+        events.push(['pause', 'punc,']);
+      }
+      i += 1; continue;
+    }
+    if (ch === '/') {
+      if (i > 0 && i + 1 < n && /[A-Z]/.test(text[i - 1]) && /[A-Z]/.test(text[i + 1])
+          && (i < 2 || !/[A-Za-z]/.test(text[i - 2]))
+          && (i + 2 >= n || !/[A-Za-z]/.test(text[i + 2]))) {
+        i += 1; continue;
+      }
+      events.push(['slash', null]); i += 1; continue;
+    }
     if (ch === '=') { events.push(['phones', ['iy1', '-', 'k', 'w', 'ax', 'l', 'z']]); i += 1; continue; }
     if (ch === '@') { events.push(['w', 'at']); i += 1; continue; }
-    if (ch === '"') { events.push(['br2', null]); i += 1; continue; }
+    if (ch === '"') { i += 1; continue; }
     if (ch === "'") { i += 1; continue; }
     if (ch === '\\') { i += 1; continue; }
     if (SYMBOL_WORDS[ch] !== undefined) {
@@ -628,20 +851,69 @@ function parse(text) {
 function expandNumberToken(tok, kind, outWords) {
   const out_words = outWords || [];
   const t = tok.replace(/,/g, '');
+  if (kind === 'time_range') {
+    const parts = tok.split(/\s*[-–—]\s*/);
+    const [h1, m1] = parts[0].split(':').map(Number);
+    const [h2, m2] = parts[1].split(':').map(Number);
+    const ev = [];
+    if (m1 === 0 && m2 === 0) {
+      for (const w of cardinalWords(h1)) ev.push(['w', w]);
+      ev.push(['w', 'to']);
+      for (const w of cardinalWords(h2)) ev.push(['w', w]);
+      ev.push(['w', "o'clock"]);
+    } else {
+      for (const e of timeWords(h1, m1, null)) ev.push(e);
+      ev.push(['w', 'to']);
+      for (const e of timeWords(h2, m2, null)) ev.push(e);
+    }
+    return ev;
+  }
+  if (kind === 'date_ym') {
+    const [a1, b1] = tok.split('/');
+    const ev = [];
+    for (const w of yearWords(Number(a1))) ev.push(['w', w]);
+    ev.push(['w', 'slash']);
+    for (const w of digitsWords(String(b1).padStart(2, '0'))) ev.push(['w', w]);
+    return ev;
+  }
+  if (kind === 'date_my') {
+    const [a1, b1] = tok.split('/');
+    const ev = [['w', MONTH_NAMES[Number(a1) - 1]]];
+    for (const w of yearWords(Number(b1))) ev.push(['w', w]);
+    return ev;
+  }
   if (kind === 'date') {
-    let parts = t.split(/[/.-]/).map(Number);
-    let mm, dd, yy;
-    if (t.includes('/')) { [mm, dd, yy] = parts; }
-    else { [yy, mm, dd] = parts; }
-    if (yy < 100) yy += yy < 30 ? 2000 : 1900;
-    if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
-      const words = [MONTH_NAMES[mm - 1]].concat(ordinalWords(dd));
+    const sepM = /[/.-]/.exec(tok);
+    const sep = sepM ? sepM[0] : '/';
+    const parts = tok.split(/[/.-]/);
+    const a0 = parts[0], b0 = parts[1], c0 = parts[2];
+    const ai = Number(a0), bi = Number(b0), ci = Number(c0);
+    if (a0.length === 4) {
+      const mo = bi, d = ci, y = ai;
+      if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
+        const words = [MONTH_NAMES[mo - 1]].concat(ordinalWords(d));
+        const events = words.map((w) => ['w', w]);
+        events.push(['pause_plain', null]);
+        for (const w of yearWords(y)) events.push(['w', w]);
+        return events;
+      }
+    } else if (ai >= 1 && ai <= 12 && bi >= 1 && bi <= 31) {
+      const mo = ai, d = bi, y = ci;
+      const words = [MONTH_NAMES[mo - 1]].concat(ordinalWords(d));
       const events = words.map((w) => ['w', w]);
       events.push(['pause_plain', null]);
-      for (const w of yearWords(yy)) events.push(['w', w]);
+      if (c0.length <= 2) { for (const w of cardinalWords(y)) events.push(['w', w]); }
+      else { for (const w of yearWords(y)) events.push(['w', w]); }
       return events;
     }
-    return digitsWords(t.replace(/\D/g, '')).map((w) => ['w', w]);
+    const sepWord = sep === '/' ? 'slash' : (sep === '-' ? 'dash' : 'dot');
+    const ev = cardinalWords(ai).map((w) => ['w', w]);
+    ev.push(['w', sepWord]);
+    for (const w of cardinalWords(bi)) ev.push(['w', w]);
+    ev.push(['w', sepWord]);
+    if (c0.length === 4) { for (const w of yearWords(ci)) ev.push(['w', w]); }
+    else { for (const w of cardinalWords(ci)) ev.push(['w', w]); }
+    return ev;
   }
   if (kind === 'time') {
     let m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s?([AaPp])\.?[Mm])?/.exec(tok);
@@ -650,8 +922,14 @@ function expandNumberToken(tok, kind, outWords) {
       const rawAp = (m[4] || '').toLowerCase();
       const ampm = rawAp ? (rawAp.startsWith('a') ? 'am' : 'pm') : null;
       if (m[3]) {
-        return cardinalWords(hh).concat(cardinalWords(mm), cardinalWords(Number(m[3])))
-          .map((w) => ['w', w]);
+        const ss = Number(m[3]);
+        const ev = cardinalWords(hh).map((w) => ['w', w]);
+        ev.push(['w', hh === 1 ? 'hour' : 'hours']);
+        for (const w of cardinalWords(mm)) ev.push(['w', w]);
+        ev.push(['w', mm === 1 ? 'minute' : 'minutes'], ['w', 'and']);
+        for (const w of cardinalWords(ss)) ev.push(['w', w]);
+        ev.push(['w', ss === 1 ? 'second' : 'seconds']);
+        return ev;
       }
       return timeWords(hh, mm, ampm);
     }
@@ -676,7 +954,8 @@ function expandNumberToken(tok, kind, outWords) {
     return ev;
   }
   if (kind === 'ordinal') {
-    return ordinalWords(Number(/^\d+/.exec(tok)[0])).map((w) => ['w', w]);
+    const digits = String(tok).replace(/\D/g, '');
+    return ordinalWords(Number(digits)).map((w) => ['w', w]);
   }
   if (kind === 'decimal') {
     let a, b;
@@ -688,8 +967,18 @@ function expandNumberToken(tok, kind, outWords) {
     return ev;
   }
   if (kind === 'range') {
-    const [a, b] = t.split('-');
-    return cardinalWords(Number(a)).concat(['to'], cardinalWords(Number(b))).map((w) => ['w', w]);
+    const parts = tok.split('-').filter(Boolean);
+    const sepWord = parts.length === 2 ? 'to' : 'dash';
+    const ev = [];
+    parts.forEach((part, pi) => {
+      if (pi) ev.push(['w', sepWord]);
+      if (part.length > 1 && part.startsWith('0')) {
+        for (const w of digitsWords(part)) ev.push(['w', w]);
+      } else {
+        for (const w of cardinalWords(Number(part))) ev.push(['w', w]);
+      }
+    });
+    return ev;
   }
   if (kind === 'phone') return phoneWords(tok);
   if (kind === 'alnum') {
@@ -718,7 +1007,9 @@ function expandNumberToken(tok, kind, outWords) {
   }
   if (kind === 'mixed') {
     const m = /^(\d+)\s+(\d+)\s*\/\s*(\d+)/.exec(tok);
-    const words = cardinalWords(Number(m[1])).concat(['and'], fractionWords(Number(m[2]), Number(m[3])));
+    const n = Number(m[1]), num = Number(m[2]), den = Number(m[3]);
+    if (num === 1 && den === 2) return cardinalWords(n).concat(['and', 'a', 'half']).map((w) => ['w', w]);
+    const words = cardinalWords(n).concat(['and'], fractionWords(num, den));
     return words.map((w) => ['w', w]);
   }
   if (kind === 'ip') {
@@ -772,6 +1063,18 @@ function expand(events) {
       events[idx + 1] = ['consumed', null];
       continue;
     }
+    if (kind === 'word' && MONTH_ABBR[String(val).toLowerCase()]) {
+      const monthFull = MONTH_ABBR[String(val).toLowerCase()];
+      let day = null;
+      if (nxt && (nxt[0] === 'number' || nxt[0] === 'ordinal')) {
+        const dm = /^(\d+)/.exec(String(nxt[1]));
+        const d = dm ? Number(dm[1]) : 0;
+        if (d >= 1 && d <= 31) { day = d; events[idx + 1] = ['consumed', null]; }
+      }
+      out.push(['w', monthFull]);
+      if (day !== null) { for (const w of ordinalWords(day)) out.push(['w', w]); }
+      continue;
+    }
     if (kind === 'word' && MONTH_NAMES.includes(String(val).toLowerCase())
         && nxt && (nxt[0] === 'number' || nxt[0] === 'ordinal')) {
       const day = Number(/^\d+/.exec(nxt[1])[0]);
@@ -784,17 +1087,41 @@ function expand(events) {
         continue;
       }
     }
-    if (['number', 'date', 'time', 'ratio', 'version', 'ordinal', 'decimal',
+    if (kind === 'number' && /^[0-9]{8,}$/.test(String(val))) {
+      for (const w of digitsWords(String(val))) out.push(['w', w]);
+      continue;
+    }
+    if (kind === 'number' && /^0[0-9]+$/.test(String(val))) {
+      for (const w of digitsWords(String(val))) out.push(['w', w]);
+      continue;
+    }
+    if (['number', 'date', 'date_my', 'date_ym', 'time', 'time_range', 'ratio', 'version', 'ordinal', 'decimal',
       'thousands', 'range', 'phone', 'alnum', 'fraction', 'mixed', 'ip', 'dashgroup', 'groupnum'].includes(kind)) {
       const ev = expandNumberToken(val, kind, out.filter((x) => x[0] === 'w' || x[0] === 'word').map((x) => x[1]));
       for (const e of ev) out.push(e);
       if (nxt && nxt[0] === 'word') {
         let rawU = nxt[1];
         let uw = unitWords(rawU);
+        const nxt3 = idx + 2 < events.length ? events[idx + 2] : null;
+        const nxt4 = idx + 3 < events.length ? events[idx + 3] : null;
+        if (String(rawU).toLowerCase() === 'm' && nxt3 && nxt3[0] === 'slash' && nxt4 && nxt4[0] === 'word') {
+          out.push(['phones', letterToken('m')]);
+          events[idx + 1] = ['consumed', null];
+          continue;
+        }
+        if (String(rawU).toLowerCase() === 'km' && nxt3 && nxt3[0] === 'slash'
+            && nxt4 && nxt4[0] === 'word' && String(nxt4[1]).toLowerCase() === 'h') {
+          out.push(['w', 'kilometers'], ['w', 'per'], ['w', 'hour']);
+          events[idx + 1] = ['consumed', null];
+          events[idx + 2] = ['consumed', null];
+          events[idx + 3] = ['consumed', null];
+          continue;
+        }
         if (String(rawU).toLowerCase() === 'm') {
           const prevWords = out.filter((x) => x[0] === 'w').slice(-4).map((x) => x[1]).join(' ');
           uw = (prevWords.includes('hour') || prevWords.includes('hours')) ? ['minutes'] : null;
         }
+        if (rawU === rawU.toUpperCase() && rawU.length === 1) uw = null;
         if (uw && ['number', 'decimal', 'thousands', 'version'].includes(kind)) {
           let lastNum = null;
           try { lastNum = parseFloat(val.replace(/[^0-9.]/g, '')); } catch (e) { lastNum = null; }
@@ -822,7 +1149,10 @@ function expand(events) {
         for (const w of words) out.push(['w', w]);
       } else {
         const nn = Number(num.replace(/,/g, ''));
-        if ((sym === '¥' || sym === '￥') && nn) {
+        if (sym === '¥' && nn) {
+          for (const w of cardinalWords(nn)) out.push(['w', w]);
+          out.push(['w', 'yen']);
+        } else if (sym === '￥' && nn) {
           for (const w of cardinalWords(nn)) out.push(['w', w]);
           out.push(['phones', ['y', 'uw', '-', 'aa1', 'n']]);
         } else {
@@ -859,6 +1189,8 @@ function expand(events) {
       out.push(['pause_br1', val]);
     } else if (kind === 'br1_br0') {
       out.push(['br1_br0', null]);
+    } else if (kind === 'ellipsis_pause' || kind === 'end_ellipsis') {
+      out.push([kind, val]);
     } else if (kind === 'pause') {
       out.push(['pause', val]);
     } else if (kind === 'end') {
@@ -922,12 +1254,62 @@ function preprocess(text) {
   return text;
 }
 
-function textToIds(text, sym) {
-  text = preprocess(String(text || ''));
+function textToIds(text, sym, lexicon, variant) {
+  const prevLex = ACTIVE_LEX;
+  const prevVar = ACTIVE_VARIANT;
+  if ((variant === 'gb' || variant === 'in') && lexicon) {
+    ACTIVE_LEX = lexicon;
+    ACTIVE_VARIANT = variant;
+  }
+  try {
+    return _textToIdsImpl(text, sym, variant || '');
+  } finally {
+    ACTIVE_LEX = prevLex;
+    ACTIVE_VARIANT = prevVar;
+  }
+}
+
+function normalizeNewlines(text) {
+  // 引擎实测：换行 = 句子边界（每行独立成句，自动补句号）
+  if (!text.includes('\n') && !text.includes('\r')) return text;
+  const s = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  let out = '';
+  for (const ch of s) {
+    if (ch === '\n') {
+      let j = out.length - 1;
+      while (j >= 0 && (out[j] === ' ' || out[j] === '\t')) j -= 1;
+      if (j >= 0 && '.!?'.includes(out[j])) out += ' ';
+      else out += '. ';
+    } else out += ch;
+  }
+  return out;
+}
+
+function _textToIdsImpl(text, sym, variant) {
+  text = preprocess(normalizeNewlines(String(text || '')));
   const raw = parse(text);
   const ev = expand(raw);
   const flat = flatten(ev);
-  const ids = [sym[BOS]];
+  // 英文异读 CRF 的 token 上下文（引擎 token = 词 + 标点；引号不产生 token）
+  const crfTokens = [];
+  const crfTokIdx = new Map();
+  const puncMap = { 'punc.': '.', 'punc,': ',', 'punc?': '?', 'punc!': '!', 'punc;': ';', 'punc:': ':', 'punc...': '...' };
+  for (let k = 0; k < flat.length; k++) {
+    const kk = flat[k][0];
+    let tk = null;
+    if (kk === 'w') tk = flat[k][1];
+    else if (kk === 'pause' || kk === 'pause_plain' || kk === 'pause_br1') tk = ',';
+    else if (kk === 'end') tk = puncMap[flat[k][1]] || '.';
+    else if (kk === 'end_ellipsis' || kk === 'ellipsis_pause') tk = '...';
+    if (tk !== null) {
+      crfTokens.push(tk);
+      crfTokIdx.set(k, crfTokens.length - 1);
+    }
+  }
+  let crfEn = null;
+  try { crfEn = require('./crf_en'); } catch (e) { crfEn = null; }
+  const ids = [];
+  if (sym[BOS] !== undefined) ids.push(sym[BOS]);
   if (sym['br0'] !== undefined) ids.push(sym['br0']);
   let first = true, ended = false;
   for (let i = 0; i < flat.length; i++) {
@@ -945,7 +1327,14 @@ function textToIds(text, sym) {
         while (j2 >= 0 && flat[j2][0] !== 'w') j2--;
         if (j2 >= 0) prevW = flat[j2][1];
       }
-      let phones = pronWord(w, nxt, prevW);
+      let phones = null;
+      if (crfEn) {
+        const ti = crfTokIdx.get(i);
+        if (ti !== undefined) {
+          try { phones = crfEn.select(w, crfTokens, ti); } catch (e) { phones = null; }
+        }
+      }
+      if (phones === null || phones === undefined) phones = pronWord(w, nxt, prevW);
       const wl = String(w).toLowerCase();
       const afterKind = i + 1 < flat.length ? flat[i + 1][0] : 'end';
       const afterW = i + 1 < flat.length && flat[i + 1][0] === 'w' ? flat[i + 1][1] : '';
@@ -964,8 +1353,8 @@ function textToIds(text, sym) {
       const needBr1 = !first && !(i > 0 && flat[i - 1][0] === 'br2');
       if (needBr1 && sym['br1'] !== undefined) ids.push(sym['br1']);
       for (const ph of phones) {
-        if (ph === '-') ids.push(sym['-'] !== undefined ? sym['-'] : 0);
-        else ids.push(sym[ph] !== undefined ? sym[ph] : (sym['<pad>'] !== undefined ? sym['<pad>'] : 0));
+        if (ph === '-') ids.push(symId(sym, '-', variant));
+        else ids.push(symId(sym, ph, variant));
       }
       first = false;
     } else if (kind === 'pause_plain') {
@@ -982,20 +1371,69 @@ function textToIds(text, sym) {
       first = true;
     } else if (kind === 'pause') {
       if (first) continue;
+      if (variant === 'in') {
+        if (sym['br3'] !== undefined) ids.push(sym['br3']);
+        first = true;
+        continue;
+      }
       ids.push(sym['br3']);
       if (item[1] && sym[item[1]] !== undefined) ids.push(sym[item[1]]);
       if (sym['br0'] !== undefined) ids.push(sym['br0']);
       first = true;
-    } else if (kind === 'end') {
-      if (ended) {
-        ids.push(item[1] && sym[item[1]] !== undefined ? sym[item[1]] : (sym['punc.'] || 0));
-        continue;
-      }
+    } else if (kind === 'ellipsis_pause') {
+      ids.push(sym['br3'] !== undefined ? sym['br3'] : 0);
+      ids.push(item[1] && sym[item[1]] !== undefined ? sym[item[1]] : (sym['punc...'] !== undefined ? sym['punc...'] : (sym['punc.'] || 0)));
+      ids.push(sym['br0'] !== undefined ? sym['br0'] : 0);
+      first = true;
+    } else if (kind === 'end_ellipsis') {
       ids.push(sym['br4']);
-      if (item[1] && sym[item[1]] !== undefined) ids.push(sym[item[1]]);
-      else if (sym['punc.'] !== undefined) ids.push(sym['punc.']);
+      const nxtE = i + 1 < flat.length ? flat[i + 1] : null;
+      if (nxtE && nxtE[0] === 'end' && String(nxtE[1] || '').startsWith('punc')) {
+        // "Really...?" / "Really...!" → 引擎为 punc? / punc! + punc.
+        ids.push(sym[nxtE[1]] !== undefined ? sym[nxtE[1]] : (sym['punc.'] || 0));
+        if (sym['punc.'] !== undefined) ids.push(sym['punc.']);
+        i += 2;
+      } else {
+        ids.push(item[1] && sym[item[1]] !== undefined ? sym[item[1]] : (sym['punc...'] !== undefined ? sym['punc...'] : (sym['punc.'] || 0)));
+        if (sym['punc.'] !== undefined) ids.push(sym['punc.']);
+        i += 1;
+      }
+      ids.push(sym[END]);
       ended = true;
       first = true;
+    } else if (kind === 'end') {
+      if (variant === 'in') {
+        if (sym['br4'] !== undefined) ids.push(sym['br4']);
+        if (sym[END] !== undefined) ids.push(sym[END]);
+        let jx2 = i + 1;
+        if (jx2 < flat.length) {
+          if (sym[BOS] !== undefined) ids.push(sym[BOS]);
+          if (sym['br0'] !== undefined) ids.push(sym['br0']);
+          first = true; ended = false; i = jx2 - 1; continue;
+        }
+        ended = true; first = true; i = jx2 - 1; continue;
+      }
+      ids.push(sym['br4']);
+      ids.push(item[1] && sym[item[1]] !== undefined ? sym[item[1]] : (sym['punc.'] || 0));
+      let jx = i + 1;
+      const extra = [];
+      while (jx < flat.length && flat[jx][0] === 'punc_after_end') { extra.push(flat[jx][1]); jx += 1; }
+      let quotePunc = null;
+      if (jx < flat.length && flat[jx][0] === 'quote_after_end') { quotePunc = flat[jx][1]; jx += 1; }
+      if (extra.length) {
+        for (const ex of extra) ids.push(sym[ex] !== undefined ? sym[ex] : (sym['punc.'] || 0));
+      }
+      if (quotePunc !== null) {
+        ids.push(sym['br0'] !== undefined ? sym['br0'] : 0);
+        ids.push(sym[quotePunc] !== undefined ? sym[quotePunc] : (sym['punc.'] || 0));
+      }
+      if (jx < flat.length) {
+        ids.push(sym[END]);
+        ids.push(sym[BOS]); ids.push(sym['br0'] !== undefined ? sym['br0'] : 0);
+        first = true; ended = false; i = jx - 1; continue;
+      }
+      ids.push(sym[END]);
+      ended = true; first = true; i = jx - 1; continue;
     } else if (kind === 'punc_after_end') {
       ids.push(item[1] && sym[item[1]] !== undefined ? sym[item[1]] : (sym['punc.'] || 0));
       continue;
@@ -1009,18 +1447,44 @@ function textToIds(text, sym) {
       const needBr1 = !first && !(i > 0 && flat[i - 1][0] === 'br2');
       if (needBr1 && sym['br1'] !== undefined) ids.push(sym['br1']);
       for (const ph of item[1]) {
-        if (ph === '-') ids.push(sym['-'] !== undefined ? sym['-'] : 0);
-        else ids.push(sym[ph] !== undefined ? sym[ph] : (sym['<pad>'] !== undefined ? sym['<pad>'] : 0));
+        if (ph === '-') ids.push(symId(sym, '-', variant));
+        else ids.push(symId(sym, ph, variant));
       }
       first = false;
     }
   }
   if (!ended) {
-    ids.push(sym['br4']);
-    if (sym['punc.'] !== undefined) ids.push(sym['punc.']);
+    if (sym['br4'] !== undefined) ids.push(sym['br4']);
+    if (variant !== 'in' && sym['punc.'] !== undefined) ids.push(sym['punc.']);
+    if (sym[END] !== undefined) ids.push(sym[END]);
   }
-  ids.push(sym[END]);
-  return ids;
+  return mergeBracketTail(ids, sym, text);
 }
 
-module.exports = { textToIds };
+// 引擎实测：文本以「) / ] + 句末标点」结尾时，闭合括号的 punc 与句点的 punc 同属一句
+// （br4 punc. punc. ~）；状态机偶尔把后者拆成空句，这里合并回前一句。
+function mergeBracketTail(ids, sym, text) {
+  try {
+    if (!text) return ids;
+    const t = String(text).trim();
+    if (!t) return ids;
+    const lastCh = t[t.length - 1];
+    if (').]!?'.indexOf(lastCh) < 0) return ids;
+    const END = sym['~'];
+    const BOS = sym['-bos-'];
+    const BR0 = sym['br0'];
+    const BR4 = sym['br4'];
+    const n = ids.length;
+    if (n < 7) return ids;
+    if (ids[n - 1] !== END) return ids;
+    if (ids[n - 3] === BR4 && ids[n - 4] === BR0 && ids[n - 5] === BOS && ids[n - 6] === END) {
+      const tailPunc = ids[n - 2];
+      return ids.slice(0, n - 6).concat([tailPunc, END]);
+    }
+    return ids;
+  } catch (e) {
+    return ids;
+  }
+}
+
+module.exports = { textToIds, loadVariantLexicon };
