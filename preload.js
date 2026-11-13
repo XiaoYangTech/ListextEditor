@@ -97,10 +97,26 @@ function logToFile(level, args) {
 
 // ---------- EdgeTTS 本地缓存：音色 + 语速 + 文本完全一致时直接复用，不再走网络 ----------
 // 缓存目录在 userData/edge-tts-cache（由主进程提供路径），文件名是 sha256(音色|语速|文本)。
-// 命中时刷新 mtime（LRU 淘汰依据）；超过 300MB 或 2000 个文件时按最旧优先清理。
+// 淘汰策略「类艾宾浩斯」：每个条目记录使用次数 hits 与上次使用时间 lastUsed，
+// 保留分 = hits × 2^(-闲置天数/半衰期)；超限时先删保留分最低的（近期不用、用得又少的先走）。
 const EDGE_TTS_CACHE_MAX_BYTES = 300 * 1024 * 1024;
 const EDGE_TTS_CACHE_MAX_FILES = 2000;
+const EDGE_TTS_CACHE_INDEX = 'index.json';
+const EDGE_TTS_CACHE_HALF_LIFE_DAYS = 14; // 半衰期：闲置 14 天，保留分减半
 let _edgeTtsCacheDir = null;
+let _edgeTtsCacheIndex = null; // { version, entries: { key: { hits, lastUsed, size } } }
+let _edgeTtsCacheSaveTimer = null;
+
+// 设置页清空缓存后，主进程通知这里丢弃内存索引，避免旧条目被重新写回
+try {
+  ipcRenderer.on('edge-tts-cache-cleared', () => {
+    _edgeTtsCacheIndex = null;
+    if (_edgeTtsCacheSaveTimer) {
+      clearTimeout(_edgeTtsCacheSaveTimer);
+      _edgeTtsCacheSaveTimer = null;
+    }
+  });
+} catch { /* 忽略 */ }
 
 async function edgeTtsCacheDir() {
   if (_edgeTtsCacheDir !== null) return _edgeTtsCacheDir;
@@ -118,25 +134,107 @@ function edgeTtsCacheKey(text, voice, rate) {
     .digest('hex');
 }
 
-// 清理超限缓存（同步执行，量大时也只是遍历目录，不做 IO 内容读取）
+// 索引按需加载：兼容旧版本（没有 index.json 时按目录里现有文件重建）
+function loadEdgeTtsCacheIndex(dir) {
+  if (_edgeTtsCacheIndex) return _edgeTtsCacheIndex;
+  let index = null;
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(dir, EDGE_TTS_CACHE_INDEX), 'utf-8').replace(/^\uFEFF/, ''));
+    if (raw && raw.entries && typeof raw.entries === 'object') index = raw;
+  } catch { /* 首次使用或文件损坏：重建 */ }
+  if (!index) {
+    index = { version: 1, entries: {} };
+    try {
+      for (const f of fs.readdirSync(dir)) {
+        if (!f.endsWith('.mp3')) continue;
+        const p = path.join(dir, f);
+        try {
+          const st = fs.statSync(p);
+          index.entries[f.slice(0, -4)] = { hits: 1, lastUsed: st.mtimeMs, size: st.size };
+        } catch { /* 忽略单个失败 */ }
+      }
+    } catch { /* 目录不可读时留空 */ }
+  }
+  _edgeTtsCacheIndex = index;
+  return index;
+}
+
+function saveEdgeTtsCacheIndex(dir) {
+  if (!_edgeTtsCacheIndex) return;
+  try {
+    ensureDir(dir);
+    const tmp = path.join(dir, EDGE_TTS_CACHE_INDEX + '.tmp');
+    fs.writeFileSync(tmp, JSON.stringify(_edgeTtsCacheIndex), 'utf-8');
+    fs.renameSync(tmp, path.join(dir, EDGE_TTS_CACHE_INDEX));
+  } catch { /* 索引写失败不影响缓存使用 */ }
+}
+
+function scheduleSaveEdgeTtsCacheIndex(dir) {
+  if (_edgeTtsCacheSaveTimer) return;
+  _edgeTtsCacheSaveTimer = setTimeout(() => {
+    _edgeTtsCacheSaveTimer = null;
+    saveEdgeTtsCacheIndex(dir);
+  }, 1500);
+}
+
+// 保留分：用得越多越值钱，闲置越久越不值钱（半衰期 14 天）
+function edgeTtsCacheScore(entry, now) {
+  const hits = Number(entry?.hits) || 1;
+  const ageDays = Math.max(0, (now - (Number(entry?.lastUsed) || 0)) / 86400000);
+  return hits * Math.pow(2, -ageDays / EDGE_TTS_CACHE_HALF_LIFE_DAYS);
+}
+
+function noteEdgeTtsCacheHit(dir, key) {
+  const index = loadEdgeTtsCacheIndex(dir);
+  const e = index.entries[key] || (index.entries[key] = { hits: 0, lastUsed: 0, size: 0 });
+  e.hits = (Number(e.hits) || 0) + 1;
+  e.lastUsed = Date.now();
+  try { e.size = e.size || fs.statSync(path.join(dir, key + '.mp3')).size; } catch { /* 忽略 */ }
+  scheduleSaveEdgeTtsCacheIndex(dir);
+}
+
+function noteEdgeTtsCacheStore(dir, key, size) {
+  const index = loadEdgeTtsCacheIndex(dir);
+  const e = index.entries[key] || (index.entries[key] = { hits: 0, lastUsed: 0, size: 0 });
+  e.hits = Math.max(1, Number(e.hits) || 0);
+  e.lastUsed = Date.now();
+  e.size = Number(size) || e.size || 0;
+  scheduleSaveEdgeTtsCacheIndex(dir);
+}
+
+// 超限清理：按保留分从低到高删除，直到降到 80% 以下
 function pruneEdgeTtsCache(dir) {
   try {
-    const entries = fs.readdirSync(dir)
-      .filter(f => f.endsWith('.mp3'))
-      .map(f => {
-        const p = path.join(dir, f);
-        try { const st = fs.statSync(p); return { p, size: st.size, mtime: st.mtimeMs }; } catch { return null; }
-      })
-      .filter(Boolean);
-    let total = entries.reduce((s, e) => s + e.size, 0);
-    let count = entries.length;
-    if (count <= EDGE_TTS_CACHE_MAX_FILES && total <= EDGE_TTS_CACHE_MAX_BYTES) return;
-    entries.sort((a, b) => a.mtime - b.mtime);
-    for (const e of entries) {
+    const index = loadEdgeTtsCacheIndex(dir);
+    const now = Date.now();
+    // 清理索引里已不存在的条目
+    for (const [key, e] of Object.entries(index.entries)) {
+      if (!fs.existsSync(path.join(dir, key + '.mp3'))) delete index.entries[key];
+    }
+    const items = Object.entries(index.entries).map(([key, e]) => ({
+      key,
+      path: path.join(dir, key + '.mp3'),
+      size: Number(e.size) || 0,
+      score: edgeTtsCacheScore(e, now)
+    }));
+    let total = items.reduce((s, e) => s + e.size, 0);
+    let count = items.length;
+    if (count <= EDGE_TTS_CACHE_MAX_FILES && total <= EDGE_TTS_CACHE_MAX_BYTES) {
+      scheduleSaveEdgeTtsCacheIndex(dir);
+      return;
+    }
+    items.sort((a, b) => a.score - b.score); // 先删最不值钱的
+    for (const item of items) {
       if (count <= 50) break;
       if (count <= EDGE_TTS_CACHE_MAX_FILES * 0.8 && total <= EDGE_TTS_CACHE_MAX_BYTES * 0.8) break;
-      try { fs.unlinkSync(e.p); total -= e.size; count -= 1; } catch { /* 忽略单个失败 */ }
+      try {
+        fs.unlinkSync(item.path);
+        delete index.entries[item.key];
+        total -= item.size;
+        count -= 1;
+      } catch { /* 忽略单个失败 */ }
     }
+    saveEdgeTtsCacheIndex(dir);
   } catch { /* 清理失败不影响合成 */ }
 }
 
@@ -154,6 +252,8 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
     const cacheDir = await edgeTtsCacheDir();
     const cachePath = cacheDir ? path.join(cacheDir, edgeTtsCacheKey(text, rawVoice, rateTag) + '.mp3') : '';
     if (cachePath && isValidMp3(cachePath)) {
+      // 命中：累加使用次数并刷新最近使用时间（保留分依据）
+      noteEdgeTtsCacheHit(cacheDir, path.basename(cachePath, '.mp3'));
       try { const now = new Date(); fs.utimesSync(cachePath, now, now); } catch { /* 忽略 */ }
       return { success: true, path: cachePath, cached: true };
     }
@@ -183,6 +283,7 @@ async function synthesizeTTS(text, voice, rate = '+0%') {
             fs.copyFileSync(outputPath, tmpPath);
             fs.renameSync(tmpPath, cachePath);
             try { fs.unlinkSync(outputPath); } catch { /* 忽略 */ }
+            noteEdgeTtsCacheStore(cacheDir, path.basename(cachePath, '.mp3'), fs.statSync(cachePath).size);
             pruneEdgeTtsCache(cacheDir);
             return { success: true, path: cachePath, cached: false };
           } catch (e) {

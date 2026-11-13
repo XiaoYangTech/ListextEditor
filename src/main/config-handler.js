@@ -229,6 +229,13 @@ function registerConfigHandlers(ipcMain) {
           fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
         }
       }
+      // EdgeTTS 缓存在 preload 里维护了使用统计索引，清空后要让它丢弃内存副本
+      if (category === 'edgeTtsCache') {
+        try {
+          const { BrowserWindow } = require('electron');
+          for (const win of BrowserWindow.getAllWindows()) win.webContents.send('edge-tts-cache-cleared');
+        } catch { /* 忽略 */ }
+      }
       console.log('[缓存] 已清除:', category);
       return { success: true };
     } catch (e) {
