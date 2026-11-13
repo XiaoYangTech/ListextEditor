@@ -453,15 +453,6 @@ class ListextEditor {
     };
   }
 
-  updateActiveProjectData(data) {
-    const tab = this.tabManager?.getActiveTab();
-    if (tab) {
-      if (data.roles) tab.roles = data.roles;
-      if (data.effects) tab.effects = data.effects;
-      this.fileManager.markUnsaved();
-    }
-  }
-
   switchMode(mode, sync = true) {
     if (mode !== 'block' && mode !== 'code' && mode !== 'split') return;
     if (mode === this.currentMode && sync) return;
@@ -742,10 +733,6 @@ class ListextEditor {
       this.codeEditor.refreshView();
     }
 
-  }
-
-  clearEditor() {
-    this.setContent('', 'block');
   }
 
   showUnsavedDialog(title) { return this.uiManager.showUnsavedDialog(title); }

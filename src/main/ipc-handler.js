@@ -25,7 +25,7 @@ const ffmpegStatic = require('ffmpeg-static');
 const AdmZip = require('adm-zip');
 const { ensureDir } = require('./utils');
 const { openSettingsWindow } = require('./window-manager');
-const { getBuiltInDir, getBuiltInRoots, scanBuiltInSounds } = require('./sound-handler');
+const { scanBuiltInSounds } = require('./sound-handler');
 const fileLocker = require('./file-locker');
 const crypto = require('crypto');
 const { cleanEdition } = require('../build-flags');
@@ -747,14 +747,6 @@ function registerIpcHandlers() {
     return { success: true };
   });
 
-  ipcMain.handle('get-audio-file', async (event, filePath) => {
-    if (fs.existsSync(filePath)) {
-      const data = fs.readFileSync(filePath);
-      return { success: true, data: data.toString('base64') };
-    }
-    return { success: false, error: '文件不存在' };
-  });
-
   ipcMain.handle('cleanup-temp', async () => {
     if (fs.existsSync(tempDir)) {
       const files = fs.readdirSync(tempDir);
@@ -903,13 +895,6 @@ function registerIpcHandlers() {
       console.error('[全损] 失败:', error.message);
       return { success: false, error: error.message };
     }
-  });
-
-  ipcMain.handle('get-built-in-paths', async () => {
-    return {
-      roots: getBuiltInRoots(),
-      primary: getBuiltInDir()
-    };
   });
 
   ipcMain.handle('select-audio-file', async () => {

@@ -549,21 +549,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuEdit: (callback) => ipcRenderer.on('menu-edit', (event, action) => callback(action)),
 
   listBuiltinSounds: () => ipcRenderer.invoke('list-builtin-sounds'),
-  getBuiltInPaths: () => ipcRenderer.invoke('get-built-in-paths'),
 
   synthesizeTTS,
   listLocalVoices,
   synthesizeLocalTTS,
   warmLocalTts,
-  synthesizeBatch: async (items) => {
-    const results = [];
-    for (const item of items) {
-      const result = await synthesizeTTS(item.text, item.voice, item.rate);
-      results.push({ ...item, ...result });
-    }
-    return results;
-  },
-  getAudioFile: (filePath) => ipcRenderer.invoke('get-audio-file', filePath),
   cleanupTemp: () => ipcRenderer.invoke('cleanup-temp'),
   appendLog: (level, args) => ipcRenderer.invoke('append-log', level, args),
   listEdgeVoices: async () => {
