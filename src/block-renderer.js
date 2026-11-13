@@ -51,6 +51,7 @@ class BlockRenderer {
         }
       });
       this.enableDropZone(this.container);
+      this.enableToolbarPointerDrag();
 
       document.addEventListener('dragover', (e) => {
         if (!this.draggingBlock && !this.draggingMultiBlocks) return;
@@ -594,6 +595,8 @@ class BlockRenderer {
     const dragSource = headerEl || block;
 
     dragSource.setAttribute('draggable', 'true');
+    // 触摸屏兜底：HTML5 拖放不响应触摸，标题栏按下走指针拖拽（见 _startPointerDrag）
+    dragSource.addEventListener('pointerdown', (e) => this._onBlockPointerDown(e, block));
 
     if (textarea) {
       textarea.setAttribute('draggable', 'false');
@@ -1464,6 +1467,215 @@ class BlockRenderer {
     else if (tag === 'repeat') this.showRepeatEditor(block);
     else if (tag === 'section') this.showSectionEditor(block);
     else if (tag === 'say') this.showSayEditor(block);
+  }
+
+  // ================= 指针拖拽（触摸屏兜底 + 顶部工具条拖入） =================
+  // HTML5 drag 事件在触摸设备上不会触发，连 dragstart 都没有，所以积木在触屏上根本拖不动。
+  // 这里用 Pointer Events 实现一套等价的拖拽：
+  //   · 触摸拖动积木标题栏 → 移动积木（复用占位符/自动滚动/重复体内插入等既有逻辑）
+  //   · 从顶部工具条按下并拖动 → 拖动中显示预览块，松手落在工作区即在落点插入新积木
+  enableToolbarPointerDrag() {
+    document.querySelectorAll('#sharedToolbar .add-block-btn[data-type]').forEach(btn => {
+      if (btn.dataset.pointerDragBound) return;
+      btn.dataset.pointerDragBound = '1';
+      btn.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        if (window.app?.currentMode && window.app.currentMode !== 'block') return; // 代码模式不拖积木
+        this._startPointerDrag(e, { tagName: btn.dataset.type, sourceEl: btn });
+      });
+    });
+  }
+
+  _onBlockPointerDown(e, block) {
+    if (e.button !== 0) return;
+    if (e.pointerType === 'mouse') return; // 鼠标继续走原生 HTML5 拖放
+    const header = block.querySelector('.block-header');
+    if (header && !header.contains(e.target)) return; // 只从标题栏拖
+    if (e.target.closest('textarea, input, select, .block-action-btn, button')) return;
+    this._startPointerDrag(e, { block });
+  }
+
+  _startPointerDrag(e, { block = null, tagName = null, sourceEl = null }) {
+    if (this._ptr) return;
+    const isMulti = !!(block && this.selectedBlocks.size > 1 && this.selectedBlocks.has(block));
+    const moves = block ? (isMulti ? this.getSelectedBlocksOrdered() : [block]) : [];
+    this._ptr = { block, tagName, sourceEl, moves, isMulti, startX: e.clientX, startY: e.clientY, started: false, ghost: null };
+    this._currentPlacement = null;
+    try { e.preventDefault(); } catch { /* 忽略 */ }
+    this._ptrMoveBound = (ev) => this._onPointerDragMove(ev);
+    this._ptrUpBound = (ev) => this._finishPointerDrag(ev, false);
+    this._ptrCancelBound = (ev) => this._finishPointerDrag(ev, true);
+    document.addEventListener('pointermove', this._ptrMoveBound, { passive: false });
+    document.addEventListener('pointerup', this._ptrUpBound);
+    document.addEventListener('pointercancel', this._ptrCancelBound);
+  }
+
+  _onPointerDragMove(ev) {
+    const d = this._ptr;
+    if (!d) return;
+    if (!d.started) {
+      if (Math.hypot(ev.clientX - d.startX, ev.clientY - d.startY) < 6) return; // 防误触：移动超过 6px 才算拖拽
+      d.started = true;
+      this._beginPointerDragVisuals(d);
+    }
+    try { ev.preventDefault(); } catch { /* 忽略 */ }
+    this._moveGhost(d, ev.clientX, ev.clientY);
+    this._updatePointerPlacement(ev.clientX, ev.clientY);
+  }
+
+  _beginPointerDragVisuals(d) {
+    if (d.moves.length) {
+      this.draggingBlock = d.isMulti ? null : d.block;
+      this.draggingMultiBlocks = d.isMulti ? d.moves : null;
+      d.moves.forEach(b => b.classList.add('dragging'));
+    }
+    d.ghost = this._createGhost(d);
+    if (d.ghost) document.body.appendChild(d.ghost);
+    if (!this.placeholderEl) this.placeholderEl = this.createPlaceholder();
+    this.container?.classList.add('pointer-dragging');
+  }
+
+  _createGhost(d) {
+    const el = document.createElement('div');
+    el.className = 'block-pointer-ghost';
+    if (d.moves.length) {
+      const src = d.moves[0];
+      const clone = src.cloneNode(true);
+      clone.classList.remove('dragging', 'selected', 'multi-selected');
+      clone.style.width = src.getBoundingClientRect().width + 'px';
+      el.appendChild(clone);
+    } else {
+      const label = { say: '朗读', pause: '停顿', repeat: '重复', section: '分节', fx: '音效', divider: '分割线' }[d.tagName] || d.tagName;
+      el.classList.add('is-tool');
+      el.innerHTML = `<span class="material-icons" style="font-size:18px">add_circle</span><span>${label}</span>`;
+    }
+    return el;
+  }
+
+  _moveGhost(d, x, y) {
+    if (!d.ghost) return;
+    const w = d.ghost.offsetWidth || 0;
+    // 让幽灵块以「抓取点」为参照，避免左上角偏移导致落点判断不直观
+    d.ghost.style.left = x - Math.min(60, w / 3) + 'px';
+    d.ghost.style.top = y - 18 + 'px';
+  }
+
+  _updatePointerPlacement(x, y) {
+    const placement = this._findPointerPlacement(x, y);
+    this._currentPlacement = placement;
+    if (!placement) { this.clearPlaceholder(); return; }
+    const { container, referenceBlock, before } = placement;
+    if (!this.placeholderEl) this.placeholderEl = this.createPlaceholder();
+    if (referenceBlock) {
+      container.insertBefore(this.placeholderEl, before ? referenceBlock : (referenceBlock.nextSibling || null));
+    } else {
+      container.appendChild(this.placeholderEl);
+    }
+    this.handleDragAutoScroll(this.container, y);
+  }
+
+  _findPointerPlacement(x, y) {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    const moves = this._ptr?.moves || [];
+    if (moves.some(b => b === el || b.contains(el))) return null;
+    const targetBlock = el.closest('.block');
+    if (targetBlock) {
+      if (moves.some(b => b === targetBlock || b.contains(targetBlock) || targetBlock.contains(b))) return null;
+      return this.getDropPlacementForBlock(targetBlock, y);
+    }
+    // 空白处：找最近的块容器（重复块内部优先），按子块中线判断插入位置
+    let container = el.closest('.block-content');
+    if (!container || !this.container?.contains(container)) container = this.container;
+    if (!container) return null;
+    if (moves.some(b => b === container || b.contains(container))) return null;
+    const children = Array.from(container.querySelectorAll(':scope > .block'));
+    for (const child of children) {
+      const r = child.getBoundingClientRect();
+      if (y < r.top + r.height / 2) return { container, referenceBlock: child, before: true };
+    }
+    return { container, referenceBlock: children[children.length - 1] || null, before: false };
+  }
+
+  _finishPointerDrag(ev, canceled) {
+    const d = this._ptr;
+    if (!d) return;
+    this._ptr = null;
+    document.removeEventListener('pointermove', this._ptrMoveBound, { passive: false });
+    document.removeEventListener('pointerup', this._ptrUpBound);
+    document.removeEventListener('pointercancel', this._ptrCancelBound);
+    this.stopDragAutoScroll();
+    this.container?.classList.remove('pointer-dragging');
+
+    if (!d.started) { this._cleanupGhost(d); return; }
+    const placement = canceled ? null : this._currentPlacement;
+    this._currentPlacement = null;
+    const moves = d.moves;
+    this.clearPlaceholder();
+
+    let changed = false;
+    try {
+      if (moves.length) {
+        if (placement) {
+          const { container, referenceBlock, before } = placement;
+          const emptyState = container.querySelector(':scope > .empty-state');
+          if (emptyState) emptyState.remove();
+          const oldParents = new Set(moves.map(b => b.parentElement));
+          const ref = referenceBlock ? (before ? referenceBlock : (referenceBlock.nextSibling || null)) : null;
+          moves.forEach(b => { b.style.display = ''; container.insertBefore(b, ref || null); });
+          oldParents.forEach(p => this.ensureRepeatEmptyState(p));
+          this.ensureRepeatEmptyState(container);
+          moves.forEach(b => this.syncNestedRepeatControl(b));
+          changed = true;
+        }
+      } else if (d.tagName && placement) {
+        changed = this._createBlockAtPointer(d.tagName, placement);
+      }
+    } finally {
+      moves.forEach(b => {
+        if (!b.parentElement) return;
+        b.classList.remove('dragging');
+        b.style.display = '';
+      });
+      this.draggingBlock = null;
+      this.draggingMultiBlocks = null;
+      this.restoreAllRepeatEmptyStates();
+      this._cleanupGhost(d);
+    }
+    if (changed) this.onBlockChange();
+  }
+
+  _cleanupGhost(d) {
+    if (d?.ghost?.parentElement) d.ghost.parentElement.removeChild(d.ghost);
+    if (d) d.ghost = null;
+  }
+
+  // 从工具条拖入：按默认属性新建积木，并插到落点
+  _createBlockAtPointer(tagName, placement) {
+    const opts = {};
+    if (tagName === 'say') {
+      const roles = window.app?.tabManager?.getActiveTab()?.roles || [];
+      opts.roleId = roles[0]?.id || '';
+      opts.rate = 1.0;
+    } else if (tagName === 'pause') {
+      opts.duration = LISTEXT_CONSTANTS.DEFAULT_PAUSE_DURATION;
+    } else if (tagName === 'repeat') {
+      opts.repeatCount = LISTEXT_CONSTANTS.DEFAULT_REPEAT_COUNT;
+    } else if (tagName === 'section') {
+      const pool = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      opts.title = `分节-${Array.from({ length: 4 }, () => pool[Math.floor(Math.random() * pool.length)]).join('')}`;
+    }
+    const block = this.addBlock(tagName, opts);
+    if (!block) return false;
+    const { container, referenceBlock, before } = placement;
+    if (container && container !== block.parentElement) {
+      container.insertBefore(block, referenceBlock ? (before ? referenceBlock : (referenceBlock.nextSibling || null)) : null);
+    } else if (container) {
+      container.insertBefore(block, referenceBlock ? (before ? referenceBlock : (referenceBlock.nextSibling || null)) : null);
+    }
+    this.ensureRepeatEmptyState(container);
+    this.selectSingleBlock(block);
+    return true;
   }
 
   generateId() {

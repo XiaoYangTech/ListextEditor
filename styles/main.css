@@ -1878,3 +1878,28 @@ body.toolbar-left .toolbar {
 .audio-mixer-content .form-group label.mix-inline { display: inline-block; margin: 0; font-size: 13px; font-weight: 400; color: var(--md-on-surface, #212121); white-space: nowrap; }
 .mix-vol { color: #1976d2; font-weight: 600; }
 .mix-hint { font-size: 12px; color: #666; margin-top: 4px; line-height: 1.6; word-break: break-all; }
+
+/* ===== 触摸/指针拖拽（HTML5 拖放在触屏不触发，见 block-renderer.js 的指针拖拽实现） ===== */
+.block-header { touch-action: none; }
+#sharedToolbar .add-block-btn { touch-action: none; }
+.block-pointer-ghost {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: .9;
+  max-width: 360px;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, .28));
+}
+.block-pointer-ghost .block { margin: 0 !important; }
+.block-pointer-ghost.is-tool {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--md-primary, #1976d2);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pointer-dragging { cursor: grabbing; }
