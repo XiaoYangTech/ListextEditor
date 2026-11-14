@@ -435,23 +435,6 @@ function getTts(voiceId) {
   return tts;
 }
 
-/**
- * 英语字母读音 → 发音相近的汉字。
- * 中文语音包的文本前端（g2p_zh）只保留汉字，拉丁字母会被整块丢弃，
- * 导致「A、B、C」这类题目标注读不出来；换成同音汉字后即可正常朗读。
- */
-const ZH_LETTER_READING = {
-  A: '诶', B: '必', C: '西', D: '低', E: '伊', F: '艾弗', G: '吉', H: '艾奇', I: '爱', J: '杰',
-  K: '开', L: '艾欧', M: '艾姆', N: '恩', O: '欧', P: '皮', Q: '秋', R: '阿尔', S: '艾斯', T: '提',
-  U: '优', V: '维', W: '达布留', X: '艾克斯', Y: '歪', Z: '贼'
-};
-
-/** 把独立的大写字母串（题目标注 / 缩写，如 A、B、C、APP）按字母读音换成汉字；其余文本原样返回 */
-function normalizeZhEnglishLetters(text) {
-  return String(text || '').replace(/(?<![A-Za-z])[A-Z]{1,6}(?![A-Za-z])/g,
-    (run) => Array.from(run, (ch) => ZH_LETTER_READING[ch] || ch).join(''));
-}
-
 /** 用指定语音模型合成一段文本，返回 WAV 临时文件路径 */
 async function synthesizeVoice(text, voiceId, speed = 1.0) {
   const clean = String(text || '').trim();
@@ -459,15 +442,13 @@ async function synthesizeVoice(text, voiceId, speed = 1.0) {
   const sp = Math.max(0.5, Math.min(2, Number(speed) || 1.0));
   try {
     const tts = getTts(voiceId);
-    // 中文语音包：字母会被前端丢弃，先按读音换成汉字
-    const speakText = tts.lang === 'zh' ? normalizeZhEnglishLetters(clean) : clean;
     const outDir = path.join(app.getPath('temp'), 'ListextEditor', 'osz-synth');
     fs.mkdirSync(outDir, { recursive: true });
     const outPath = path.join(outDir, `osz-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.wav`);
     const started = Date.now();
-    const audio = await tts.speak(speakText, outPath, sp);
+    const audio = await tts.speak(clean, outPath, sp);
     const seconds = audio.length / 24000;
-    console.log('[开放神州] 合成完成:', voiceId, `${speakText.length} 字 → ${seconds.toFixed(2)}s`, `耗时 ${Date.now() - started}ms`);
+    console.log('[开放神州] 合成完成:', voiceId, `${clean.length} 字 → ${seconds.toFixed(2)}s`, `耗时 ${Date.now() - started}ms`);
     return { success: true, path: outPath, duration: seconds, ms: Date.now() - started };
   } catch (e) {
     let msg = e?.message || String(e);

@@ -7,6 +7,8 @@ let wb = null;
 try { wb = require('./wb_model'); } catch (e) { wb = null; }
 let crf = null;
 try { crf = require('./crf_zh'); } catch (e) { crf = null; }
+let zhLatin = null;
+try { zhLatin = require('./zh_latin'); } catch (e) { zhLatin = null; }
 
 const path = require('path');
 
@@ -125,9 +127,13 @@ const ZH_WORDS = new Set((() => {
 
 const TONES = { 1: ['h', 'h'], 2: ['l', 'h'], 3: ['l', 'l'], 4: ['h', 'l'], 5: ['m', 'm'] };
 const V_FINALS = { u: ['v', 'v'], ue: ['eh', 'eh'], uan: ['a', 'nn'], un: ['el', 'nn'] };
-const PUNCT = { '，': 'punc,', ',': 'punc,', '。': 'punc。', '.': 'punc。', '？': 'punc?', '?': 'punc?',
+const PUNCT = { '，': 'punc,', ',': 'punc,', '。': 'punc。', '.': 'punc.', '？': 'punc?', '?': 'punc?',
                 '！': 'punc!', '!': 'punc!', '、': 'punc、', '；': 'punc;', ';': 'punc;',
-                '：': 'punc:', ':': 'punc:' };
+                '：': 'punc:', ':': 'punc:', '…': 'punc...', '〔': 'punc,', '〕': 'punc,' };
+const PUNCT_CHARS = '，。？！、；：,;.…（）【】〔〕()[]｛｝{}';
+const BRACKET_CHARS = '（）【】()[]｛｝{}';
+const COLON_CHARS = '：:';
+const PUNCT_SPLIT_RE = new RegExp('([' + [...PUNCT_CHARS].map((c) => '\\' + c).join('') + '])');
 const DIGITS = '零一二三四五六七八九';
 
 function readDigitSeq(ds) {
@@ -195,6 +201,23 @@ function tnSymbols(text) {
   for (const [a, b] of rules) text = text.split(a).join(b);
   text = text.replace(/\d{1,3}(?:,\d{3})+/g, (m) => readDigits(m.replace(/,/g, '')));
   return text;
+}
+
+function splitLatinSegments(segs) {
+  // 把文本片段中的拉丁字母串拆成 {kind:'en'} 片段（其余保持 't'）
+  const out = [];
+  for (const seg of segs) {
+    if (seg.kind === 't' && /[A-Za-z]/.test(seg.v)) {
+      for (const part of seg.v.split(/([A-Za-z]+(?:-[A-Za-z]+)*)/)) {
+        if (!part) continue;
+        if (/^[A-Za-z]+(?:-[A-Za-z]+)*$/.test(part)) out.push({ kind: 'en', v: part });
+        else out.push({ kind: 't', v: part });
+      }
+    } else {
+      out.push(seg);
+    }
+  }
+  return out;
 }
 
 function normalizeSegments(text) {
@@ -596,12 +619,13 @@ function textToIdsSentence(text, sym, pkgDir) {
   const sentText = text; // 引擎词界模型输入 = 整句原文（含标点）
   let wbCtx = null;
   let tailPunc = null;
+  text = text.replace(/[“”「」《》〈〉‘’]/g, '');
   const trimmed = text.replace(/\s+$/, '');
-  if (trimmed && '，、；：,;:'.includes(trimmed[trimmed.length - 1])) {
+  if (trimmed && '，、；：,;:.…'.includes(trimmed[trimmed.length - 1])) {
     tailPunc = trimmed[trimmed.length - 1];
     text = trimmed.slice(0, -1);
   }
-  const segs = normalizeSegments(text);
+  const segs = splitLatinSegments(normalizeSegments(text));
   const ids = [sym['-bos-'], sym['br0']];
   // 多音字 CRF 上下文：整句字符 + token 列表（与 Python crf_zh.build_tokens 一致）
   let crfSentChars = null;
@@ -668,6 +692,22 @@ function textToIdsSentence(text, sym, pkgDir) {
 
   for (let segIdx = 0; segIdx < segs.length; segIdx++) {
     const seg = segs[segIdx];
+    if (seg.kind === 'en') {
+      try {
+        const lg = zhLatin ? zhLatin.groups(seg.v, sym) : null;
+        if (lg && lg.length) {
+          const gs = [];
+          let ok = true;
+          for (const toks of lg) {
+            const g = toks.map((t) => sym[t]);
+            if (g.some((x) => x === undefined)) { ok = false; break; }
+            gs.push(g);
+          }
+          if (ok && gs.length) emitGroups(gs);
+        }
+      } catch (e) { /* ignore */ }
+      continue;
+    }
     if (seg.kind === 'ny') {
       const groups = pinyinGroups(seg.v);
       if (groups.length) emitGroups(groups);
@@ -677,7 +717,8 @@ function textToIdsSentence(text, sym, pkgDir) {
       let nextTone = null;
       const nseg = segs[segIdx + 1];
       if (nseg && nseg.kind === 't') {
-        const nch = Array.from(nseg.v).find((c) => c >= '一' && c <= '鿿');
+        const c0 = nseg.v && nseg.v.length ? nseg.v[0] : '';
+        const nch = (c0 >= '一' && c0 <= '鿿') || c0 === '〇' ? c0 : null;
         if (nch && PINYIN[nch]) {
           const t = PINYIN[nch][PINYIN[nch].length - 1];
           nextTone = /[0-9]/.test(t) ? Number(t) : 5;
@@ -687,13 +728,42 @@ function textToIdsSentence(text, sym, pkgDir) {
       if (groups.length) emitGroups(groups);
       continue;
     }
-    const parts = seg.v.split(/([，,。.？?！!、；;：:])/);
+    const parts = seg.v.split(PUNCT_SPLIT_RE);
     for (const chunk of parts) {
       if (!chunk) continue;
+      if (BRACKET_CHARS.includes(chunk)) {
+        // 括号：静默停顿（引擎实测：（A）正确 → ey1 br3 正确；连续括号合并）
+        if (!first && !ended && ids[ids.length - 1] !== (sym['br3'] !== undefined ? sym['br3'] : sym['br2'])) {
+          ids.push(sym['br3'] !== undefined ? sym['br3'] : sym['br2']);
+        }
+        first = true;
+        continue;
+      }
+      if (COLON_CHARS.includes(chunk)) {
+        // 句内冒号：br3 br0，不输出 punc token
+        if (!first && !ended) {
+          ids.push(sym['br3'] !== undefined ? sym['br3'] : sym['br2']);
+          ids.push(sym['br0']);
+        }
+        first = true;
+        continue;
+      }
+      if (chunk === '.') {
+        // ASCII 句点：句内 br1 punc. br0（引擎实测：1. 第一项 / A.B）
+        if (!first && !ended) {
+          ids.push(sym['br1']);
+          ids.push(sym['punc.'] !== undefined ? sym['punc.'] : 81);
+          ids.push(sym['br0']);
+        }
+        first = true;
+        continue;
+      }
       if (PUNCT[chunk]) {
+        if ((chunk === '〔' || chunk === '〕') && first) continue;
         const key = PUNCT[chunk];
-        const isEnd = ['。', '.', '？', '?', '！', '!'].includes(chunk);
+        const isEnd = ['。', '？', '！'].includes(chunk);
         if (isEnd) {
+          while (ids.length && ids[ids.length - 1] === (sym['br3'] !== undefined ? sym['br3'] : sym['br2'])) ids.pop();
           ids.push(sym['br4']);
           ids.push(sym[key] !== undefined ? sym[key] : sym['punc?']);
           ended = true;
@@ -789,6 +859,9 @@ function textToIdsSentence(text, sym, pkgDir) {
         if (groups.length) emitGroups(groups);
       }
     }
+  }
+  while (ids.length && ids[ids.length - 1] === (sym['br3'] !== undefined ? sym['br3'] : sym['br2'])) {
+    ids.pop();
   }
   if (tailPunc) {
     ids.push(sym['br4']);

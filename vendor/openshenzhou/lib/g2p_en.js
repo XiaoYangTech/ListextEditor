@@ -1487,4 +1487,4 @@ function mergeBracketTail(ids, sym, text) {
   }
 }
 
-module.exports = { textToIds, loadVariantLexicon };
+module.exports = { textToIds, loadVariantLexicon, lexicon: ISO };
