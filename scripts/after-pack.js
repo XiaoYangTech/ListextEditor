@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /*
  * 亿方听力大师 (ListextEditor)
  * Copyright (C) 2026 The InspireWorks Development Team
@@ -16,7 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#!/usr/bin/env node
 /*
  * electron-builder afterPack 钩子：按目标平台/架构裁剪 onnxruntime-node 的全平台原生库。
  *

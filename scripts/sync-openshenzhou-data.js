@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /*
  * 亿方听力大师 (ListextEditor)
  * Copyright (C) 2026 The InspireWorks Development Team
@@ -16,7 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#!/usr/bin/env node
 /*
  * 把 OpenShenzhou 的 g2p 数据同步到 vendor/data（62MB，不进 git）
  * 用法：node scripts/sync-openshenzhou-data.js [OpenShenzhou 仓库路径]

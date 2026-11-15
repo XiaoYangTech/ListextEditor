@@ -1,6 +1,7 @@
 /**
  * 为项目源文件批量添加 GPLv3 许可声明头部（幂等，可重复运行）。
- * 覆盖：main.js、preload.js，以及 src、pages、styles 目录下全部 .js / .html / .css（递归）
+ * 覆盖：main.js、preload.js，以及 src、pages、styles、scripts 目录下的源文件（递归）。
+ * 对以 `#!` 开头的可执行脚本，许可头会插在 shebang 之后，保证脚本仍能被 node 直接执行。
  * 用法：node scripts/add-license-header.js
  */
 const fs = require('fs');
@@ -70,6 +71,12 @@ for (const file of collectTargets()) {
     // HTML 注释不能放在 <!DOCTYPE> 之前（会触发怪异模式），插到 DOCTYPE 之后
     const m = raw.match(/^\s*<!DOCTYPE[^>]*>\s*(\r?\n)?/i);
     content = m ? raw.slice(0, m[0].length) + header + raw.slice(m[0].length) : header + raw;
+  } else if (raw.startsWith('#!')) {
+    // 可执行脚本的 shebang 必须留在第一行，否则 node 会报 "Invalid or unexpected token"
+    const nl = raw.indexOf('\n');
+    content = nl === -1
+      ? raw + eol + eol + blockComment(eol)
+      : raw.slice(0, nl + 1) + blockComment(eol) + raw.slice(nl + 1);
   } else {
     content = blockComment(eol) + raw;
   }

@@ -15,6 +15,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # 防止许可头/格式化脚本把 `#!` 挤到非首行（node 执行会报 Invalid or unexpected token，
+      # v1.2.3 构建即因此失败）：任何带 shebang 的 .js 必须把 shebang 放在第 1 行。
+      - name: Validate script shebang placement
+        run: |
+          failed=0
+          while IFS= read -r file; do
+            first_line=$(head -n 1 "$file")
+            if [ "${first_line:0:2}" = "#!" ]; then
+              continue
+            fi
+            if grep -q '^#!' "$file"; then
+              echo "::error file=$file::shebang（#!）不在首行，node 执行会报 Invalid or unexpected token"
+              failed=1
+            fi
+          done < <(git ls-files '*.js')
+          [ "$failed" -eq 0 ]
       - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
